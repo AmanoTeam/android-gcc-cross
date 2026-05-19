@@ -120,6 +120,7 @@ declare -ra versions=(
 	'33'
 	'34'
 	'35'
+	'36'
 )
 
 if [[ "${host}" = *'-mingw32' ]]; then
@@ -923,7 +924,7 @@ for triplet in "${targets[@]}"; do
 	fi
 	
 	if [ "${triplet}" = 'riscv64-unknown-linux-android' ]; then
-		base_version='35'
+		base_version='36'
 	fi
 	
 	if [ "${triplet}" = 'aarch64-unknown-linux-android' ] || [ "${triplet}" = 'x86_64-unknown-linux-android' ] || [ "${triplet}" = 'mips64el-unknown-linux-android' ]; then
@@ -1061,7 +1062,7 @@ for triplet in "${targets[@]}"; do
 		--with-gnu-ld \
 		--with-gnu-as \
 		--includedir="${toolchain_directory}/${triplet}/include" \
-		--enable-clocale='gnu' \
+		--enable-clocale='generic' \
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \

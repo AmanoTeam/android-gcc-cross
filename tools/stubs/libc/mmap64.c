@@ -10,6 +10,10 @@
 	#define PAGE_SIZE 4096
 #endif
 
+#if !defined(__BIONIC_ALIGN)
+	#define __BIONIC_ALIGN(__value, __alignment) (((__value) + (__alignment)-1) & ~((__alignment)-1))
+#endif
+
 void* mmap64(void* __addr, size_t __size, int __prot, int __flags, int __fd, off64_t __offset) {
 	
 	const int __mmap2_shift = 12; /* 2**12 == 4096 */

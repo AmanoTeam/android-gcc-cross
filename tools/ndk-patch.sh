@@ -56,6 +56,7 @@ declare -ra versions=(
 	'33'
 	'34'
 	'35'
+	'36'
 )
 
 declare -ra triplets=(

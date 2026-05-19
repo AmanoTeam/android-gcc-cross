@@ -15,7 +15,7 @@ if "!app_directory:~-1!"=="\" set "app_directory=!app_directory:~0,-1!"
 
 :: 3. Define arrays
 set "binutils=addr2line ar as c++filt cpp elfedit dwp gcc-ar gcc-nm gcc-ranlib gcov gcov-dump gcov-tool gprof ld ld.bfd ld.gold lto-dump nm objcopy objdump ranlib readelf size strings strip"
-set "versions=14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35"
+set "versions=14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36"
 set "triplets=aarch64-linux-android i686-linux-android arm-linux-androideabi x86_64-linux-android mips64el-linux-android mipsel-linux-android riscv64-linux-android"
 
 :: Windows NDK uses the windows-x86_64 slug

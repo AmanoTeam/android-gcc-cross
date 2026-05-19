@@ -41,10 +41,11 @@ declare -r versions=(
 	'33'
 	'34'
 	'35'
+	'36'
 )
 
 declare -r ndk_archive='/tmp/ndk.zip'
-declare -r ndk_directory='/tmp/android-ndk-r29'
+declare -r ndk_directory='/tmp/android-ndk-r30-beta1'
 declare -r unsupported_ndk_directory='/tmp/android-ndk-r16b'
 
 declare -r include_dir="${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
@@ -101,7 +102,7 @@ function remove_symbols() {
 
 if ! [ -f "${ndk_archive}" ]; then
 	curl \
-		--url 'https://dl.google.com/android/repository/android-ndk-r29-linux.zip' \
+		--url 'https://dl.google.com/android/repository/android-ndk-r30-beta1-linux.zip' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
@@ -146,6 +147,8 @@ if ! [ -f "${ndk_archive}" ]; then
 			--expression 's/__INTRODUCED_IN(34)/__INTRODUCED_IN_API_U__/g; s/__INTRODUCED_IN(__ANDROID_API_U__)/__INTRODUCED_IN_API_U__/g' \
 			--expression 's/__INTRODUCED_IN(35)/__INTRODUCED_IN_API_V__/g; s/__INTRODUCED_IN(__ANDROID_API_V__)/__INTRODUCED_IN_API_V__/g' \
 			--expression 's/__INTRODUCED_IN(36)/__INTRODUCED_IN_API_W__/g; s/__INTRODUCED_IN(__ANDROID_API_W__)/__INTRODUCED_IN_API_W__/g' \
+			--expression 's/ __attribute__((__nomerge__))//g' \
+			--expression '/#pragma clang/d' \
 			"${file}"
 	done <<< $(find "${include_dir}" -type 'f')
 	
@@ -355,7 +358,7 @@ cp \
 
 cp \
 	--recursive \
-	'riscv64-unknown-linux-android35' \
+	'riscv64-unknown-linux-android36' \
 	'riscv64-unknown-linux-android'
 
 cp \
