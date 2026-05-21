@@ -280,7 +280,7 @@ for target in "${targets[@]}"; do
 			continue
 		fi
 		
-		echo "${target}${version}"
+		echo "${target}${version} (${unsupported_ndk})"
 		
 		declare sysroot_directory="/tmp/bionic-libraries/${target}${version}"
 		
@@ -304,10 +304,13 @@ for target in "${targets[@]}"; do
 				"${library_directory}/"* \
 				"${library_directory2}/"* \
 				"${sysroot_directory}/lib" 2>/dev/null || true
+			
+			cp "${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${triplet}/"lib{c,dl,m,z}.a "${sysroot_directory}/lib"
+			cp "${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${triplet}/"*'.o' "${sysroot_directory}/lib"
 		else
 			cp \
 				"${library_directory}/"* \
-				"${library_directory2}/"*.{a,so} \
+				"${library_directory2}/"*.{a,o,so} \
 				"${sysroot_directory}/lib" 2>/dev/null || true
 		fi
 		

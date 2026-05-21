@@ -83,11 +83,11 @@ declare exe=''
 declare dll='.so'
 
 declare -ra targets=(
-	'x86_64-unknown-linux-android'
+	# 'x86_64-unknown-linux-android'
 	'armv7-unknown-linux-androideabi'
-	'riscv64-unknown-linux-android'
-	'aarch64-unknown-linux-android'
-	'i686-unknown-linux-android'
+	# 'riscv64-unknown-linux-android'
+	# 'aarch64-unknown-linux-android'
+	# 'i686-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
 	# 'mipsel-unknown-linux-android'
 	# 'mips64el-unknown-linux-android'
@@ -1191,6 +1191,15 @@ for triplet in "${targets[@]}"; do
 		
 		cd "${sysroot_directory}/lib"
 		mkdir "${sysroot_directory}/lib/"{gcc,static}
+		
+		rm "${toolchain_directory}/${triplet}${version}/lib/"lib{c,dl,m,z}.a
+		
+		ln \
+			--symbolic \
+			--relative \
+			--force \
+			"${toolchain_directory}/${triplet}/lib/"lib{c,dl,m,z}.a \
+			"${toolchain_directory}/${triplet}${version}/lib"
 		
 		for library in "${libraries[@]}"; do
 			for file in "${toolchain_directory}/${triplet}/lib/${library}"*; do
