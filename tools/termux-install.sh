@@ -5,7 +5,7 @@ set -eu
 declare abi="$(uname -m)"
 declare api_level='-1'
 
-declare max_api_level='35'
+declare max_api_level='36'
 
 declare triplet='none'
 declare bindir="${PREFIX}/bin/gcc-toolchain"
