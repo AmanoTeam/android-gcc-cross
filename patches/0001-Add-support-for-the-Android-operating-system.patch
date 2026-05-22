@@ -1,7 +1,7 @@
-From d01b0e911e6356eb070f03d57c87a51f383cbfaa Mon Sep 17 00:00:00 2001
+From 3425c8b3997634152bbac603d7dc828be02fcd4d Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
-Date: Thu, 27 Nov 2025 02:04:32 -0300
-Subject: [PATCH] GCC 15
+Date: Fri, 22 May 2026 21:53:17 +0200
+Subject: [PATCH] Add support for the Android operating system
 
 ---
  gcc/config.gcc                                |  17 ++-
@@ -15,7 +15,7 @@ Subject: [PATCH] GCC 15
  gcc/config/i386/i386.cc                       |   4 +-
  gcc/config/i386/linux-common.h                |   8 +-
  gcc/config/i386/pmm_malloc.h                  |   2 +-
- gcc/config/linux-android.h                    | 102 ++++++++++++++-
+ gcc/config/linux-android.h                    | 103 ++++++++++++++-
  gcc/config/linux-android.opt                  |  16 +++
  gcc/config/mips/gnu-user.h                    |   6 -
  gcc/config/riscv/linux.h                      |  34 ++++-
@@ -30,16 +30,16 @@ Subject: [PATCH] GCC 15
  libstdc++-v3/include/c_global/cwchar          |   6 +-
  libstdc++-v3/include/c_global/cwctype         |   4 +-
  libstdc++-v3/include/c_std/cwchar             |   2 +-
- 26 files changed, 499 insertions(+), 30 deletions(-)
+ 26 files changed, 500 insertions(+), 30 deletions(-)
  create mode 100644 gcc/config/aarch64/aarch64-linux-android.h
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/t-android
 
 diff --git a/gcc/config.gcc b/gcc/config.gcc
-index 35958b170..1271b49a4 100644
+index fabd5f75f..787c5b5d0 100644
 --- a/gcc/config.gcc
 +++ b/gcc/config.gcc
-@@ -963,7 +963,13 @@ case ${target} in
+@@ -960,7 +960,13 @@ case ${target} in
    esac
    case $target in
      *-*-*android*)
@@ -54,7 +54,7 @@ index 35958b170..1271b49a4 100644
        ;;
      *-*-*uclibc* | *-*-uclinuxfdpiceabi)
        tm_defines="$tm_defines DEFAULT_LIBC=LIBC_UCLIBC"
-@@ -1285,14 +1291,18 @@ aarch64*-*-netbsd*)
+@@ -1282,14 +1288,18 @@ aarch64*-*-netbsd*)
  	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
  	;;
  aarch64*-*-linux*)
@@ -74,7 +74,7 @@ index 35958b170..1271b49a4 100644
  	esac
  	aarch64_multilibs="${with_multilib_list}"
  	if test "$aarch64_multilibs" = "default"; then
-@@ -2574,7 +2584,8 @@ microblaze*-*-elf)
+@@ -2572,7 +2582,8 @@ microblaze*-*-elf)
  	tmake_file="${tmake_file} microblaze/t-microblaze"
          ;;
  riscv*-*-linux*)
@@ -375,10 +375,10 @@ index c5267f082..1d0e15742 100644
  #define ASM_SPEC "%{" SPEC_32 ":--32} \
   %{" SPEC_64 ":--64} \
 diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
-index 407d652fa..73e6d993d 100644
+index 2744c7495..35ec3fe13 100644
 --- a/gcc/config/i386/i386.cc
 +++ b/gcc/config/i386/i386.cc
-@@ -25308,9 +25308,7 @@ ix86_stack_protect_runtime_enabled_p (void)
+@@ -25554,9 +25554,7 @@ ix86_stack_protect_runtime_enabled_p (void)
  static tree ATTRIBUTE_UNUSED
  ix86_stack_protect_fail (void)
  {
@@ -422,7 +422,7 @@ index abc479c83..ea6186094 100644
  
  static __inline void *
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index f68acecb8..560bdd1c0 100644
+index f68acecb8..99b609ac7 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
 @@ -19,10 +19,39 @@
@@ -467,12 +467,12 @@ index f68acecb8..560bdd1c0 100644
      } while (0)
  
  #if ANDROID_DEFAULT
-@@ -37,16 +66,75 @@
+@@ -37,16 +66,76 @@
  #define LINUX_OR_ANDROID_LD(LINUX_SPEC, ANDROID_SPEC) \
    "%{" NOANDROID "|tno-android-ld:" LINUX_SPEC ";:" ANDROID_SPEC "}"
  
 +#define ANDROID_IF_NOT_PIE(spec) \
-+    "%{!shared:%{!no-pie:%{!fno-pie:%{!fno-PIE:%{!pie:%{!fpie:%{!fPIE: " spec " }}}}}}} "
++    "%{!shared: %{!no-pie: %{!fno-pie: %{!fno-PIE: %{!pie: %{!fpie: %{!fPIE: " spec " }}}}}}} "
 +
 +#define ANDROID_IF_NOT_LLD(spec) \
 +    "%{!mlld:%{!fuse-ld=lld:%{!fuse-ld=mold: " spec " }}} "
@@ -513,6 +513,7 @@ index f68acecb8..560bdd1c0 100644
  #define ANDROID_LINK_SPEC \
 -  "%{shared: -Bsymbolic}"
 +  "%{shared: -Bsymbolic} " \
++  "%{static|static-pie: -static -pie --no-dynamic-linker -z text} " \
 +  "-z noexecstack " \
 +  "-z relro " \
 +  "-z now " \
@@ -786,10 +787,10 @@ index ddb24fbfd..0f46f09e7 100644
  #endif
 +
 diff --git a/libstdc++-v3/include/bits/basic_string.h b/libstdc++-v3/include/bits/basic_string.h
-index 9bbe16507..bf0ac375d 100644
+index c1871633f..e97e0841d 100644
 --- a/libstdc++-v3/include/bits/basic_string.h
 +++ b/libstdc++-v3/include/bits/basic_string.h
-@@ -4782,10 +4782,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
+@@ -4811,10 +4811,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
    { return __gnu_cxx::__stoa<long, int>(&std::wcstol, "stoi", __str.c_str(),
  					__idx, __base); }
  
@@ -802,7 +803,7 @@ index 9bbe16507..bf0ac375d 100644
  
    inline unsigned long
    stoul(const wstring& __str, size_t* __idx = 0, int __base = 10)
-@@ -4802,10 +4804,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
+@@ -4831,10 +4833,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
    { return __gnu_cxx::__stoa(&std::wcstoull, "stoull", __str.c_str(),
  			     __idx, __base); }
  
@@ -974,5 +975,5 @@ index 7c3a2a4e2..47431bee5 100644
  #endif
    using ::wcstok;
 -- 
-2.52.0
+2.36.6
 

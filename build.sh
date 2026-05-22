@@ -523,7 +523,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 			"${workdir}/submodules/obggcc/patches/0007-Add-relative-RPATHs-to-GCC-host-tools.patch"
 	fi
 	
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-GCC-15.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-support-for-the-Android-operating-system.patch"
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Avoid-relying-on-dynamic-shadow-when-building-libsan.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Skip-FILE64_FLAGS-for-Android-MIPS-targets.patch"
