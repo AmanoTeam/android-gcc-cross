@@ -1,4 +1,4 @@
-From 3425c8b3997634152bbac603d7dc828be02fcd4d Mon Sep 17 00:00:00 2001
+From 2230e48fe4bdf5d4706a376feeb7842a8379fef7 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Fri, 22 May 2026 21:53:17 +0200
 Subject: [PATCH] Add support for the Android operating system
@@ -15,7 +15,7 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/config/i386/i386.cc                       |   4 +-
  gcc/config/i386/linux-common.h                |   8 +-
  gcc/config/i386/pmm_malloc.h                  |   2 +-
- gcc/config/linux-android.h                    | 103 ++++++++++++++-
+ gcc/config/linux-android.h                    | 104 ++++++++++++++-
  gcc/config/linux-android.opt                  |  16 +++
  gcc/config/mips/gnu-user.h                    |   6 -
  gcc/config/riscv/linux.h                      |  34 ++++-
@@ -30,7 +30,7 @@ Subject: [PATCH] Add support for the Android operating system
  libstdc++-v3/include/c_global/cwchar          |   6 +-
  libstdc++-v3/include/c_global/cwctype         |   4 +-
  libstdc++-v3/include/c_std/cwchar             |   2 +-
- 26 files changed, 500 insertions(+), 30 deletions(-)
+ 26 files changed, 501 insertions(+), 30 deletions(-)
  create mode 100644 gcc/config/aarch64/aarch64-linux-android.h
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/t-android
@@ -422,7 +422,7 @@ index abc479c83..ea6186094 100644
  
  static __inline void *
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index f68acecb8..99b609ac7 100644
+index f68acecb8..2166664ea 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
 @@ -19,10 +19,39 @@
@@ -467,7 +467,7 @@ index f68acecb8..99b609ac7 100644
      } while (0)
  
  #if ANDROID_DEFAULT
-@@ -37,16 +66,76 @@
+@@ -37,16 +66,77 @@
  #define LINUX_OR_ANDROID_LD(LINUX_SPEC, ANDROID_SPEC) \
    "%{" NOANDROID "|tno-android-ld:" LINUX_SPEC ";:" ANDROID_SPEC "}"
  
@@ -519,6 +519,7 @@ index f68acecb8..99b609ac7 100644
 +  "-z now " \
 +  "-z separate-code " \
 +  "-z max-page-size=" BIONIC_PAGE_SIZE " " \
++  "%{!no-eh-frame-hdr: --eh-frame-hdr} "
 +  ANDROID_PIE_SPEC \
 +  ANDROID_RELR_SPEC \
 +  "%:version-compare(!> 28 mandroid-version-min= --no-rosegment) " \
