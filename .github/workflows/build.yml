@@ -14,7 +14,7 @@ permissions: write-all
 
 env: 
     PINO_BUILD_PARALLEL_LEVEL: 20
-    PINO_RELEASE: 16
+    PINO_RELEASE: 15
 
 jobs:
   native-build:

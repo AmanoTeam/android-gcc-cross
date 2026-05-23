@@ -1,4 +1,4 @@
-From 1686142a8ce9b13ec73d12859b1302d4b6801d5f Mon Sep 17 00:00:00 2001
+From 1a8cd2423043b7b4f975477a4ba387ea36f58f7a Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Tue, 19 May 2026 18:14:57 -0300
 Subject: [PATCH] Android NDK headers
@@ -61,7 +61,7 @@ Subject: [PATCH] Android NDK headers
  sys/auxv.h                          |   8 +-
  sys/cachectl.h                      |   3 +
  sys/cdefs.h                         | 232 +++++++++++++++++++-
- sys/endian.h                        |  12 +-
+ sys/endian.h                        |  22 +-
  sys/epoll.h                         |   8 +-
  sys/fsuid.h                         |   6 +-
  sys/inotify.h                       |   6 +-
@@ -87,7 +87,7 @@ Subject: [PATCH] Android NDK headers
  unistd.h                            |  63 +++++-
  wchar.h                             |  67 ++++--
  wctype.h                            |  36 +--
- 83 files changed, 1997 insertions(+), 1059 deletions(-)
+ 83 files changed, 2007 insertions(+), 1059 deletions(-)
  create mode 100644 android/legacy_fenv_inlines_arm.h
  create mode 100644 android/legacy_fenv_inlines_mips.h
  create mode 100644 android/legacy_signal_inlines.h
@@ -4313,41 +4313,51 @@ index c4d8ea5..983d485 100644
  #include <android/api-level.h>
  #if __has_include(<android/ndk-version.h>)
 diff --git a/sys/endian.h b/sys/endian.h
-index a6f01e2..cf6a223 100644
+index a6f01e2..cd2a18a 100644
 --- a/sys/endian.h
 +++ b/sys/endian.h
-@@ -95,28 +95,28 @@ __BEGIN_DECLS
+@@ -95,28 +95,38 @@ __BEGIN_DECLS
  /** The byte order of bitfields. Accidental Linux header leakage. */
  #define __LITTLE_ENDIAN_BITFIELD
  
 -
-+#if __BIONIC_AVAILABILITY_GUARD(21)
  /*
   * POSIX has these in <arpa/inet.h>,
   * but we have them here for glibc source compatibility.
   */
  
++#if __BIONIC_AVAILABILITY_GUARD(21)
  /** Swap host (little-endian) 32-bit quantity to network (big-endian). */
 -uint32_t htonl(uint32_t __x) __attribute_const__;
 +uint32_t htonl(uint32_t __x) __attribute_const__ __INTRODUCED_IN(21);
++#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
++
  #define htonl(x) __swap32(x)
  
++#if __BIONIC_AVAILABILITY_GUARD(21)
  /** Swap host (little-endian) 16-bit quantity to network (big-endian). */
 -uint16_t htons(uint16_t __x) __attribute_const__;
 +uint16_t htons(uint16_t __x) __attribute_const__ __INTRODUCED_IN(21);
++#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
++
  #define htons(x) __swap16(x)
  
++#if __BIONIC_AVAILABILITY_GUARD(21)
  /** Swap network (big-endian) 32-bit quantity to host (little-endian). */
 -uint32_t ntohl(uint32_t __x) __attribute_const__;
 +uint32_t ntohl(uint32_t __x) __attribute_const__ __INTRODUCED_IN(21);
++#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
++
  #define ntohl(x) __swap32(x)
  
++#if __BIONIC_AVAILABILITY_GUARD(21)
  /** Swap network (big-endian) 16-bit quantity to host (little-endian). */
 -uint16_t ntohs(uint16_t __x) __attribute_const__;
+-#define ntohs(x) __swap16(x)
 +uint16_t ntohs(uint16_t __x) __attribute_const__ __INTRODUCED_IN(21);
- #define ntohs(x) __swap16(x)
--
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
+ 
++#define ntohs(x) __swap16(x)
  
  /* Bionic additions */
  
