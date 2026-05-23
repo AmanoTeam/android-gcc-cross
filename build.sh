@@ -1403,7 +1403,7 @@ if ! (( native )) && [[ "${host}" != *'-darwin'* ]]; then
 	
 	if ! [ -f "${name}" ]; then
 		# libgcc_s
-		declare name=$(realpath $("${cc}" --print-file-name="libgcc_s${dll}"))
+		declare name=$(realpath $("${cc}" --print-file-name="libgcc_s${dll}.1"))
 	fi
 	
 	if [[ "${host}" = *'-mingw32' ]]; then
