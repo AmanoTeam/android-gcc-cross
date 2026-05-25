@@ -1,25 +1,25 @@
-From 59e77528026e12bfbd14c9454a3e917ee578c039 Mon Sep 17 00:00:00 2001
+From ccb108b9b27ce6f8dc375f899fe75e76fc9f28ac Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Fri, 22 May 2026 21:53:17 +0200
 Subject: [PATCH] Add support for the Android operating system
 
 ---
- gcc/config.gcc                                |  17 ++-
- gcc/config/aarch64/aarch64-linux-android.h    |  66 ++++++++++
- gcc/config/aarch64/aarch64-linux.h            |   3 +
+ gcc/config.gcc                                |  16 ++-
+ gcc/config/aarch64/aarch64-linux.h            |  35 ++++-
  gcc/config/android-driver.cc                  | 120 ++++++++++++++++++
+ gcc/config/android.cc                         |  11 ++
  gcc/config/arm/elf.h                          |   5 +-
  gcc/config/arm/linux-eabi.h                   |   5 +
- gcc/config/i386/gnu-user.h                    |   6 +-
- gcc/config/i386/gnu-user64.h                  |   8 ++
+ gcc/config/i386/gnu-user64.h                  |   2 +
  gcc/config/i386/i386.cc                       |   4 +-
- gcc/config/i386/linux-common.h                |   8 +-
+ gcc/config/i386/linux-common.h                |   7 +-
  gcc/config/i386/pmm_malloc.h                  |   2 +-
- gcc/config/linux-android.h                    | 104 +++++++++++++--
- gcc/config/linux-android.opt                  |  16 +++
+ gcc/config/linux-android.h                    | 110 ++++++++++++++--
+ gcc/config/linux-android.opt                  |   8 ++
+ gcc/config/linux.h                            |   1 +
  gcc/config/mips/gnu-user.h                    |   6 -
  gcc/config/riscv/linux.h                      |  34 ++++-
- gcc/config/t-android                          |  21 +++
+ gcc/config/t-android                          |  25 ++++
  libstdc++-v3/config/os/bionic/ctype_base.h    |  14 ++
  libstdc++-v3/config/os/bionic/os_defines.h    |  58 +++++++++
  libstdc++-v3/include/bits/basic_string.h      |   4 +
@@ -30,22 +30,24 @@ Subject: [PATCH] Add support for the Android operating system
  libstdc++-v3/include/c_global/cwchar          |   6 +-
  libstdc++-v3/include/c_global/cwctype         |   4 +-
  libstdc++-v3/include/c_std/cwchar             |   2 +-
- 26 files changed, 500 insertions(+), 31 deletions(-)
- create mode 100644 gcc/config/aarch64/aarch64-linux-android.h
+ 26 files changed, 459 insertions(+), 38 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
+ create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/t-android
 
 diff --git a/gcc/config.gcc b/gcc/config.gcc
-index 8fe99616f..f23de7d38 100644
+index 8fe99616f..c8dd92475 100644
 --- a/gcc/config.gcc
 +++ b/gcc/config.gcc
-@@ -965,7 +965,13 @@ case ${target} in
+@@ -965,7 +965,15 @@ case ${target} in
    esac
    case $target in
      *-*-*android*)
 -      tm_defines="$tm_defines DEFAULT_LIBC=LIBC_BIONIC"
 +      tmake_file="${tmake_file} t-android "
 +      tm_defines="${tm_defines} DEFAULT_LIBC=LIBC_BIONIC"
++      
++      extra_objs="$extra_objs android.o"
 +      extra_gcc_objs="$extra_gcc_objs android-driver.o"
 +      
 +      if test x"${with_android_version_min}" != x; then
@@ -54,7 +56,7 @@ index 8fe99616f..f23de7d38 100644
        ;;
      *-*-*uclibc* | *-*-uclinuxfdpiceabi)
        tm_defines="$tm_defines DEFAULT_LIBC=LIBC_UCLIBC"
-@@ -1287,14 +1293,18 @@ aarch64*-*-netbsd*)
+@@ -1287,8 +1295,9 @@ aarch64*-*-netbsd*)
  	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
  	;;
  aarch64*-*-linux*)
@@ -65,16 +67,7 @@ index 8fe99616f..f23de7d38 100644
  	tmake_file="${tmake_file} aarch64/t-aarch64 aarch64/t-aarch64-linux"
  	tm_defines="${tm_defines}  TARGET_DEFAULT_ASYNC_UNWIND_TABLES=1"
  	case $target in
- 	aarch64_be-*)
- 		tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
- 		;;
-+	aarch64*-*-linux-android*)
-+		tm_file="${tm_file} aarch64/aarch64-linux-android.h"
-+		;;
- 	esac
- 	aarch64_multilibs="${with_multilib_list}"
- 	if test "$aarch64_multilibs" = "default"; then
-@@ -2576,7 +2586,8 @@ microblaze*-*-elf)
+@@ -2576,7 +2585,8 @@ microblaze*-*-elf)
  	tmake_file="${tmake_file} microblaze/t-microblaze"
          ;;
  riscv*-*-linux*)
@@ -84,91 +77,76 @@ index 8fe99616f..f23de7d38 100644
  	case "x${enable_multilib}" in
  	xno) ;;
  	xyes) tmake_file="${tmake_file} riscv/t-linux-multilib" ;;
-diff --git a/gcc/config/aarch64/aarch64-linux-android.h b/gcc/config/aarch64/aarch64-linux-android.h
-new file mode 100644
-index 000000000..ca0d5cfae
---- /dev/null
-+++ b/gcc/config/aarch64/aarch64-linux-android.h
-@@ -0,0 +1,66 @@
-+/* Machine description for AArch64 architecture.
-+   Copyright (C) 2014 Free Software Foundation, Inc.
-+
-+   This file is part of GCC.
-+
-+   GCC is free software; you can redistribute it and/or modify it
-+   under the terms of the GNU General Public License as published by
-+   the Free Software Foundation; either version 3, or (at your option)
-+   any later version.
-+
-+   GCC is distributed in the hope that it will be useful, but
-+   WITHOUT ANY WARRANTY; without even the implied warranty of
-+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+   General Public License for more details.
-+
-+   You should have received a copy of the GNU General Public License
-+   along with GCC; see the file COPYING3.  If not see
-+   <http://www.gnu.org/licenses/>.  */
-+
-+#ifndef GCC_AARCH64_LINUX_ANDROID_H
-+#define GCC_AARCH64_LINUX_ANDROID_H
-+
-+
-+#undef TARGET_OS_CPP_BUILTINS
-+#define TARGET_OS_CPP_BUILTINS()		\
-+  do						\
-+    {						\
-+	GNU_USER_TARGET_OS_CPP_BUILTINS();	\
-+	ANDROID_TARGET_OS_CPP_BUILTINS();	\
-+    }						\
-+  while (0)
-+
-+#undef BIONIC_PAGE_SIZE
-+#define BIONIC_PAGE_SIZE BIONIC_PAGE_SIZE_16K
-+
-+#undef BIONIC_FIXED_XREG
-+#define BIONIC_FIXED_XREG "-ffixed-x18"
-+
-+#undef  LINK_SPEC
-+#define LINK_SPEC							\
-+  LINUX_OR_ANDROID_LD (LINUX_TARGET_LINK_SPEC,				\
-+		       LINUX_TARGET_LINK_SPEC " " ANDROID_LINK_SPEC)
-+
-+#undef  CC1_SPEC
-+#define CC1_SPEC							\
-+  LINUX_OR_ANDROID_CC (GNU_USER_TARGET_CC1_SPEC,			\
-+		       GNU_USER_TARGET_CC1_SPEC " " ANDROID_CC1_SPEC)
-+
-+#undef CC1PLUS_SPEC
-+#define CC1PLUS_SPEC \
-+  LINUX_OR_ANDROID_CC ("", ANDROID_CC1PLUS_SPEC)
-+
-+#undef  LIB_SPEC
-+#define LIB_SPEC							\
-+  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC,			\
-+		    GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC " " ANDROID_LIB_SPEC)
-+
-+#undef	STARTFILE_SPEC
-+#define STARTFILE_SPEC \
-+  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_STARTFILE_SPEC, ANDROID_STARTFILE_SPEC)
-+
-+#undef	ENDFILE_SPEC
-+#define ENDFILE_SPEC \
-+  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_ENDFILE_SPEC, ANDROID_ENDFILE_SPEC)
-+
-+#endif  /* GCC_AARCH64_LINUX_ANDROID_H */
 diff --git a/gcc/config/aarch64/aarch64-linux.h b/gcc/config/aarch64/aarch64-linux.h
-index 8f1ecc4e2..0b37dbf94 100644
+index 8f1ecc4e2..44cda04be 100644
 --- a/gcc/config/aarch64/aarch64-linux.h
 +++ b/gcc/config/aarch64/aarch64-linux.h
-@@ -26,6 +26,9 @@
+@@ -26,13 +26,23 @@
  #undef MUSL_DYNAMIC_LINKER
  #define MUSL_DYNAMIC_LINKER "/lib/ld-musl-aarch64%{mbig-endian:_be}%{mabi=ilp32:_ilp32}.so.1"
  
 +#undef BIONIC_DYNAMIC_LINKER
 +#define BIONIC_DYNAMIC_LINKER "/system/bin/linker64"
 +
++#undef BIONIC_PAGE_SIZE
++#define BIONIC_PAGE_SIZE BIONIC_PAGE_SIZE_16K
++
  #undef  ASAN_CC1_SPEC
  #define ASAN_CC1_SPEC "%{%:sanitize(address):-funwind-tables}"
+ 
+-#undef CC1_SPEC
+-#define CC1_SPEC GNU_USER_TARGET_CC1_SPEC ASAN_CC1_SPEC \
++#define LINUX_TARGET_CC1_SPEC GNU_USER_TARGET_CC1_SPEC \
++    ASAN_CC1_SPEC \
+     AARCH64_ERRATA_COMPILE_SPEC
+ 
++#undef CC1_SPEC
++#define CC1_SPEC LINUX_OR_ANDROID_CC(LINUX_TARGET_CC1_SPEC, \
++	LINUX_TARGET_CC1_SPEC ANDROID_CC1_SPEC)
++
+ #undef CC1PLUS_SPEC
+ #define CC1PLUS_SPEC AARCH64_ERRATA_COMPILE_SPEC
+ 
+@@ -50,23 +60,36 @@
+    %{mbig-endian:-EB} %{mlittle-endian:-EL}     \
+    -maarch64linux%{mabi=ilp32:32}%{mbig-endian:b} \
+    %{%:sanitize(memtag-stack):%{!fsanitize-memtag-mode:-z memtag-stack -z memtag-mode=sync}} \
+-   %{%:sanitize(memtag-stack):%{fsanitize-memtag-mode=*:-z memtag-stack -z memtag-mode=%}}"
++   %{%:sanitize(memtag-stack):%{fsanitize-memtag-mode=*:-z memtag-stack -z memtag-mode=%}} " \
++    AARCH64_ERRATA_LINK_SPEC
+ 
++#define LINK_SPEC LINUX_OR_ANDROID_LD (LINUX_TARGET_LINK_SPEC, \
++	LINUX_TARGET_LINK_SPEC " " ANDROID_LINK_SPEC)
+ 
+-#define LINK_SPEC LINUX_TARGET_LINK_SPEC AARCH64_ERRATA_LINK_SPEC
++#undef  LIB_SPEC
++#define LIB_SPEC LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC, \
++	GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC ANDROID_LIB_SPEC)
+ 
+ #define GNU_USER_TARGET_MATHFILE_SPEC \
+   "%{Ofast|ffast-math|funsafe-math-optimizations:%{!shared:crtfastmath.o%s}}"
+ 
+-#undef ENDFILE_SPEC
+-#define ENDFILE_SPEC   \
++#define LINUX_TARGET_ENDFILE_SPEC   \
+   GNU_USER_TARGET_MATHFILE_SPEC " " \
+   GNU_USER_TARGET_ENDFILE_SPEC
+ 
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC \
++  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_STARTFILE_SPEC, ANDROID_STARTFILE_SPEC)
++
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC LINUX_OR_ANDROID_LD (LINUX_TARGET_ENDFILE_SPEC, \
++    GNU_USER_TARGET_MATHFILE_SPEC ANDROID_ENDFILE_SPEC)
++
+ #define TARGET_OS_CPP_BUILTINS()		\
+   do						\
+     {						\
+ 	GNU_USER_TARGET_OS_CPP_BUILTINS();	\
++	ANDROID_TARGET_OS_CPP_BUILTINS();	\
+     }						\
+   while (0)
  
 diff --git a/gcc/config/android-driver.cc b/gcc/config/android-driver.cc
 new file mode 100644
@@ -297,6 +275,23 @@ index 000000000..307e5d8cb
 +		
 +}
 \ No newline at end of file
+diff --git a/gcc/config/android.cc b/gcc/config/android.cc
+new file mode 100644
+index 000000000..14fe167a4
+--- /dev/null
++++ b/gcc/config/android.cc
+@@ -0,0 +1,11 @@
++#include "config.h"
++#include "system.h"
++#include "coretypes.h"
++#include "target.h"
++#include "opts.h"
++
++void android_override_options(void) {
++	
++	targetm.have_tls = android_version_min >= 29;
++	
++}
 diff --git a/gcc/config/arm/elf.h b/gcc/config/arm/elf.h
 index fb5ad86a5..5743e5c3f 100644
 --- a/gcc/config/arm/elf.h
@@ -336,40 +331,15 @@ index 947ffc67c..2c6311bbc 100644
  #undef  LIB_SPEC
  #define LIB_SPEC							\
    LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC,			\
-diff --git a/gcc/config/i386/gnu-user.h b/gcc/config/i386/gnu-user.h
-index 66b6f20c6..09de6ac15 100644
---- a/gcc/config/i386/gnu-user.h
-+++ b/gcc/config/i386/gnu-user.h
-@@ -59,9 +59,13 @@ along with GCC; see the file COPYING3.  If not see
-    When the -shared link option is used a final link is not being
-    done.  */
- 
-+#undef ANDROID_TARGET_CC1_SPEC
-+#define ANDROID_TARGET_CC1_SPEC \
-+  " -mssse3 -fno-short-enums " \
-+
- #undef  ASM_SPEC
- #define ASM_SPEC \
--  "--32 %{msse2avx:%{!mavx:-msse2avx}}"
-+  "--32 %{msse2avx:%{!mavx:-msse2avx}}" LINUX_OR_ANDROID_CC ("", ANDROID_ASM_SPEC)
- 
- #undef  SUBTARGET_EXTRA_SPECS
- #define SUBTARGET_EXTRA_SPECS \
 diff --git a/gcc/config/i386/gnu-user64.h b/gcc/config/i386/gnu-user64.h
-index c5267f082..1d0e15742 100644
+index c5267f082..db5778313 100644
 --- a/gcc/config/i386/gnu-user64.h
 +++ b/gcc/config/i386/gnu-user64.h
-@@ -46,6 +46,14 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+@@ -46,6 +46,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
  #define SPEC_X32 "mx32"
  #endif
  
 +#define BIONIC_PAGE_SIZE BIONIC_PAGE_SIZE_16K
-+
-+#undef ANDROID_TARGET_CC1_SPEC
-+#define ANDROID_TARGET_CC1_SPEC \
-+  "%{!fno-plt:%{!fplt: -fno-plt}} " \
-+  "%{m32: -mssse3 -fno-short-enums} " \
-+  "%{!m32: -msse4.2 -mpopcnt}"
 +
  #undef ASM_SPEC
  #define ASM_SPEC "%{" SPEC_32 ":--32} \
@@ -390,16 +360,15 @@ index 660a921e2..4b653f8c2 100644
  
  /* Select a format to encode pointers in exception handling data.  CODE
 diff --git a/gcc/config/i386/linux-common.h b/gcc/config/i386/linux-common.h
-index ab45eda17..555075a7f 100644
+index ab45eda17..615eb48d7 100644
 --- a/gcc/config/i386/linux-common.h
 +++ b/gcc/config/i386/linux-common.h
-@@ -30,7 +30,13 @@ along with GCC; see the file COPYING3.  If not see
+@@ -30,7 +30,12 @@ along with GCC; see the file COPYING3.  If not see
  #undef CC1_SPEC
  #define CC1_SPEC \
    LINUX_OR_ANDROID_CC (GNU_USER_TARGET_CC1_SPEC, \
 -		       GNU_USER_TARGET_CC1_SPEC " " ANDROID_CC1_SPEC)
 +                       GNU_USER_TARGET_CC1_SPEC \
-+                       ANDROID_TARGET_CC1_SPEC \
 +                       " " \
 +                       ANDROID_CC1_SPEC)
 +
@@ -422,17 +391,23 @@ index abc479c83..ea6186094 100644
  
  static __inline void *
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index f68acecb8..aa383f1a0 100644
+index f68acecb8..886e9b3e6 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
-@@ -19,10 +19,39 @@
+@@ -19,10 +19,43 @@
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.  */
  
 +#if !defined(USED_FOR_TARGET)
 +	extern void android_driver_init(unsigned int*, struct cl_decoded_option**);
 +	#define GCC_DRIVER_HOST_INITIALIZATION android_driver_init(&decoded_options_count, &decoded_options)
++	
++	extern void android_override_options(void);
++	#define SUBTARGET_OVERRIDE_OPTIONS android_override_options();
 +#endif
++
++#undef DATA_ABI_ALIGNMENT
++#define DATA_ABI_ALIGNMENT(TYPE, ALIGN)  (targetm.have_tls && DECL_THREAD_LOCAL_P (decl) ? BITS_PER_WORD * 8 : (ALIGN))
 +
 +#define BIONIC_PAGE_SIZE_4K "0x1000"
 +#define BIONIC_PAGE_SIZE_16K "0x4000"
@@ -447,9 +422,9 @@ index f68acecb8..aa383f1a0 100644
 +#define BIONIC_PAGE_SIZE BIONIC_PAGE_SIZE_4K
 +#endif
 +
-+#if !defined(BIONIC_FIXED_XREG)
-+#define BIONIC_FIXED_XREG ""
-+#endif
++/* Android reserves the x18 register for ShadowCallStack. */
++#undef FIXED_X18
++#define FIXED_X18 1
 +
 +#if defined(ENABLE_DEFAULT_PIE)
 +#define ANDROID_PIE_SPEC ""
@@ -461,13 +436,11 @@ index f68acecb8..aa383f1a0 100644
 -	  builtin_define ("__ANDROID__");			\
 +	  if (TARGET_ANDROID) {					\
 +	    builtin_define ("__ANDROID__");			\
-+	    builtin_define ("__BIONIC__");			\
-+	    builtin_define ("ANDROID");			\
 +	  }			\
      } while (0)
  
  #if ANDROID_DEFAULT
-@@ -37,23 +66,82 @@
+@@ -37,23 +70,80 @@
  #define LINUX_OR_ANDROID_LD(LINUX_SPEC, ANDROID_SPEC) \
    "%{" NOANDROID "|tno-android-ld:" LINUX_SPEC ";:" ANDROID_SPEC "}"
  
@@ -475,10 +448,10 @@ index f68acecb8..aa383f1a0 100644
 +    "%{!static: %{!static-pie: %{!shared: %{!no-pie: %{!fno-pie: %{!fno-PIE: %{!pie: %{!fpie: %{!fPIE: " spec " }}}}}}}}} "
 +
 +#define ANDROID_IF_NOT_LLD(spec) \
-+    "%{!mlld:%{!fuse-ld=lld:%{!fuse-ld=mold: " spec " }}} "
++    "%{!fuse-ld=lld: %{!fuse-ld=mold: " spec " }} "
 +
 +#define ANDROID_IF_LLD(spec) \
-+    "%{!mno-lld:%{mlld|fuse-ld=lld|fuse-ld=mold: " spec " }} "
++    "%{fuse-ld=lld|fuse-ld=mold: " spec " } "
 +
 +#define ANDROID_BFD_RELR_SPEC \
 +	ANDROID_IF_NOT_LLD("%:version-compare(>= 28 mandroid-version-min= -z)") \
@@ -489,11 +462,11 @@ index f68acecb8..aa383f1a0 100644
 +	ANDROID_IF_LLD("%:version-compare(>= 28 mandroid-version-min= --pack-dyn-relocs=relr)")
 +
 +/*
-+Position Independent Executable (PIE) on Android
-+
-+- Android 4.0.4 (API level 15) and below: PIE not supported.
-+- Android 4.1 (API level 16) to Android 4.4W (API level 20): PIE supported, but not mandatory.
-+- Android 5.0 (API level 21) and above: PIE supported and mandatory.
++* Position Independent Executable (PIE) on Android
++* 
++* - Android 4.0.4 (API level 15) and below: PIE is not supported.
++* - Android 4.1 (API level 16) to Android 4.4W (API level 20): PIE is supported, but not mandatory.
++* - Android 5.0 (API level 21) and above: PIE is supported and mandatory.
 +*/
 +#if !defined(ANDROID_PIE_SPEC)
 +#define ANDROID_PIE_SPEC \
@@ -502,9 +475,9 @@ index f68acecb8..aa383f1a0 100644
 +#endif
 +
 +/*
-+DT_RELR (relative relocation format) on Android
-+
-+- Android 9 (API level 28) and above: DT_RELR supported, optional.
++* DT_RELR (relative relocation format) on Android
++* 
++* - Android 9 (API level 28) and above: DT_RELR is supported and optional.
 +*/
 +#define ANDROID_RELR_SPEC \
 +  ANDROID_BFD_RELR_SPEC \
@@ -515,6 +488,7 @@ index f68acecb8..aa383f1a0 100644
 +  "-z noexecstack " \
 +  "-z relro " \
 +  "-z now " \
++  "-z text " \
 +  "-z separate-code " \
 +  "-z max-page-size=" BIONIC_PAGE_SIZE " " \
 +  "%{!no-eh-frame-hdr: --eh-frame-hdr} " \
@@ -522,27 +496,26 @@ index f68acecb8..aa383f1a0 100644
 +  ANDROID_RELR_SPEC \
 +  "%:version-compare(!> 28 mandroid-version-min= --no-rosegment) " \
 +  "%:version-compare(>= 29 mandroid-version-min= --rosegment) " \
-+  "%{%:sanitize(hwaddress): %{!shared: %:version-compare(>= 34 mandroid-version-min= --dynamic-linker=/system/bin/linker_hwasan64)}} " \
++  "%{%:sanitize(hwaddress): %{!shared: %:version-compare(>= 34 mandroid-version-min= --dynamic-linker=" BIONIC_DYNAMIC_LINKER_HWSAN64 ")}} " \
 +  "--enable-new-dtags " \
 +  "--undefined-version "
- 
--#define ANDROID_CC1_SPEC						\
++
 +#define ANDROID_CC1_SPEC \
-   "%{!mglibc:%{!muclibc:%{!mbionic: -mbionic}}} "			\
--  "%{!fno-pic:%{!fno-PIC:%{!fpic:%{!fPIC: -fPIC}}}}"
-+  "%{!fno-pic:%{!fno-PIC:%{!fpic:%{!fPIC: -fPIC}}}} "			\
++  "%{!mglibc: %{!muclibc: %{!mbionic: -mbionic}}} "			\
++  "%{!fno-pic: %{!fno-PIC: %{!fpic: %{!fPIC: -fPIC}}}} "			\
 +  "%{D__ANDROID_API__*|D__ANDROID_MIN_SDK_VERSION__*: %esetting the platform version using the '__ANDROID_API__' or '__ANDROID_MIN_SDK_VERSION__' macros is not supported: use '-mandroid-version-min=<value>' instead} " \
 +  "%{D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__*: %eenabling support for weak symbols using the '__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__' macro is not supported: use '-mandroid-weak-symbols' instead} " \
 +  "%{mandroid-version-min=*: -D __ANDROID_MIN_SDK_VERSION__=%* -D __ANDROID_API__=__ANDROID_MIN_SDK_VERSION__} " \
-+  "%{mandroid-weak-symbols: -D __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__} " \
-+  BIONIC_FIXED_XREG
++  "%{mandroid-weak-symbols: -D __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__} "
  
- #define ANDROID_CC1PLUS_SPEC						\
+-#define ANDROID_CC1_SPEC						\
+-  "%{!mglibc:%{!muclibc:%{!mbionic: -mbionic}}} "			\
+-  "%{!fno-pic:%{!fno-PIC:%{!fpic:%{!fPIC: -fPIC}}}}"
++#define ANDROID_CC1PLUS_SPEC ""
+ 
+-#define ANDROID_CC1PLUS_SPEC						\
 -  "%{!fexceptions:%{!fno-exceptions: -fno-exceptions}} "		\
 -  "%{!frtti:%{!fno-rtti: -fno-rtti}}"
-+  "%{!fexceptions:%{!fno-exceptions: -fexceptions}} "		\
-+  "%{!frtti:%{!fno-rtti: -frtti}}"
-+
 +#define ANDROID_ASM_SPEC \
 +  "--noexecstack"
  
@@ -557,32 +530,36 @@ index f68acecb8..aa383f1a0 100644
  #define ANDROID_ENDFILE_SPEC \
    "%{shared: crtend_so%O%s;: crtend_android%O%s}"
 diff --git a/gcc/config/linux-android.opt b/gcc/config/linux-android.opt
-index bd8b96e0a..9a3a9a3fd 100644
+index bd8b96e0a..bd5566302 100644
 --- a/gcc/config/linux-android.opt
 +++ b/gcc/config/linux-android.opt
-@@ -22,6 +22,22 @@ mandroid
+@@ -22,6 +22,14 @@ mandroid
  Target Mask(ANDROID) Var(flag_android) Init(ANDROID_DEFAULT ? OPTION_MASK_ANDROID : 0)
  Generate code for the Android platform.
  
 +mandroid-version-min=
-+Target RejectNegative Joined Var(android_version_min) Init(ANDROID_MIN_SDK_VERSION)
++Target Joined RejectNegative UInteger Var(android_version_min) Init(0)
 +The earliest Android version on which this program will run.
 +
 +mandroid-weak-symbols
 +Target
 +Enable support for weak API references.
 +
-+mlld
-+Target RejectNegative Negative(mno-lld)
-+Assume we are linking using LLD.
-+
-+mno-lld
-+Target RejectNegative Negative(mlld)
-+Do not assume we are linking using LLD.
-+
  tno-android-cc
  Driver
  
+diff --git a/gcc/config/linux.h b/gcc/config/linux.h
+index 36f06c172..f6b014e0f 100644
+--- a/gcc/config/linux.h
++++ b/gcc/config/linux.h
+@@ -93,6 +93,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ #define BIONIC_DYNAMIC_LINKER "/system/bin/linker"
+ #define BIONIC_DYNAMIC_LINKER32 "/system/bin/linker"
+ #define BIONIC_DYNAMIC_LINKER64 "/system/bin/linker64"
++#define BIONIC_DYNAMIC_LINKER_HWSAN64 "/system/bin/linker_hwasan64"
+ #define BIONIC_DYNAMIC_LINKERX32 "/system/bin/linkerx32"
+ /* Should be redefined for each target that supports musl.  */
+ #define MUSL_DYNAMIC_LINKER "/dev/null"
 diff --git a/gcc/config/mips/gnu-user.h b/gcc/config/mips/gnu-user.h
 index 7cc59b1e6..03a055eb7 100644
 --- a/gcc/config/mips/gnu-user.h
@@ -676,11 +653,11 @@ index 38126eff1..68af888fa 100644
 +
 diff --git a/gcc/config/t-android b/gcc/config/t-android
 new file mode 100644
-index 000000000..2a27a6e9b
+index 000000000..15072b7f8
 --- /dev/null
 +++ b/gcc/config/t-android
-@@ -0,0 +1,21 @@
-+# Copyright (C) 2008-2025 Free Software Foundation, Inc.
+@@ -0,0 +1,25 @@
++# Copyright (C) 2026 Free Software Foundation, Inc.
 +#
 +# This file is part of GCC.
 +#
@@ -699,6 +676,10 @@ index 000000000..2a27a6e9b
 +# <http://www.gnu.org/licenses/>.
 +
 +android-driver.o: $(srcdir)/config/android-driver.cc
++	$(COMPILE) $<
++	$(POSTCOMPILE)
++
++android.o: $(srcdir)/config/android.cc
 +	$(COMPILE) $<
 +	$(POSTCOMPILE)
 diff --git a/libstdc++-v3/config/os/bionic/ctype_base.h b/libstdc++-v3/config/os/bionic/ctype_base.h

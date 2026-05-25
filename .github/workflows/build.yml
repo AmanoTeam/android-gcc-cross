@@ -14,7 +14,7 @@ permissions: write-all
 
 env: 
     PINO_BUILD_PARALLEL_LEVEL: 20
-    PINO_RELEASE: 15
+    PINO_RELEASE: 16
 
 jobs:
   native-build:
@@ -129,9 +129,6 @@ jobs:
     - name: Checkout submodules
       run: |
         git -C submodules/nz submodule update --init --depth=1
-    - name: Free up some space
-      run: |
-        curl 'https://raw.githubusercontent.com/AmanoTeam/gha-free-space/refs/heads/master/main.sh' -sSf | bash 
     - name: Install required dependencies
       run: |
         sudo apt-get update
@@ -281,9 +278,14 @@ jobs:
     - name: Generate tarball
       run: |
         if [[ '${{ env.CROSS_COMPILE_TRIPLET }}' = *'-mingw32' ]]; then
-            declare tarball_filename='/tmp/${{ env.CROSS_COMPILE_TRIPLET }}.zip'
+            declare tarball_filename='/tmp/${{ env.CROSS_COMPILE_TRIPLET }}.7z'
             cd '/tmp'
-            zip --recurse-paths -9 "${tarball_filename}" 'android-gcc-cross'
+            7z a "${tarball_filename}" 'android-gcc-cross' \
+                -t7z \
+                -mx=9 \
+                -m0=lzma2:d=128m:fb=128 \
+                -ms=on \
+                -mmt="$(nproc)"
         else
             declare tarball_filename='/tmp/${{ env.CROSS_COMPILE_TRIPLET }}.tar.xz'
             tar --directory='/tmp' --create --file=- 'android-gcc-cross' | xz --threads='0' --extreme --memlimit-compress='100%' --compress -9 > "${tarball_filename}"
@@ -309,7 +311,7 @@ jobs:
         with:
           tag_name: 'gcc-${{ env.PINO_RELEASE }}'
           name: 'GCC ${{ env.PINO_RELEASE }}'
-          files: ./*/*-{unknown,w64,apple}-*.{tar.xz,zip}*
+          files: ./*/*-{unknown,w64,apple}-*.{tar.xz,7z}*
           draft: false
           prerelease: false
           fail_on_unmatched_files: true

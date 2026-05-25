@@ -83,11 +83,11 @@ declare exe=''
 declare dll='.so'
 
 declare -ra targets=(
-	'x86_64-unknown-linux-android'
-	'armv7-unknown-linux-androideabi'
-	'riscv64-unknown-linux-android'
+	# 'x86_64-unknown-linux-android'
+	# 'armv7-unknown-linux-androideabi'
+	# 'riscv64-unknown-linux-android'
 	'aarch64-unknown-linux-android'
-	'i686-unknown-linux-android'
+	# 'i686-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
 	# 'mipsel-unknown-linux-android'
 	# 'mips64el-unknown-linux-android'
@@ -862,7 +862,7 @@ if ! (( native )); then
 fi
 
 
-declare url='https://github.com/AmanoTeam/Pino/releases/download/sysroot/lib.tar.xz'
+declare url='https://github.com/AmanoTeam/android-gcc-cross/releases/download/sysroot/lib.tar.xz'
 declare tarball='/tmp/sysroot.tar.xz'
 
 echo "Fetching system root from '${url}'"
@@ -882,7 +882,7 @@ tar \
 	--extract \
 	--file="${tarball}"
 
-url='https://github.com/AmanoTeam/Pino/releases/download/sysroot/include.tar.xz'
+url='https://github.com/AmanoTeam/android-gcc-cross/releases/download/sysroot/include.tar.xz'
 
 echo "Fetching system root from '${url}'"
 	
@@ -1000,8 +1000,8 @@ for triplet in "${targets[@]}"; do
 		"${toolchain_directory}/${triplet}/bin/dwp${exe}"
 	
 	for bin in "${toolchain_directory}/${triplet}/bin/"*; do
-		true # unlink "${bin}"
-		true # cp "${binutils_gnu_wrapper}" "${bin}"
+		unlink "${bin}"
+		cp "${binutils_gnu_wrapper}" "${bin}"
 	done
 	
 	if (( native )); then
@@ -1085,11 +1085,11 @@ for triplet in "${targets[@]}"; do
 		--enable-libgomp \
 		--enable-libstdcxx-verbose \
 		--enable-autolink-libandroid \
-		--disable-multilib \
+		--enable-tls \
 		--disable-libsanitizer \
+		--disable-multilib \
 		--disable-canonical-system-headers \
 		--disable-win32-utf8-manifest \
-		--disable-tls \
 		--disable-fixincludes \
 		--disable-gnu-unique-object \
 		--disable-symvers \
@@ -1192,6 +1192,9 @@ for triplet in "${targets[@]}"; do
 		mkdir "${sysroot_directory}/lib/"{gcc,static}
 		
 		rm "${toolchain_directory}/${triplet}${version}/lib/"lib{c,dl,m,z}.a
+		
+		echo 'INPUT(libc.so)' > "${toolchain_directory}/${triplet}${version}/lib/libpthread.so"
+		echo 'INPUT(libc.a)' > "${toolchain_directory}/${triplet}${version}/lib/libpthread.a"
 		
 		ln \
 			--symbolic \
