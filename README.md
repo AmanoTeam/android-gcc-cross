@@ -294,10 +294,9 @@ PINO_NEON: bool = [true/false]
 
 ## Releases
 
-* [GCC 15](https://github.com/AmanoTeam/android-gcc-cross/releases/tag/gcc-15) - current stable release
 * [GCC 16](https://github.com/AmanoTeam/android-gcc-cross/releases/tag/gcc-16) - current stable release
 
-The current stable release is based on GCC 15/16 and supports cross-compiling software for all major Android architectures: `armv7`, `arm64`, `x86`, and `x86_64`. There is also experimental support for the `riscv64` architecture.
+The current stable release is based on GCC 16 and supports cross-compiling software for all major Android architectures: `armv7`, `arm64`, `x86`, and `x86_64`. There is also experimental support for the `riscv64` architecture.
 
 <!--
 Additionally, it supports cross-compiling software for architectures whose support has been deprecated in the upstream NDK, including `armv5`, `mips`, and `mips64`.
