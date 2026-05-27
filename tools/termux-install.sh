@@ -25,7 +25,7 @@ declare wrapper="$(
 		
 		export LD_LIBRARY_PATH=\"%s:\${LD_LIBRARY_PATH}\"
 		
-		exec '%s' \"\${@}\"
+		exec '%s' -march=native \"\${@}\"
 	text
 )"
 
