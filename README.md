@@ -289,8 +289,6 @@ PINO_NEON: bool = [true/false]
 
 - `-D_FORTIFY_SOURCE` has no effect.
   - The fortify headers shipped with the NDK currently rely on Clang-specific syntax that is not supported by GCC. We need to either adapt these headers or migrate to a GCC-compatible alternative, such as [fortify-headers](https://github.com/jvoisin/fortify-headers).
-- Targeting Android 10 (API level 29) or higher still uses emulated TLS.
-  - GCC does not provide a way to switch between emulated TLS and ELF TLS at runtime, unlike Clang. The choice must be made when building the toolchain and cannot be changed afterward. Since we need to support Android versions below 9 (which lack native TLS support), we can’t enable ELF TLS by default.
 - The HWAddressSanitizer (`-fsanitize=hwaddress`) runtime is broken.
   - It requires ELF TLS support and possibly other missing components (not fully investigated). If you really need it, use the older AddressSanitizer implementation (`-fsanitize=address`) implementation instead.
 
