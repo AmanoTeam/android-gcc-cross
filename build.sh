@@ -84,10 +84,10 @@ declare dll='.so'
 
 declare -ra targets=(
 	'x86_64-unknown-linux-android'
-	'armv7-unknown-linux-androideabi'
-	'riscv64-unknown-linux-android'
-	'aarch64-unknown-linux-android'
-	'i686-unknown-linux-android'
+	# 'armv7-unknown-linux-androideabi'
+	# 'riscv64-unknown-linux-android'
+	# 'aarch64-unknown-linux-android'
+	# 'i686-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
 	# 'mipsel-unknown-linux-android'
 	# 'mips64el-unknown-linux-android'
@@ -899,6 +899,9 @@ for triplet in "${targets[@]}"; do
 	fi
 	
 	touch "${toolchain_directory}/${triplet}/lib/libandroid-stb.a"
+	
+	echo 'INPUT(libc.so)' > "${toolchain_directory}/${triplet}/lib/libpthread.so"
+	echo 'INPUT(libc.a)' > "${toolchain_directory}/${triplet}/lib/libpthread.a"
 	
 	if [ "${triplet}" = 'mipsel-unknown-linux-android' ] || [ "${triplet}" = 'mips64el-unknown-linux-android' ]; then
 		hash_style='sysv'

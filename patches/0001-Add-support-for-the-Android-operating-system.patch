@@ -1,4 +1,4 @@
-From 322ab63a70ceb0731b5815628eeee5518553f4d4 Mon Sep 17 00:00:00 2001
+From 6e570cfceac30d57d7323ab1c00828e6edd41683 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Fri, 22 May 2026 21:53:17 +0200
 Subject: [PATCH] Add support for the Android operating system
@@ -9,8 +9,6 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/config/android-driver.cc                  | 120 ++++++++++++++++++
  gcc/config/android.cc                         |  11 ++
  gcc/config/arm/android-elf.h                  |  29 +++++
- gcc/config/arm/elf.h                          |   5 +-
- gcc/config/arm/linux-eabi.h                   |   5 +
  gcc/config/i386/gnu-user64.h                  |   2 +
  gcc/config/i386/i386.cc                       |   4 +-
  gcc/config/i386/linux-common.h                |   7 +-
@@ -21,6 +19,7 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/config/mips/gnu-user.h                    |   6 -
  gcc/config/riscv/linux.h                      |  34 ++++-
  gcc/config/t-android                          |  25 ++++
+ libgcc/config/i386/cpuinfo.c                  |   2 +-
  libstdc++-v3/config/os/bionic/ctype_base.h    |  14 ++
  libstdc++-v3/config/os/bionic/os_defines.h    |  58 +++++++++
  libstdc++-v3/include/bits/basic_string.h      |   4 +
@@ -31,7 +30,7 @@ Subject: [PATCH] Add support for the Android operating system
  libstdc++-v3/include/c_global/cwchar          |   6 +-
  libstdc++-v3/include/c_global/cwctype         |   4 +-
  libstdc++-v3/include/c_std/cwchar             |   2 +-
- 27 files changed, 487 insertions(+), 38 deletions(-)
+ 26 files changed, 480 insertions(+), 37 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/arm/android-elf.h
@@ -345,45 +344,6 @@ index 000000000..6c7b234a8
 +#define FIXED_X18 1
 +#endif
 +
-diff --git a/gcc/config/arm/elf.h b/gcc/config/arm/elf.h
-index fb5ad86a5..5743e5c3f 100644
---- a/gcc/config/arm/elf.h
-+++ b/gcc/config/arm/elf.h
-@@ -56,8 +56,7 @@
- #undef SUBSUBTARGET_EXTRA_SPECS
- #define SUBSUBTARGET_EXTRA_SPECS
- 
--#ifndef ASM_SPEC
--#define ASM_SPEC "\
-+#define DEFAULT_ASM_SPEC "\
- %{mbig-endian:-EB} \
- %{mlittle-endian:-EL} \
- %(asm_cpu_spec) \
-@@ -66,6 +65,8 @@
- %{mthumb-interwork:-mthumb-interwork} \
- %{mfloat-abi=*} %{!mfpu=auto: %{mfpu=*}} \
- %(subtarget_extra_asm_spec)"
-+#ifndef ASM_SPEC
-+#define ASM_SPEC DEFAULT_ASM_SPEC
- #endif
- 
- /* The ARM uses @ are a comment character so we need to redefine
-diff --git a/gcc/config/arm/linux-eabi.h b/gcc/config/arm/linux-eabi.h
-index 947ffc67c..2c6311bbc 100644
---- a/gcc/config/arm/linux-eabi.h
-+++ b/gcc/config/arm/linux-eabi.h
-@@ -113,6 +113,11 @@
- #define CC1PLUS_SPEC \
-   LINUX_OR_ANDROID_CC ("", ANDROID_CC1PLUS_SPEC)
- 
-+#undef ASM_SPEC
-+#define ASM_SPEC \
-+  LINUX_OR_ANDROID_CC (DEFAULT_ASM_SPEC, \
-+                       DEFAULT_ASM_SPEC  " " ANDROID_ASM_SPEC)
-+
- #undef  LIB_SPEC
- #define LIB_SPEC							\
-   LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC,			\
 diff --git a/gcc/config/i386/gnu-user64.h b/gcc/config/i386/gnu-user64.h
 index c5267f082..db5778313 100644
 --- a/gcc/config/i386/gnu-user64.h
@@ -728,6 +688,19 @@ index 000000000..15072b7f8
 +android.o: $(srcdir)/config/android.cc
 +	$(COMPILE) $<
 +	$(POSTCOMPILE)
+diff --git a/libgcc/config/i386/cpuinfo.c b/libgcc/config/i386/cpuinfo.c
+index 1af0cfb3e..e6680be4f 100644
+--- a/libgcc/config/i386/cpuinfo.c
++++ b/libgcc/config/i386/cpuinfo.c
+@@ -63,7 +63,7 @@ __cpu_indicator_init (void)
+ 			     __cpu_features2);
+ }
+ 
+-#if defined SHARED && defined USE_ELF_SYMVER
++#if defined SHARED && defined USE_ELF_SYMVER && !defined(__ANDROID__)
+ __asm__ (".symver __cpu_indicator_init, __cpu_indicator_init@GCC_4.8.0");
+ __asm__ (".symver __cpu_model, __cpu_model@GCC_4.8.0");
+ #endif
 diff --git a/libstdc++-v3/config/os/bionic/ctype_base.h b/libstdc++-v3/config/os/bionic/ctype_base.h
 index b28d018b6..231c82eec 100644
 --- a/libstdc++-v3/config/os/bionic/ctype_base.h
