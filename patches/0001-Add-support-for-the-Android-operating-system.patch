@@ -1,20 +1,21 @@
-From ccb108b9b27ce6f8dc375f899fe75e76fc9f28ac Mon Sep 17 00:00:00 2001
+From 322ab63a70ceb0731b5815628eeee5518553f4d4 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Fri, 22 May 2026 21:53:17 +0200
 Subject: [PATCH] Add support for the Android operating system
 
 ---
- gcc/config.gcc                                |  16 ++-
+ gcc/config.gcc                                |  22 +++-
  gcc/config/aarch64/aarch64-linux.h            |  35 ++++-
  gcc/config/android-driver.cc                  | 120 ++++++++++++++++++
  gcc/config/android.cc                         |  11 ++
+ gcc/config/arm/android-elf.h                  |  29 +++++
  gcc/config/arm/elf.h                          |   5 +-
  gcc/config/arm/linux-eabi.h                   |   5 +
  gcc/config/i386/gnu-user64.h                  |   2 +
  gcc/config/i386/i386.cc                       |   4 +-
  gcc/config/i386/linux-common.h                |   7 +-
  gcc/config/i386/pmm_malloc.h                  |   2 +-
- gcc/config/linux-android.h                    | 110 ++++++++++++++--
+ gcc/config/linux-android.h                    | 103 +++++++++++++--
  gcc/config/linux-android.opt                  |   8 ++
  gcc/config/linux.h                            |   1 +
  gcc/config/mips/gnu-user.h                    |   6 -
@@ -30,13 +31,14 @@ Subject: [PATCH] Add support for the Android operating system
  libstdc++-v3/include/c_global/cwchar          |   6 +-
  libstdc++-v3/include/c_global/cwctype         |   4 +-
  libstdc++-v3/include/c_std/cwchar             |   2 +-
- 26 files changed, 459 insertions(+), 38 deletions(-)
+ 27 files changed, 487 insertions(+), 38 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
+ create mode 100644 gcc/config/arm/android-elf.h
  create mode 100644 gcc/config/t-android
 
 diff --git a/gcc/config.gcc b/gcc/config.gcc
-index 8fe99616f..c8dd92475 100644
+index 8fe99616f..ecf19df9e 100644
 --- a/gcc/config.gcc
 +++ b/gcc/config.gcc
 @@ -965,7 +965,15 @@ case ${target} in
@@ -56,7 +58,7 @@ index 8fe99616f..c8dd92475 100644
        ;;
      *-*-*uclibc* | *-*-uclinuxfdpiceabi)
        tm_defines="$tm_defines DEFAULT_LIBC=LIBC_UCLIBC"
-@@ -1287,8 +1295,9 @@ aarch64*-*-netbsd*)
+@@ -1287,11 +1295,17 @@ aarch64*-*-netbsd*)
  	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
  	;;
  aarch64*-*-linux*)
@@ -67,7 +69,23 @@ index 8fe99616f..c8dd92475 100644
  	tmake_file="${tmake_file} aarch64/t-aarch64 aarch64/t-aarch64-linux"
  	tm_defines="${tm_defines}  TARGET_DEFAULT_ASYNC_UNWIND_TABLES=1"
  	case $target in
-@@ -2576,7 +2585,8 @@ microblaze*-*-elf)
++	*-android)
++	    tm_file="${tm_file} arm/android-elf.h"
++		;;
++	esac
++	case $target in
+ 	aarch64_be-*)
+ 		tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
+ 		;;
+@@ -1526,6 +1540,7 @@ arm*-*-linux-* | arm*-*-uclinuxfdpiceabi)
+ 	case ${target} in
+ 	*-androideabi)
+ 	    tmake_file="$tmake_file arm/t-linux-androideabi"
++	    tm_file="${tm_file} arm/android-elf.h"
+ 	    ;;
+ 	esac
+ 	# The EABI requires the use of __cxa_atexit.
+@@ -2576,7 +2591,8 @@ microblaze*-*-elf)
  	tmake_file="${tmake_file} microblaze/t-microblaze"
          ;;
  riscv*-*-linux*)
@@ -292,6 +310,41 @@ index 000000000..14fe167a4
 +	targetm.have_tls = android_version_min >= 29;
 +	
 +}
+diff --git a/gcc/config/arm/android-elf.h b/gcc/config/arm/android-elf.h
+new file mode 100644
+index 000000000..6c7b234a8
+--- /dev/null
++++ b/gcc/config/arm/android-elf.h
+@@ -0,0 +1,29 @@
++/* Configuration file for Linux Android targets.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++
++   This file is part of GCC.
++
++   GCC is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published
++   by the Free Software Foundation; either version 3, or (at your
++   option) any later version.
++
++   GCC is distributed in the hope that it will be useful, but WITHOUT
++   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
++   License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with GCC; see the file COPYING3.  If not see
++   <http://www.gnu.org/licenses/>.  */
++
++#if !defined(USED_FOR_TARGET)
++/* Android requires thread-local variables on ARM targets to be aligned to (BITS_PER_WORD * 8) bits. */
++#undef DATA_ABI_ALIGNMENT
++#define DATA_ABI_ALIGNMENT(TYPE, ALIGN)  (targetm.have_tls && DECL_THREAD_LOCAL_P (decl) ? BITS_PER_WORD * 8 : (ALIGN))
++
++/* Android reserves the x18 register for ShadowCallStack. */
++#undef FIXED_X18
++#define FIXED_X18 1
++#endif
++
 diff --git a/gcc/config/arm/elf.h b/gcc/config/arm/elf.h
 index fb5ad86a5..5743e5c3f 100644
 --- a/gcc/config/arm/elf.h
@@ -391,23 +444,20 @@ index abc479c83..ea6186094 100644
  
  static __inline void *
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index f68acecb8..886e9b3e6 100644
+index f68acecb8..bb72eb549 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
-@@ -19,10 +19,43 @@
+@@ -19,10 +19,36 @@
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.  */
  
 +#if !defined(USED_FOR_TARGET)
-+	extern void android_driver_init(unsigned int*, struct cl_decoded_option**);
-+	#define GCC_DRIVER_HOST_INITIALIZATION android_driver_init(&decoded_options_count, &decoded_options)
-+	
-+	extern void android_override_options(void);
-+	#define SUBTARGET_OVERRIDE_OPTIONS android_override_options();
-+#endif
++extern void android_driver_init(unsigned int*, struct cl_decoded_option**);
++#define GCC_DRIVER_HOST_INITIALIZATION android_driver_init(&decoded_options_count, &decoded_options)
 +
-+#undef DATA_ABI_ALIGNMENT
-+#define DATA_ABI_ALIGNMENT(TYPE, ALIGN)  (targetm.have_tls && DECL_THREAD_LOCAL_P (decl) ? BITS_PER_WORD * 8 : (ALIGN))
++extern void android_override_options(void);
++#define SUBTARGET_OVERRIDE_OPTIONS android_override_options()
++#endif
 +
 +#define BIONIC_PAGE_SIZE_4K "0x1000"
 +#define BIONIC_PAGE_SIZE_16K "0x4000"
@@ -421,10 +471,6 @@ index f68acecb8..886e9b3e6 100644
 +/* This is the default for all architectures except AArch64 and x86_64. */
 +#define BIONIC_PAGE_SIZE BIONIC_PAGE_SIZE_4K
 +#endif
-+
-+/* Android reserves the x18 register for ShadowCallStack. */
-+#undef FIXED_X18
-+#define FIXED_X18 1
 +
 +#if defined(ENABLE_DEFAULT_PIE)
 +#define ANDROID_PIE_SPEC ""
@@ -440,7 +486,7 @@ index f68acecb8..886e9b3e6 100644
      } while (0)
  
  #if ANDROID_DEFAULT
-@@ -37,23 +70,80 @@
+@@ -37,23 +63,80 @@
  #define LINUX_OR_ANDROID_LD(LINUX_SPEC, ANDROID_SPEC) \
    "%{" NOANDROID "|tno-android-ld:" LINUX_SPEC ";:" ANDROID_SPEC "}"
  

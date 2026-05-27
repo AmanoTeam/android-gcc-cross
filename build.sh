@@ -84,7 +84,7 @@ declare dll='.so'
 
 declare -ra targets=(
 	# 'x86_64-unknown-linux-android'
-	# 'armv7-unknown-linux-androideabi'
+	'armv7-unknown-linux-androideabi'
 	# 'riscv64-unknown-linux-android'
 	'aarch64-unknown-linux-android'
 	# 'i686-unknown-linux-android'
