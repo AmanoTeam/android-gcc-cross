@@ -83,11 +83,11 @@ declare exe=''
 declare dll='.so'
 
 declare -ra targets=(
+	'armv7-unknown-linux-androideabi'
 	'x86_64-unknown-linux-android'
-	# 'armv7-unknown-linux-androideabi'
-	# 'riscv64-unknown-linux-android'
-	# 'aarch64-unknown-linux-android'
-	# 'i686-unknown-linux-android'
+	'riscv64-unknown-linux-android'
+	'aarch64-unknown-linux-android'
+	'i686-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
 	# 'mipsel-unknown-linux-android'
 	# 'mips64el-unknown-linux-android'
@@ -527,7 +527,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Avoid-relying-on-dynamic-shadow-when-building-libsan.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Skip-FILE64_FLAGS-for-Android-MIPS-targets.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Disable-SONAME-versioning-for-all-target-libraries.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-relative-RPATHs-to-GCC-target-libraries.patch"
+	# patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-relative-RPATHs-to-GCC-target-libraries.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Change-GCC-s-C-standard-library-name-to-libestdc.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Rename-GCC-s-libgcc-library-to-libegcc.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Ignore-pragma-weak-when-the-declaration-is-private-o.patch"
@@ -1055,7 +1055,6 @@ for triplet in "${targets[@]}"; do
 		--enable-initfini-array \
 		--enable-libgomp \
 		--enable-libstdcxx-verbose \
-		--enable-autolink-libandroid \
 		--enable-tls \
 		--disable-libsanitizer \
 		--disable-multilib \
@@ -1063,7 +1062,6 @@ for triplet in "${targets[@]}"; do
 		--disable-win32-utf8-manifest \
 		--disable-fixincludes \
 		--disable-gnu-unique-object \
-		--disable-symvers \
 		--disable-libstdcxx-pch \
 		--disable-werror \
 		--without-static-standard-libraries \

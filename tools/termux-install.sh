@@ -189,4 +189,15 @@ for rc_file in "${rc_files[@]}"; do
 	fi
 done
 
+if ! command -v patchelf >/dev/null 2>&1; then
+	echo "- Installing patchelf"
+	apt install -qqq --update --yes patchelf
+fi
+
+echo "- Adding custom DT_RUNPATH to GCC runtime libraries"
+
+for library in "${pino_directory}/${triplet}${api_level}/lib/gcc/lib"*'.so'; do
+	patchelf --set-rpath "${pino_directory}/${triplet}${api_level}/lib/gcc" "${library}" 2>/dev/null || true
+done
+
 echo '- Installation finished!'

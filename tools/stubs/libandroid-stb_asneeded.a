@@ -1,1 +1,0 @@
-GROUP ( AS_NEEDED ( -lc_stb -lm_stb ) )

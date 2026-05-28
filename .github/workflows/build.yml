@@ -72,6 +72,13 @@ jobs:
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
           /tmp/x86_64-linux-gnu.tar.xz.sha256
+    - name: Upload artifact
+      uses: actions/upload-artifact@main
+      with:
+        name: 'bootstrap'
+        if-no-files-found: error
+        path: |
+          /tmp/x86_64-linux-gnu.tar.xz
   
   cross-build:
     name: 'Cross build'
