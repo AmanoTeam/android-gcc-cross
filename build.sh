@@ -918,7 +918,7 @@ for triplet in "${targets[@]}"; do
 	elif [ "${triplet}" = 'x86_64-unknown-linux-android' ]; then
 		extra_configure_flags+=' --with-arch=x86-64 --with-tune=intel --with-fpmath=sse'
 	elif [ "${triplet}" = 'riscv64-unknown-linux-android' ]; then
-		extra_configure_flags+=' --with-arch=rv64gc --with-abi=lp64d'
+		extra_configure_flags+=' --with-arch=rv64gc --with-abi=lp64d --with-tls=desc'
 	elif [ "${triplet}" = 'mipsel-unknown-linux-android' ]; then
 		extra_configure_flags+=' --with-arch=mips32r2 --with-abi=32 --with-float=hard --with-llsc --without-synci --with-nan=legacy'
 	elif [ "${triplet}" = 'mips64el-unknown-linux-android' ]; then
