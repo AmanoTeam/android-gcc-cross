@@ -1,27 +1,25 @@
-From 6e570cfceac30d57d7323ab1c00828e6edd41683 Mon Sep 17 00:00:00 2001
+From 4cf0111b65b344f2c9ac0c764a284da1ff0bff95 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Fri, 22 May 2026 21:53:17 +0200
 Subject: [PATCH] Add support for the Android operating system
 
 ---
- gcc/config.gcc                                |  22 +++-
+ gcc/config.gcc                                |  22 ++-
  gcc/config/aarch64/aarch64-linux.h            |  35 ++++-
- gcc/config/android-driver.cc                  | 120 ++++++++++++++++++
- gcc/config/android.cc                         |  11 ++
- gcc/config/arm/android-elf.h                  |  29 +++++
+ gcc/config/android-driver.cc                  | 137 ++++++++++++++++++
+ gcc/config/android.cc                         |  29 ++++
+ gcc/config/arm/android-elf.h                  |  29 ++++
+ gcc/config/arm/linux-eabi.h                   |   3 -
  gcc/config/i386/gnu-user64.h                  |   2 +
- gcc/config/i386/i386.cc                       |   4 +-
- gcc/config/i386/linux-common.h                |   7 +-
+ gcc/config/i386/i386.cc                       |   6 +
  gcc/config/i386/pmm_malloc.h                  |   2 +-
- gcc/config/linux-android.h                    | 103 +++++++++++++--
- gcc/config/linux-android.opt                  |   8 ++
- gcc/config/linux.h                            |   1 +
+ gcc/config/linux-android.h                    |  88 +++++++++--
+ gcc/config/linux-android.opt                  |   8 +
  gcc/config/mips/gnu-user.h                    |   6 -
- gcc/config/riscv/linux.h                      |  34 ++++-
+ gcc/config/riscv/linux.h                      |  30 +++-
  gcc/config/t-android                          |  25 ++++
  libgcc/config/i386/cpuinfo.c                  |   2 +-
- libstdc++-v3/config/os/bionic/ctype_base.h    |  14 ++
- libstdc++-v3/config/os/bionic/os_defines.h    |  58 +++++++++
+ libstdc++-v3/config/os/bionic/ctype_base.h    |  27 ++--
  libstdc++-v3/include/bits/basic_string.h      |   4 +
  libstdc++-v3/include/c_compatibility/stdlib.h |   6 +
  libstdc++-v3/include/c_global/clocale         |   2 +
@@ -30,7 +28,7 @@ Subject: [PATCH] Add support for the Android operating system
  libstdc++-v3/include/c_global/cwchar          |   6 +-
  libstdc++-v3/include/c_global/cwctype         |   4 +-
  libstdc++-v3/include/c_std/cwchar             |   2 +-
- 26 files changed, 480 insertions(+), 37 deletions(-)
+ 24 files changed, 435 insertions(+), 50 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/arm/android-elf.h
@@ -95,7 +93,7 @@ index 8fe99616f..ecf19df9e 100644
  	xno) ;;
  	xyes) tmake_file="${tmake_file} riscv/t-linux-multilib" ;;
 diff --git a/gcc/config/aarch64/aarch64-linux.h b/gcc/config/aarch64/aarch64-linux.h
-index 8f1ecc4e2..44cda04be 100644
+index 8f1ecc4e2..7f1e1736b 100644
 --- a/gcc/config/aarch64/aarch64-linux.h
 +++ b/gcc/config/aarch64/aarch64-linux.h
 @@ -26,13 +26,23 @@
@@ -103,7 +101,7 @@ index 8f1ecc4e2..44cda04be 100644
  #define MUSL_DYNAMIC_LINKER "/lib/ld-musl-aarch64%{mbig-endian:_be}%{mabi=ilp32:_ilp32}.so.1"
  
 +#undef BIONIC_DYNAMIC_LINKER
-+#define BIONIC_DYNAMIC_LINKER "/system/bin/linker64"
++#define BIONIC_DYNAMIC_LINKER BIONIC_DYNAMIC_LINKER64
 +
 +#undef BIONIC_PAGE_SIZE
 +#define BIONIC_PAGE_SIZE BIONIC_PAGE_SIZE_16K
@@ -167,12 +165,30 @@ index 8f1ecc4e2..44cda04be 100644
  
 diff --git a/gcc/config/android-driver.cc b/gcc/config/android-driver.cc
 new file mode 100644
-index 000000000..307e5d8cb
+index 000000000..9a855bab1
 --- /dev/null
 +++ b/gcc/config/android-driver.cc
-@@ -0,0 +1,120 @@
+@@ -0,0 +1,137 @@
++/* Copyright (C) 2026 Free Software Foundation, Inc.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify it under
++the terms of the GNU General Public License as published by the Free
++Software Foundation; either version 3, or (at your option) any later
++version.
++
++GCC is distributed in the hope that it will be useful, but WITHOUT ANY
++WARRANTY; without even the implied warranty of MERCHANTABILITY or
++FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++for more details.
++
++You should have received a copy of the GNU General Public License
++along with GCC; see the file COPYING3.  If not see
++<http://www.gnu.org/licenses/>.  */
++
 +#if !defined(CROSS_DIRECTORY_STRUCTURE)
-+	#include <sys/system_properties.h>
++#include <sys/system_properties.h>
 +#endif
 +
 +#include <stdlib.h>
@@ -191,7 +207,9 @@ index 000000000..307e5d8cb
 +
 +static const char ERR_INVALID_PLATFORM_VERSION[] = "invalid platform version: %qs";
 +
-+static int android_sdkv_matches(const char* const string) {
++static bool
++android_sdkv_matches (const char *string)
++{
 +	
 +	size_t size = 0;
 +	
@@ -199,30 +217,29 @@ index 000000000..307e5d8cb
 +	unsigned char b = 0;
 +	
 +	if (string == NULL || string[0] == '\0') {
-+		return 0;
++		return false;
 +	}
 +	
 +	size = strlen(string);
 +	
 +	if (size != 2) {
-+		return 0;
++		return false;
 +	}
 +	
 +	a = string[0];
 +	b = string[1];
 +	
-+	if (!(a >= '1' && a <= '3' ) && (b >= '0' && b <= '9')) {
-+		return 0;
++	if (!((a >= '1' && a <= '9' ) && (b >= '0' && b <= '9'))) {
++		return false;
 +	}
 +	
-+	return 1;
++	return true;
 +	
 +}
 +
-+void android_driver_init(
-+	unsigned int* decoded_options_count,
-+	struct cl_decoded_option** decoded_options
-+) {
++void android_driver_init (unsigned int* decoded_options_count,
++			  struct cl_decoded_option** decoded_options)
++{
 +	
 +	#if !defined(CROSS_DIRECTORY_STRUCTURE)
 +		char system_property[PROP_VALUE_MAX] = {0};
@@ -245,7 +262,7 @@ index 000000000..307e5d8cb
 +			case OPT_mandroid_version_min_: {
 +				if (!android_sdkv_matches(option->arg)) {
 +					error(ERR_INVALID_PLATFORM_VERSION, option->arg);
-+					goto end;
++					return;
 +				}
 +				
 +				android_min_sdk_version = option->arg;
@@ -255,49 +272,64 @@ index 000000000..307e5d8cb
 +		}
 +	}
 +	
-+	if (android_min_sdk_version == NULL) {
-+		#if !defined(CROSS_DIRECTORY_STRUCTURE)
-+			if (__system_property_get(RO_BUILD_VERSION_SDK, system_property) >= 1) {
-+				android_min_sdk_version = system_property;
-+			} else {
-+				/* __system_property_get() may not work in isolated environments like termux-docker. */
-+				android_min_sdk_version = ANDROID_MIN_SDK_VERSION;
-+			}
-+		#else
-+			android_min_sdk_version = ANDROID_MIN_SDK_VERSION;
-+		#endif
-+		
-+		if (!android_sdkv_matches(android_min_sdk_version)) {
-+			error(ERR_INVALID_PLATFORM_VERSION, android_min_sdk_version);
-+			goto end;
-+		}
-+		
-+		options = XRESIZEVEC(struct cl_decoded_option, options, size + 1);
-+		
-+		generate_option(
-+			OPT_mandroid_version_min_,
-+			android_min_sdk_version,
-+			1,
-+			CL_DRIVER,
-+			&options[size]
-+		);
-+		
-+		*decoded_options_count = ++size;
-+		*decoded_options = options;
++	if (android_min_sdk_version != NULL) {
++		return;
 +	}
 +	
-+	end:;
-+		
-+		
-+		
++	#if !defined(CROSS_DIRECTORY_STRUCTURE)
++		if (__system_property_get(RO_BUILD_VERSION_SDK, system_property) >= 1) {
++			android_min_sdk_version = system_property;
++		} else {
++			/* __system_property_get() may not work in isolated environments like termux-docker. */
++			android_min_sdk_version = ANDROID_MIN_SDK_VERSION;
++		}
++	#else
++		android_min_sdk_version = ANDROID_MIN_SDK_VERSION;
++	#endif
++	
++	if (!android_sdkv_matches(android_min_sdk_version)) {
++		error(ERR_INVALID_PLATFORM_VERSION, android_min_sdk_version);
++		return;
++	}
++	
++	options = XRESIZEVEC(struct cl_decoded_option, options, size + 1);
++	
++	generate_option(
++		OPT_mandroid_version_min_,
++		android_min_sdk_version,
++		1,
++		CL_DRIVER,
++		&options[size]
++	);
++	
++	*decoded_options_count = ++size;
++	*decoded_options = options;
++	
 +}
-\ No newline at end of file
 diff --git a/gcc/config/android.cc b/gcc/config/android.cc
 new file mode 100644
-index 000000000..14fe167a4
+index 000000000..a3a25780d
 --- /dev/null
 +++ b/gcc/config/android.cc
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,29 @@
++/* Copyright (C) 2026 Free Software Foundation, Inc.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify it under
++the terms of the GNU General Public License as published by the Free
++Software Foundation; either version 3, or (at your option) any later
++version.
++
++GCC is distributed in the hope that it will be useful, but WITHOUT ANY
++WARRANTY; without even the implied warranty of MERCHANTABILITY or
++FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++for more details.
++
++You should have received a copy of the GNU General Public License
++along with GCC; see the file COPYING3.  If not see
++<http://www.gnu.org/licenses/>.  */
++
 +#include "config.h"
 +#include "system.h"
 +#include "coretypes.h"
@@ -311,11 +343,11 @@ index 000000000..14fe167a4
 +}
 diff --git a/gcc/config/arm/android-elf.h b/gcc/config/arm/android-elf.h
 new file mode 100644
-index 000000000..6c7b234a8
+index 000000000..ba2d29599
 --- /dev/null
 +++ b/gcc/config/arm/android-elf.h
 @@ -0,0 +1,29 @@
-+/* Configuration file for Linux Android targets.
++/* Configuration file for Android ARM targets.
 +   Copyright (C) 2026 Free Software Foundation, Inc.
 +
 +   This file is part of GCC.
@@ -335,15 +367,29 @@ index 000000000..6c7b234a8
 +   <http://www.gnu.org/licenses/>.  */
 +
 +#if !defined(USED_FOR_TARGET)
-+/* Android requires thread-local variables on ARM targets to be aligned to (BITS_PER_WORD * 8) bits. */
++/* Android requires thread-local variables on ARM targets to be aligned to BITS_PER_WORD * 8. */
 +#undef DATA_ABI_ALIGNMENT
-+#define DATA_ABI_ALIGNMENT(TYPE, ALIGN)  (targetm.have_tls && DECL_THREAD_LOCAL_P (decl) ? BITS_PER_WORD * 8 : (ALIGN))
++#define DATA_ABI_ALIGNMENT(TYPE, ALIGN) (targetm.have_tls && DECL_THREAD_LOCAL_P (decl) ? BITS_PER_WORD * 8 : ALIGN)
 +
 +/* Android reserves the x18 register for ShadowCallStack. */
 +#undef FIXED_X18
 +#define FIXED_X18 1
 +#endif
 +
+diff --git a/gcc/config/arm/linux-eabi.h b/gcc/config/arm/linux-eabi.h
+index 947ffc67c..1dda7f9b6 100644
+--- a/gcc/config/arm/linux-eabi.h
++++ b/gcc/config/arm/linux-eabi.h
+@@ -110,9 +110,6 @@
+ 		       GNU_USER_TARGET_CC1_SPEC " " ASAN_CC1_SPEC " "	\
+ 		       ANDROID_CC1_SPEC)
+ 
+-#define CC1PLUS_SPEC \
+-  LINUX_OR_ANDROID_CC ("", ANDROID_CC1PLUS_SPEC)
+-
+ #undef  LIB_SPEC
+ #define LIB_SPEC							\
+   LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC,			\
 diff --git a/gcc/config/i386/gnu-user64.h b/gcc/config/i386/gnu-user64.h
 index c5267f082..db5778313 100644
 --- a/gcc/config/i386/gnu-user64.h
@@ -358,38 +404,22 @@ index c5267f082..db5778313 100644
  #define ASM_SPEC "%{" SPEC_32 ":--32} \
   %{" SPEC_64 ":--64} \
 diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
-index 660a921e2..4b653f8c2 100644
+index 660a921e2..b93cfd223 100644
 --- a/gcc/config/i386/i386.cc
 +++ b/gcc/config/i386/i386.cc
-@@ -25547,9 +25547,7 @@ ix86_stack_protect_runtime_enabled_p (void)
+@@ -25547,6 +25547,12 @@ ix86_stack_protect_runtime_enabled_p (void)
  static tree ATTRIBUTE_UNUSED
  ix86_stack_protect_fail (void)
  {
--  return TARGET_64BIT
--	 ? default_external_stack_protect_fail ()
--	 : default_hidden_stack_protect_fail ();
-+  return default_external_stack_protect_fail ();
- }
- 
- /* Select a format to encode pointers in exception handling data.  CODE
-diff --git a/gcc/config/i386/linux-common.h b/gcc/config/i386/linux-common.h
-index ab45eda17..615eb48d7 100644
---- a/gcc/config/i386/linux-common.h
-+++ b/gcc/config/i386/linux-common.h
-@@ -30,7 +30,12 @@ along with GCC; see the file COPYING3.  If not see
- #undef CC1_SPEC
- #define CC1_SPEC \
-   LINUX_OR_ANDROID_CC (GNU_USER_TARGET_CC1_SPEC, \
--		       GNU_USER_TARGET_CC1_SPEC " " ANDROID_CC1_SPEC)
-+                       GNU_USER_TARGET_CC1_SPEC \
-+                       " " \
-+                       ANDROID_CC1_SPEC)
-+
-+#define CC1PLUS_SPEC \
-+  LINUX_OR_ANDROID_CC ("", ANDROID_CC1PLUS_SPEC)
- 
- #undef	LINK_SPEC
- #define LINK_SPEC \
++  #ifdef OPTION_BIONIC
++    if (OPTION_BIONIC)
++	    /* Android no longer provides an implementation of __stack_chk_fail_local(), so always use __stack_chk_fail() instead. */
++	    return default_external_stack_protect_fail ();
++  #endif
++  
+   return TARGET_64BIT
+ 	 ? default_external_stack_protect_fail ()
+ 	 : default_hidden_stack_protect_fail ();
 diff --git a/gcc/config/i386/pmm_malloc.h b/gcc/config/i386/pmm_malloc.h
 index abc479c83..ea6186094 100644
 --- a/gcc/config/i386/pmm_malloc.h
@@ -404,10 +434,10 @@ index abc479c83..ea6186094 100644
  
  static __inline void *
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index f68acecb8..bb72eb549 100644
+index f68acecb8..46ed9f07b 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
-@@ -19,10 +19,36 @@
+@@ -19,10 +19,32 @@
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.  */
  
@@ -423,17 +453,13 @@ index f68acecb8..bb72eb549 100644
 +#define BIONIC_PAGE_SIZE_16K "0x4000"
 +
 +#if !defined(ANDROID_MIN_SDK_VERSION)
-+ /* This is the minimum Android version supported on all architectures */
++/* Minimum Android API level supported across all architectures. */
 +#define ANDROID_MIN_SDK_VERSION "21"
 +#endif
 +
 +#if !defined(BIONIC_PAGE_SIZE)
 +/* This is the default for all architectures except AArch64 and x86_64. */
 +#define BIONIC_PAGE_SIZE BIONIC_PAGE_SIZE_4K
-+#endif
-+
-+#if defined(ENABLE_DEFAULT_PIE)
-+#define ANDROID_PIE_SPEC ""
 +#endif
 +
  #define ANDROID_TARGET_OS_CPP_BUILTINS()			\
@@ -446,66 +472,65 @@ index f68acecb8..bb72eb549 100644
      } while (0)
  
  #if ANDROID_DEFAULT
-@@ -37,23 +63,80 @@
+@@ -37,23 +59,67 @@
  #define LINUX_OR_ANDROID_LD(LINUX_SPEC, ANDROID_SPEC) \
    "%{" NOANDROID "|tno-android-ld:" LINUX_SPEC ";:" ANDROID_SPEC "}"
  
-+#define ANDROID_IF_NOT_PIE(spec) \
-+    "%{!static: %{!static-pie: %{!shared: %{!no-pie: %{!fno-pie: %{!fno-PIE: %{!pie: %{!fpie: %{!fPIE: " spec " }}}}}}}}} "
-+
-+#define ANDROID_IF_NOT_LLD(spec) \
-+    "%{!fuse-ld=lld: %{!fuse-ld=mold: " spec " }} "
-+
-+#define ANDROID_IF_LLD(spec) \
-+    "%{fuse-ld=lld|fuse-ld=mold: " spec " } "
-+
-+#define ANDROID_BFD_RELR_SPEC \
-+	ANDROID_IF_NOT_LLD("%:version-compare(>= 28 mandroid-version-min= -z)") \
-+	ANDROID_IF_NOT_LLD("%:version-compare(>= 28 mandroid-version-min= pack-relative-relocs)")
-+
-+#define ANDROID_LLD_RELR_SPEC \
-+	ANDROID_IF_LLD("%:version-compare(>= 28 mandroid-version-min= --use-android-relr-tags)") \
-+	ANDROID_IF_LLD("%:version-compare(>= 28 mandroid-version-min= --pack-dyn-relocs=relr)")
-+
-+/*
-+* Position Independent Executable (PIE) on Android
-+* 
-+* - Android 4.0.4 (API level 15) and below: PIE is not supported.
-+* - Android 4.1 (API level 16) to Android 4.4W (API level 20): PIE is supported, but not mandatory.
-+* - Android 5.0 (API level 21) and above: PIE is supported and mandatory.
-+*/
-+#if !defined(ANDROID_PIE_SPEC)
+-#define ANDROID_LINK_SPEC \
+-  "%{shared: -Bsymbolic}"
++#if defined(ENABLE_DEFAULT_PIE)
++#define ANDROID_PIE_SPEC ""
++#else
++/* Enable PIE on Android 4.1+ (API level 16). */
 +#define ANDROID_PIE_SPEC \
-+    ANDROID_IF_NOT_PIE("%:version-compare(!> 15 mandroid-version-min= -no-pie)") \
-+    ANDROID_IF_NOT_PIE("%:version-compare(>= 16 mandroid-version-min= -pie)")
++  "%{!static: %{!shared: %{!no-pie: %{!fno-pie: %{!fno-PIE: %{!pie: %{!fpie: %{!fPIE: " \
++  "%:version-compare(!> 15 mandroid-version-min= -no-pie) " \
++  "%:version-compare(>= 16 mandroid-version-min= -pie) " \
++  "}}}}}}}} "
 +#endif
-+
+ 
+-#define ANDROID_CC1_SPEC						\
+-  "%{!mglibc:%{!muclibc:%{!mbionic: -mbionic}}} "			\
+-  "%{!fno-pic:%{!fno-PIC:%{!fpic:%{!fPIC: -fPIC}}}}"
 +/*
-+* DT_RELR (relative relocation format) on Android
++* Enable DT_RELR packed relocations on Android 9+ (API level 28).
 +* 
-+* - Android 9 (API level 28) and above: DT_RELR is supported and optional.
++* Android 10 and earlier use a nonstandard implementation of DT_RELR
++* that BFD does not support. For these versions, DT_RELR should only
++* be enabled on Android 11+ (API level 30).
 +*/
 +#define ANDROID_RELR_SPEC \
-+  ANDROID_BFD_RELR_SPEC \
-+  ANDROID_LLD_RELR_SPEC
++  "%{fuse-ld=lld|fuse-ld=mold: " \
++  " %:version-compare(>= 23 mandroid-version-min= --pack-dyn-relocs=android) " \
++  " %:version-compare(>= 28 mandroid-version-min= --use-android-relr-tags) " \
++  " %:version-compare(>= 28 mandroid-version-min= --pack-dyn-relocs=android+relr) " \
++  " ;: " \
++  " %:version-compare(>= 30 mandroid-version-min= -z) " \
++  " %:version-compare(>= 30 mandroid-version-min= pack-relative-relocs) " \
++  " } "
 +
- #define ANDROID_LINK_SPEC \
--  "%{shared: -Bsymbolic}"
++/* Use a separate read-only segment on Android 10+ (API level 29). */
++#define ANDROID_ROSEGMENT_SPEC \
++  "%:version-compare(!> 28 mandroid-version-min= --no-rosegment) " \
++  "%:version-compare(>= 29 mandroid-version-min= -z) " \
++  "%:version-compare(>= 29 mandroid-version-min= separate-code) " \
++  "%:version-compare(>= 29 mandroid-version-min= --rosegment) "
++
++#define ANDROID_LINK_SPEC \
 +  "-z noexecstack " \
 +  "-z relro " \
 +  "-z now " \
-+  "-z text " \
-+  "-z separate-code " \
 +  "-z max-page-size=" BIONIC_PAGE_SIZE " " \
 +  "%{!no-eh-frame-hdr: --eh-frame-hdr} " \
++  "--enable-new-dtags " \
++  "--undefined-version " \
 +  ANDROID_PIE_SPEC \
 +  ANDROID_RELR_SPEC \
-+  "%:version-compare(!> 28 mandroid-version-min= --no-rosegment) " \
-+  "%:version-compare(>= 29 mandroid-version-min= --rosegment) " \
-+  "%{%:sanitize(hwaddress): %{!shared: %:version-compare(>= 34 mandroid-version-min= --dynamic-linker=" BIONIC_DYNAMIC_LINKER_HWSAN64 ")}} " \
-+  "--enable-new-dtags " \
-+  "--undefined-version "
-+
++  ANDROID_ROSEGMENT_SPEC
+ 
+-#define ANDROID_CC1PLUS_SPEC						\
+-  "%{!fexceptions:%{!fno-exceptions: -fno-exceptions}} "		\
+-  "%{!frtti:%{!fno-rtti: -fno-rtti}}"
 +#define ANDROID_CC1_SPEC \
 +  "%{!mglibc: %{!muclibc: %{!mbionic: -mbionic}}} "			\
 +  "%{!fno-pic: %{!fno-PIC: %{!fpic: %{!fPIC: -fPIC}}}} "			\
@@ -513,17 +538,6 @@ index f68acecb8..bb72eb549 100644
 +  "%{D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__*: %eenabling support for weak symbols using the '__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__' macro is not supported: use '-mandroid-weak-symbols' instead} " \
 +  "%{mandroid-version-min=*: -D __ANDROID_MIN_SDK_VERSION__=%* -D __ANDROID_API__=__ANDROID_MIN_SDK_VERSION__} " \
 +  "%{mandroid-weak-symbols: -D __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__} "
- 
--#define ANDROID_CC1_SPEC						\
--  "%{!mglibc:%{!muclibc:%{!mbionic: -mbionic}}} "			\
--  "%{!fno-pic:%{!fno-PIC:%{!fpic:%{!fPIC: -fPIC}}}}"
-+#define ANDROID_CC1PLUS_SPEC ""
- 
--#define ANDROID_CC1PLUS_SPEC						\
--  "%{!fexceptions:%{!fno-exceptions: -fno-exceptions}} "		\
--  "%{!frtti:%{!fno-rtti: -fno-rtti}}"
-+#define ANDROID_ASM_SPEC \
-+  "--noexecstack"
  
  #define ANDROID_LIB_SPEC \
    "%{!static: -ldl}"
@@ -554,18 +568,6 @@ index bd8b96e0a..bd5566302 100644
  tno-android-cc
  Driver
  
-diff --git a/gcc/config/linux.h b/gcc/config/linux.h
-index 36f06c172..f6b014e0f 100644
---- a/gcc/config/linux.h
-+++ b/gcc/config/linux.h
-@@ -93,6 +93,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- #define BIONIC_DYNAMIC_LINKER "/system/bin/linker"
- #define BIONIC_DYNAMIC_LINKER32 "/system/bin/linker"
- #define BIONIC_DYNAMIC_LINKER64 "/system/bin/linker64"
-+#define BIONIC_DYNAMIC_LINKER_HWSAN64 "/system/bin/linker_hwasan64"
- #define BIONIC_DYNAMIC_LINKERX32 "/system/bin/linkerx32"
- /* Should be redefined for each target that supports musl.  */
- #define MUSL_DYNAMIC_LINKER "/dev/null"
 diff --git a/gcc/config/mips/gnu-user.h b/gcc/config/mips/gnu-user.h
 index 7cc59b1e6..03a055eb7 100644
 --- a/gcc/config/mips/gnu-user.h
@@ -585,7 +587,7 @@ index 7cc59b1e6..03a055eb7 100644
  /* -march=native handling only makes sense with compiler running on
     a MIPS chip.  */
 diff --git a/gcc/config/riscv/linux.h b/gcc/config/riscv/linux.h
-index 38126eff1..68af888fa 100644
+index 38126eff1..4eee2d0be 100644
 --- a/gcc/config/riscv/linux.h
 +++ b/gcc/config/riscv/linux.h
 @@ -17,9 +17,11 @@ You should have received a copy of the GNU General Public License
@@ -619,27 +621,23 @@ index 38126eff1..68af888fa 100644
  -melf" XLEN_SPEC DEFAULT_ENDIAN_SPEC "riscv" LD_EMUL_SUFFIX " \
  %{mno-relax:--no-relax} \
  -X \
-@@ -61,6 +66,32 @@ along with GCC; see the file COPYING3.  If not see
+@@ -61,6 +66,28 @@ along with GCC; see the file COPYING3.  If not see
  	-dynamic-linker " GNU_USER_DYNAMIC_LINKER "}} \
      %{static:-static} %{static-pie:-static -pie --no-dynamic-linker -z text}}"
  
 +#undef CC1_SPEC
 +#define CC1_SPEC \
 +  LINUX_OR_ANDROID_CC (GNU_USER_TARGET_CC1_SPEC, \
-+		       GNU_USER_TARGET_CC1_SPEC " " ANDROID_CC1_SPEC)
-+
-+#undef CC1PLUS_SPEC
-+#define CC1PLUS_SPEC \
-+  LINUX_OR_ANDROID_CC ("", ANDROID_CC1PLUS_SPEC)
++		       GNU_USER_TARGET_CC1_SPEC ANDROID_CC1_SPEC)
 +
 +#undef LINK_SPEC
 +#define LINK_SPEC LINUX_OR_ANDROID_LD (LINUX_TARGET_LINK_SPEC,				\
-+		       LINUX_TARGET_LINK_SPEC " " ANDROID_LINK_SPEC)
++		       LINUX_TARGET_LINK_SPEC ANDROID_LINK_SPEC)
 +
 +#undef LIB_SPEC
 +#define LIB_SPEC \
 +  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC, \
-+		    GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC " " ANDROID_LIB_SPEC)
++		    GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC ANDROID_LIB_SPEC)
 +
 +#undef STARTFILE_SPEC
 +#define STARTFILE_SPEC \
@@ -652,7 +650,7 @@ index 38126eff1..68af888fa 100644
  #define STARTFILE_PREFIX_SPEC 			\
     "/lib" XLEN_SPEC "/" ABI_SPEC "/ "		\
     "/usr/lib" XLEN_SPEC "/" ABI_SPEC "/ "	\
-@@ -68,3 +99,4 @@ along with GCC; see the file COPYING3.  If not see
+@@ -68,3 +95,4 @@ along with GCC; see the file COPYING3.  If not see
     "/usr/lib/ "
  
  #define RISCV_USE_CUSTOMISED_MULTI_LIB select_by_abi
@@ -702,97 +700,44 @@ index 1af0cfb3e..e6680be4f 100644
  __asm__ (".symver __cpu_model, __cpu_model@GCC_4.8.0");
  #endif
 diff --git a/libstdc++-v3/config/os/bionic/ctype_base.h b/libstdc++-v3/config/os/bionic/ctype_base.h
-index b28d018b6..231c82eec 100644
+index b28d018b6..986b5fcff 100644
 --- a/libstdc++-v3/config/os/bionic/ctype_base.h
 +++ b/libstdc++-v3/config/os/bionic/ctype_base.h
-@@ -28,6 +28,20 @@
+@@ -40,20 +40,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
  
- // Information as gleaned from /usr/include/ctype.h
- 
-+#if !defined(_U)
-+#if !defined(_CTYPE_U)
-+#error Bionic header ctype.h does not define either _U nor _CTYPE_U
-+#endif
-+#define _U _CTYPE_U
-+#define _L _CTYPE_L
-+#define _N _CTYPE_N
-+#define _S _CTYPE_S
-+#define _P _CTYPE_P
-+#define _C _CTYPE_C
-+#define _X _CTYPE_X
-+#define _B _CTYPE_B
-+#endif
+     // NB: Offsets into ctype<char>::_M_table force a particular size
+     // on the mask type. Because of this, we don't use an enum.
+-    typedef char 		mask;
+-    static const mask upper    	= _U;
+-    static const mask lower 	= _L;
+-    static const mask alpha 	= _U | _L;
+-    static const mask digit 	= _N;
+-    static const mask xdigit 	= _X | _N;
+-    static const mask space 	= _S;
+-    static const mask print 	= _P | _U | _L | _N | _B;
+-    static const mask graph 	= _P | _U | _L | _N;
+-    static const mask cntrl 	= _C;
+-    static const mask punct 	= _P;
+-    static const mask alnum 	= _U | _L | _N;
++    typedef char 	mask;
 +
- namespace std _GLIBCXX_VISIBILITY(default)
- {
- _GLIBCXX_BEGIN_NAMESPACE_VERSION
-diff --git a/libstdc++-v3/config/os/bionic/os_defines.h b/libstdc++-v3/config/os/bionic/os_defines.h
-index ddb24fbfd..0f46f09e7 100644
---- a/libstdc++-v3/config/os/bionic/os_defines.h
-+++ b/libstdc++-v3/config/os/bionic/os_defines.h
-@@ -33,4 +33,62 @@
- // System-specific #define, typedefs, corrections, etc, go here.  This
- // file will come before all others.
- 
-+#define _GLIBCXX_USE_C99_STDIO 1
-+#define _GLIBCXX_USE_C99_STDLIB 1
-+#define _GLIBCXX_USE_C99_WCHAR 1
-+#define _GLIBCXX_USE_C99_CHECK 1
-+#define _GLIBCXX_USE_C99_DYNAMIC 0
-+#define _GLIBCXX_USE_C99_LONG_LONG_CHECK 1
-+#define _GLIBCXX_USE_C99_LONG_LONG_DYNAMIC 0
-+#define _GLIBCXX_USE_C99_FLOAT_TRANSCENDENTALS_CHECK 1
-+#define _GLIBCXX_USE_C99_FLOAT_TRANSCENDENTALS_DYNAMIC 0
-+
-+#define _GLIBCXX_HAVE_ACOSF
-+#define _GLIBCXX_HAVE_ACOSL
-+#define _GLIBCXX_HAVE_ASINF
-+#define _GLIBCXX_HAVE_ASINL
-+#define _GLIBCXX_HAVE_ATANF
-+#define _GLIBCXX_HAVE_ATANL
-+#define _GLIBCXX_HAVE_ATAN2F
-+#define _GLIBCXX_HAVE_ATAN2L
-+#define _GLIBCXX_HAVE_CEILF
-+#define _GLIBCXX_HAVE_CEILL
-+#define _GLIBCXX_HAVE_COSF
-+#define _GLIBCXX_HAVE_COSL
-+#define _GLIBCXX_HAVE_COSHF
-+#define _GLIBCXX_HAVE_COSHL
-+#define _GLIBCXX_HAVE_EXPF
-+#define _GLIBCXX_HAVE_EXPL
-+#define _GLIBCXX_HAVE_FABSF
-+#define _GLIBCXX_HAVE_FABSL
-+#define _GLIBCXX_HAVE_FLOORF
-+#define _GLIBCXX_HAVE_FLOORL
-+#define _GLIBCXX_HAVE_FMODF
-+#define _GLIBCXX_HAVE_FMODL
-+#define _GLIBCXX_HAVE_FREXPF
-+#define _GLIBCXX_HAVE_FREXPL
-+#define _GLIBCXX_HAVE_LDEXPF
-+#define _GLIBCXX_HAVE_LDEXPL
-+#define _GLIBCXX_HAVE_LOGF
-+#define _GLIBCXX_HAVE_LOGL
-+#define _GLIBCXX_HAVE_LOG10F
-+#define _GLIBCXX_HAVE_LOG10L
-+#define _GLIBCXX_HAVE_MODFF
-+#define _GLIBCXX_HAVE_MODFL
-+#define _GLIBCXX_HAVE_POWF
-+#define _GLIBCXX_HAVE_POWL
-+#define _GLIBCXX_HAVE_SINF
-+#define _GLIBCXX_HAVE_SINL
-+#define _GLIBCXX_HAVE_SINHF
-+#define _GLIBCXX_HAVE_SINHL
-+#define _GLIBCXX_HAVE_SQRTF
-+#define _GLIBCXX_HAVE_SQRTL
-+#define _GLIBCXX_HAVE_TANF
-+#define _GLIBCXX_HAVE_TANL
-+#define _GLIBCXX_HAVE_TANHF
-+#define _GLIBCXX_HAVE_TANHL
-+#define _GLIBCXX_HAVE_WCSTOF 1
-+#define _GLIBCXX_HAVE_HYPOTL
-+
++    static const mask upper    	= _CTYPE_U;
++    static const mask lower 	= _CTYPE_L;
++    static const mask alpha 	= _CTYPE_U | _CTYPE_L;
++    static const mask digit 	= _CTYPE_N;
++    static const mask xdigit 	= _CTYPE_X | _CTYPE_N;
++    static const mask space 	= _CTYPE_S;
++    static const mask print 	= _CTYPE_P | _CTYPE_U | _CTYPE_L | _CTYPE_N | _CTYPE_B;
++    static const mask graph 	= _CTYPE_P | _CTYPE_U | _CTYPE_L | _CTYPE_N;
++    static const mask cntrl 	= _CTYPE_C;
++    static const mask punct 	= _CTYPE_P;
++    static const mask alnum 	= _CTYPE_U | _CTYPE_L | _CTYPE_N;
+ #if __cplusplus >= 201103L
+-    static const mask blank 	= space;
++    static const mask blank	= space;
  #endif
-+
+   };
+ 
 diff --git a/libstdc++-v3/include/bits/basic_string.h b/libstdc++-v3/include/bits/basic_string.h
 index af4e5d948..057fddfd7 100644
 --- a/libstdc++-v3/include/bits/basic_string.h

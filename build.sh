@@ -70,6 +70,9 @@ declare -r yasm_directory='/tmp/yasm-1.3.0'
 declare -r ninja_tarball='/tmp/ninja.tar.gz'
 declare -r ninja_directory='/tmp/ninja-master'
 
+declare -r patchelf_tarball='/tmp/patchelf.tar.gz'
+declare -r patchelf_directory='/tmp/patchelf-master'
+
 declare -r nz_directory="${workdir}/submodules/nz"
 declare -r nz_prefix='/tmp/nz'
 
@@ -487,6 +490,23 @@ if ! [ -f "${ninja_tarball}" ]; then
 		--file="${ninja_tarball}"
 fi
 
+if ! [ -f "${patchelf_tarball}" ]; then
+	curl \
+		--url 'https://github.com/NixOS/patchelf/archive/master.tar.gz' \
+		--retry '30' \
+		--retry-delay '0' \
+		--retry-all-errors \
+		--retry-max-time '0' \
+		--location \
+		--silent \
+		--output "${patchelf_tarball}"
+	
+	tar \
+		--directory="$(dirname "${patchelf_directory}")" \
+		--extract \
+		--file="${patchelf_tarball}"
+fi
+
 if ! [ -f "${gcc_tarball}" ]; then
 	if [ "${gcc_major}" != '17' ]; then
 		gcc_url="https://github.com/gcc-mirror/gcc/archive/releases/gcc-${gcc_major}.tar.gz"
@@ -724,6 +744,20 @@ if [[ "${host}" != *'-android'* ]]; then
 	cmake --install "${PWD}" --strip
 fi
 
+[ -d "${patchelf_directory}/build" ] || mkdir "${patchelf_directory}/build"
+
+cd "${patchelf_directory}/build"
+rm --force --recursive ./*
+
+cmake \
+	-S "${patchelf_directory}" \
+	-B "${PWD}" \
+	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
+	-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
+
+cmake --build "${PWD}"
+cmake --install "${PWD}" --strip
+
 [ -d "${gold_directory}/build" ] || mkdir "${gold_directory}/build"
 
 cd "${gold_directory}/build"
@@ -923,6 +957,10 @@ for triplet in "${targets[@]}"; do
 		extra_configure_flags+=' --with-arch=mips32r2 --with-abi=32 --with-float=hard --with-llsc --without-synci --with-nan=legacy'
 	elif [ "${triplet}" = 'mips64el-unknown-linux-android' ]; then
 		extra_configure_flags+=' --with-arch=mips64r6 --with-abi=64 --with-float=hard --with-llsc --with-synci --with-nan=2008'
+	fi
+	
+	if (( base_version >= 21 )); then
+		extra_configure_flags+=' --enable-default-pie'
 	fi
 	
 	[ -d "${binutils_directory}/build" ] || mkdir "${binutils_directory}/build"

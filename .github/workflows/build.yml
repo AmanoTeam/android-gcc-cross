@@ -74,6 +74,7 @@ jobs:
           /tmp/x86_64-linux-gnu.tar.xz.sha256
     - name: Upload artifact
       uses: actions/upload-artifact@main
+      if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       with:
         name: 'bootstrap'
         if-no-files-found: error

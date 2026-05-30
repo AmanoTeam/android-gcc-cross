@@ -180,11 +180,6 @@ if [[ "${secondary_abi}" = *'64' ]]; then
 	multilib="${multilib/32/64}"
 fi
 
-echo "* ABI: ${abi}"
-echo "* Primary target: ${triplet}"
-echo "* Secondary target: ${secondary_triplet}"
-echo "* System version: ${api_level}"
-
 declare url="https://github.com/AmanoTeam/android-gcc-cross/releases/download/gcc-16/${triplet}.tar.xz"
 
 echo "- Fetching archive from '${url}' to '${pino_tarball}'"
@@ -275,7 +270,7 @@ for rc_file in "${rc_files[@]}"; do
 done
 
 if ! command -v patchelf >/dev/null 2>&1; then
-	echo "- Installing patchelf"
+	echo "- Installing patchelf (required for next step)"
 	apt install -qqq --update --yes patchelf
 fi
 
