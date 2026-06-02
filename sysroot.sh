@@ -150,7 +150,19 @@ if ! [ -f "${ndk_archive}" ]; then
 			--expression 's/ __attribute__((__nomerge__))//g' \
 			--expression '/#pragma clang/d' \
 			"${file}"
-	done <<< $(find "${include_dir}" -type 'f')
+	done <<< "$(find "${include_dir}" -type 'f')"
+	
+	python -B "${workdir}/tools/add_nonnull_attrs.py" "${include_dir}"
+	
+	while read file; do
+		sed \
+			--in-place \
+			--expression 's/ _Nonnull / /g; s/ _Nonnull,/,/g; s/_Nonnull)/)/g; s/\[_Nonnull /\[/g; s/ _Nonnull\*/\*/g; s/ \*_Nonnull/\*/g; s/\[_Nonnull\]/\[\]/g; s/\*_Nonnull /\*/g; s/\* _Nonnull/\*/g' \
+			--expression 's/ _Nullable / /g; s/ _Nullable,/,/g; s/_Nullable)/)/g; s/\[_Nullable /\[/g; s/ _Nullable\*/\*/g; s/ \*_Nullable/\*/g; s/\[_Nullable\]/\[\]/g; s/\*_Nullable /\*/g; s/\* _Nullable/\*/g' \
+			--expression 's/ _Null_unspecified / /g; s/ _Null_unspecified,/,/g; s/_Null_unspecified)/)/g; s/\[_Null_unspecified /\[/g; s/ _Null_unspecified\*/\*/g; s/ \*_Null_unspecified/\*/g; s/\[_Null_unspecified\]/\[\]/g; s/\*_Null_unspecified /\*/g; s/\* _Null_unspecified/\*/g' \
+			--expression 's/ __BIONIC_COMPLICATED_NULLNESS / /g; s/ __BIONIC_COMPLICATED_NULLNESS,/,/g; s/__BIONIC_COMPLICATED_NULLNESS)/)/g; s/\[__BIONIC_COMPLICATED_NULLNESS /\[/g; s/ __BIONIC_COMPLICATED_NULLNESS\*/\*/g; s/ \*__BIONIC_COMPLICATED_NULLNESS/\*/g; s/\[__BIONIC_COMPLICATED_NULLNESS\]/\[\]/g; s/\*__BIONIC_COMPLICATED_NULLNESS /\*/g; s/\* __BIONIC_COMPLICATED_NULLNESS/\*/g' \
+			"${file}"
+	done <<< "$(find "${include_dir}" -type f)"
 	
 	mv './cdefs.h' "${include_dir}/sys/cdefs.h"
 	
