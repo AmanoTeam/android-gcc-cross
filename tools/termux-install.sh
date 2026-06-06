@@ -17,6 +17,8 @@ declare bindir="${PREFIX}/bin/gcc-toolchain"
 declare pino_tarball="${TMPDIR}/gcc-toolchain.tar.xz"
 declare pino_directory='/data/data/com.termux/files/usr/lib/android-gcc-cross'
 
+declare patchelf='patchelf'
+
 declare wrapper="$(
 cat << text
 #!/data/data/com.termux/files/usr/bin/bash
@@ -269,20 +271,19 @@ for rc_file in "${rc_files[@]}"; do
 	fi
 done
 
-if ! command -v patchelf >/dev/null 2>&1; then
-	echo "- Installing patchelf (required for next step)"
-	apt install -qqq --update --yes patchelf
+if ! command -v "${patchelf}" >/dev/null 2>&1; then
+	patchelf="${pino_directory}/bin/patchelf"
 fi
 
 echo "- Adding custom DT_RUNPATH to GCC runtime libraries"
 
 for library in "${pino_directory}/${triplet}${api_level}/lib/gcc/lib"*'.so'; do
-	patchelf --set-rpath "${pino_directory}/${triplet}${api_level}/lib/gcc" "${library}" 2>/dev/null || true
+	"${patchelf}" --set-rpath "${pino_directory}/${triplet}${api_level}/lib/gcc" "${library}" 2>/dev/null || true
 done
 
 if [ -n "${secondary_triplet}" ]; then
 	for library in "${pino_directory}/${secondary_triplet}${api_level}/lib/gcc/lib"*'.so'; do
-		patchelf --set-rpath "${pino_directory}/${secondary_triplet}${api_level}/lib/gcc" "${library}" 2>/dev/null || true
+		"${patchelf}" --set-rpath "${pino_directory}/${secondary_triplet}${api_level}/lib/gcc" "${library}" 2>/dev/null || true
 	done
 fi
 
