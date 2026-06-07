@@ -12,6 +12,12 @@ else
 	declare -r native='0'
 fi
 
+if [ -z "${PINO_BUILD_DIRECTORY}" ]; then
+	declare -r build_directory='/var/tmp/android-gcc-cross-build'
+else
+	declare -r build_directory="${PINO_BUILD_DIRECTORY}"
+fi
+
 if [ -z "${PINO_BUILD_PARALLEL_LEVEL}" ]; then
 	declare -r max_jobs="$(nproc)"
 else
@@ -26,55 +32,55 @@ fi
 
 set -eu
 
-declare -r toolchain_directory='/tmp/android-gcc-cross'
+declare -r toolchain_directory="${build_directory}/android-gcc-cross"
 declare -r share_directory="${toolchain_directory}/usr/local/share/android-gcc-cross"
 
 declare -r environment="LD_LIBRARY_PATH=${toolchain_directory}/lib PATH=${PATH}:${toolchain_directory}/bin"
 
 declare -r revision="$(git rev-parse --short HEAD)"
 
-declare -r gmp_tarball='/tmp/gmp.tar.xz'
-declare -r gmp_directory='/tmp/gmp'
+declare -r gmp_tarball="${build_directory}/gmp.tar.xz"
+declare -r gmp_directory="${build_directory}/gmp"
 
-declare -r mpfr_tarball='/tmp/mpfr.tar.gz'
-declare -r mpfr_directory='/tmp/mpfr-master'
+declare -r mpfr_tarball="${build_directory}/mpfr.tar.gz"
+declare -r mpfr_directory="${build_directory}/mpfr-master"
 
-declare -r mpc_tarball='/tmp/mpc.tar.gz'
-declare -r mpc_directory='/tmp/mpc-master'
+declare -r mpc_tarball="${build_directory}/mpc.tar.gz"
+declare -r mpc_directory="${build_directory}/mpc-master"
 
-declare -r isl_tarball='/tmp/isl.tar.gz'
-declare -r isl_directory='/tmp/isl-master'
+declare -r isl_tarball="${build_directory}/isl.tar.gz"
+declare -r isl_directory="${build_directory}/isl-master"
 
-declare -r binutils_tarball='/tmp/binutils.tar.xz'
-declare -r binutils_directory='/tmp/binutils'
+declare -r binutils_tarball="${build_directory}/binutils.tar.xz"
+declare -r binutils_directory="${build_directory}/binutils"
 
-declare -r gold_tarball='/tmp/gold.tar.xz'
-declare -r gold_directory='/tmp/gold'
+declare -r gold_tarball="${build_directory}/gold.tar.xz"
+declare -r gold_directory="${build_directory}/gold"
 
 declare gcc_url='https://github.com/gcc-mirror/gcc/archive/master.tar.gz'
-declare -r gcc_tarball='/tmp/gcc.tar.xz'
-declare gcc_directory='/tmp/gcc-master'
+declare -r gcc_tarball="${build_directory}/gcc.tar.xz"
+declare gcc_directory="${build_directory}/gcc-master"
 
-declare -r libsanitizer_tarball='/tmp/libsanitizer.tar.xz'
-declare -r libsanitizer_directory='/tmp/libsanitizer'
+declare -r libsanitizer_tarball="${build_directory}/libsanitizer.tar.xz"
+declare -r libsanitizer_directory="${build_directory}/libsanitizer"
 
-declare -r zlib_tarball='/tmp/zlib.tar.gz'
-declare -r zlib_directory='/tmp/zlib-develop'
+declare -r zlib_tarball="${build_directory}/zlib.tar.gz"
+declare -r zlib_directory="${build_directory}/zlib-develop"
 
-declare -r zstd_tarball='/tmp/zstd.tar.gz'
-declare -r zstd_directory='/tmp/zstd-dev'
+declare -r zstd_tarball="${build_directory}/zstd.tar.gz"
+declare -r zstd_directory="${build_directory}/zstd-dev"
 
-declare -r yasm_tarball='/tmp/yasm.tar.gz'
-declare -r yasm_directory='/tmp/yasm-1.3.0'
+declare -r yasm_tarball="${build_directory}/yasm.tar.gz"
+declare -r yasm_directory="${build_directory}/yasm-1.3.0"
 
-declare -r ninja_tarball='/tmp/ninja.tar.gz'
-declare -r ninja_directory='/tmp/ninja-master'
+declare -r ninja_tarball="${build_directory}/ninja.tar.gz"
+declare -r ninja_directory="${build_directory}/ninja-master"
 
-declare -r patchelf_tarball='/tmp/patchelf.tar.gz'
-declare -r patchelf_directory='/tmp/patchelf-master'
+declare -r patchelf_tarball="${build_directory}/patchelf.tar.gz"
+declare -r patchelf_directory="${build_directory}/patchelf-master"
 
 declare -r nz_directory="${workdir}/submodules/nz"
-declare -r nz_prefix='/tmp/nz'
+declare -r nz_prefix="${build_directory}/nz"
 
 declare -r pieflags='-fPIE'
 declare -r ccflags='-w -O2'
@@ -86,14 +92,14 @@ declare exe=''
 declare dll='.so'
 
 declare -ra targets=(
+	'mipsel-unknown-linux-android'
+	'mips64el-unknown-linux-android'
+	'armv5-unknown-linux-androideabi'
 	'armv7-unknown-linux-androideabi'
 	'x86_64-unknown-linux-android'
 	'aarch64-unknown-linux-android'
 	'i686-unknown-linux-android'
 	'riscv64-unknown-linux-android'
-	# 'armv5-unknown-linux-androideabi'
-	# 'mipsel-unknown-linux-android'
-	# 'mips64el-unknown-linux-android'
 )
 
 declare -ra ktargets=(
@@ -132,11 +138,11 @@ if [[ "${host}" = *'-mingw32' ]]; then
 	dll='.dll'
 fi
 
-declare -r bionic_headers='/tmp/include'
+declare -r bionic_headers="${build_directory}/include"
 
-declare -r gcc_wrapper="/tmp/gcc-wrapper${exe}"
-declare -r binutils_llvm_wrapper="/tmp/binutils-llvm-wrapper${exe}"
-declare -r binutils_gnu_wrapper="/tmp/binutils-gnu-wrapper${exe}"
+declare -r gcc_wrapper="${build_directory}/gcc-wrapper${exe}"
+declare -r binutils_llvm_wrapper="${build_directory}/binutils-llvm-wrapper${exe}"
+declare -r binutils_gnu_wrapper="${build_directory}/binutils-gnu-wrapper${exe}"
 
 declare -ra symlink_tools=(
 	'addr2line'
@@ -238,6 +244,7 @@ if ! [ -f "${gmp_tarball}" ]; then
 		--retry-delay '0' \
 		--retry-all-errors \
 		--retry-max-time '0' \
+		--show-error \
 		--location \
 		--silent \
 		--output "${gmp_tarball}"
@@ -510,7 +517,7 @@ fi
 if ! [ -f "${gcc_tarball}" ]; then
 	if [ "${gcc_major}" != '17' ]; then
 		gcc_url="https://github.com/gcc-mirror/gcc/archive/releases/gcc-${gcc_major}.tar.gz"
-		gcc_directory="/tmp/gcc-releases-gcc-${gcc_major}"
+		gcc_directory="${build_directory}/gcc-releases-gcc-${gcc_major}"
 	fi
 	
 	curl \
@@ -717,6 +724,7 @@ cmake \
 	-B "${PWD}" \
 	-DCMAKE_C_FLAGS="-DZDICT_QSORT=ZDICT_QSORT_MIN ${ccflags}" \
 	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
+	-DCMAKE_BUILD_TYPE='Release' \
 	-DBUILD_SHARED_LIBS=ON \
 	-DZSTD_BUILD_PROGRAMS=OFF \
 	-DZSTD_BUILD_TESTS=OFF \
@@ -837,9 +845,9 @@ make \
 	all
 
 # We prefer symbolic links over hard links.
-cp "${workdir}/submodules/obggcc/tools/ln.sh" '/tmp/ln'
+cp "${workdir}/submodules/obggcc/tools/ln.sh" "${build_directory}/ln"
 
-export PATH="/tmp:${PATH}"
+export PATH="${build_directory}:${PATH}"
 
 if [[ "${host}" = 'arm'*'-android'* ]] || [[ "${host}" = 'i686-'*'-android'* ]] || [[ "${host}" = 'mipsel-'*'-android'* ]]; then
 	export \
@@ -863,9 +871,8 @@ if ! (( native )); then
 	readelf="${READELF}"
 fi
 
-
 declare url='https://github.com/AmanoTeam/android-gcc-cross/releases/download/sysroot/lib.tar.xz'
-declare tarball='/tmp/sysroot.tar.xz'
+declare tarball="${build_directory}/sysroot.tar.xz"
 
 echo "Fetching system root from '${url}'"
 	
@@ -1183,12 +1190,12 @@ for triplet in "${targets[@]}"; do
 	tar \
 		--directory="$(dirname "${libsanitizer_directory}")" \
 		--extract \
-		--file="${libsanitizer_tarball}"
+		--file="${libsanitizer_tarball}" || true
 	
-	cp --recursive "${libsanitizer_directory}/lib/gcc" "${toolchain_directory}/lib"
-	cp --recursive "${libsanitizer_directory}/lib/lib"* "${toolchain_directory}/${triplet}/lib"
+	cp --recursive "${libsanitizer_directory}/lib/gcc" "${toolchain_directory}/lib" || true
+	cp --recursive "${libsanitizer_directory}/lib/lib"* "${toolchain_directory}/${triplet}/lib" || true
 	
-	rm --recursive "${libsanitizer_directory}"
+	rm --force --recursive "${libsanitizer_directory}"
 	
 	for version in "${versions[@]}"; do
 		declare sysroot_directory="${toolchain_directory}/${triplet}${version}"
@@ -1198,7 +1205,7 @@ for triplet in "${targets[@]}"; do
 		cd "${sysroot_directory}/lib"
 		mkdir "${sysroot_directory}/lib/"{gcc,static}
 		
-		rm "${toolchain_directory}/${triplet}${version}/lib/"lib{c,dl,m,z}.a
+		rm --force "${toolchain_directory}/${triplet}${version}/lib/"lib{c,dl,m,z}.a
 		
 		echo 'INPUT(libc.so)' > "${toolchain_directory}/${triplet}${version}/lib/libpthread.so"
 		echo 'INPUT(libc.a)' > "${toolchain_directory}/${triplet}${version}/lib/libpthread.a"

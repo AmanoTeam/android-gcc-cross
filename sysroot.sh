@@ -11,11 +11,11 @@ declare -ra targets=(
 	'aarch64-unknown-linux-android'
 	'riscv64-unknown-linux-android'
 	'armv7-unknown-linux-androideabi'
-	# 'armv5-unknown-linux-androideabi'
+	'armv5-unknown-linux-androideabi'
 	'x86_64-unknown-linux-android'
 	'i686-unknown-linux-android'
-	# 'mipsel-unknown-linux-android'
-	# 'mips64el-unknown-linux-android'
+	'mipsel-unknown-linux-android'
+	'mips64el-unknown-linux-android'
 )
 
 declare -r versions=(
@@ -96,7 +96,7 @@ function remove_symbols() {
 	
 	"${1}-objcopy" \
 		--strip-symbol '__stack_chk_fail_local' \
-		"${2}" 
+		"${2}" || true
 	
 }
 
@@ -244,6 +244,16 @@ if ! [ -f "${debian_sysroot_tarball}" ]; then
 		--directory="${include_dir}/mips64el-linux-android" \
 		--strip='1' \
 		--input="${workdir}/patches/0001-Rename-SIOCGSTAMP-and-SIOCGSTAMPNS.patch"
+		
+		patch \
+		--directory="${include_dir}/mipsel-linux-android" \
+		--strip='1' \
+		--input="${workdir}/patches/0001-Avoid-declaring-struct-flock.patch"
+	
+	patch \
+		--directory="${include_dir}/mips64el-linux-android" \
+		--strip='1' \
+		--input="${workdir}/patches/0001-Avoid-declaring-struct-flock.patch"
 fi
 
 rm --recursive --force "${include_dir}/c++"
@@ -255,6 +265,12 @@ done
 mv \
 	"${include_dir}/arm-unknown-linux-androideabi" \
 	"${include_dir}/armv7-unknown-linux-androideabi"
+
+ln \
+	--symbolic \
+	--relative \
+	"${include_dir}/armv7-unknown-linux-androideabi" \
+	"${include_dir}/armv5-unknown-linux-androideabi"
 
 declare tarball_filename='/tmp/include.tar.xz'
 
@@ -317,8 +333,8 @@ for target in "${targets[@]}"; do
 				"${library_directory2}/"* \
 				"${sysroot_directory}/lib" 2>/dev/null || true
 			
-			cp "${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${triplet}/"lib{c,dl,m,z}.a "${sysroot_directory}/lib"
-			cp "${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${triplet}/"*'.o' "${sysroot_directory}/lib"
+			cp "${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${triplet}/"lib{c,dl,m,z}.a "${sysroot_directory}/lib" || true
+			cp "${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${triplet}/"*'.o' "${sysroot_directory}/lib" || true
 		else
 			cp \
 				"${library_directory}/"* \

@@ -1,0 +1,25 @@
+From 6a839fd41b3dec8af0ab033eb6e581c5bc27db3d Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Sun, 7 Jun 2026 20:13:34 -0300
+Subject: [PATCH] Avoid declaring struct flock
+
+---
+ asm/fcntl.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/asm/fcntl.h b/asm/fcntl.h
+index b90f320..ca61417 100644
+--- a/asm/fcntl.h
++++ b/asm/fcntl.h
+@@ -57,7 +57,7 @@
+  * contain all the same fields as struct flock.
+  */
+ 
+-#if _MIPS_SIM != _MIPS_SIM_ABI64
++#if 0 /* _MIPS_SIM != _MIPS_SIM_ABI64 */
+ 
+ #include <linux/types.h>
+ 
+-- 
+2.54.0
+

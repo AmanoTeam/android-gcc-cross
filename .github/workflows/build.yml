@@ -13,6 +13,7 @@ on:
 permissions: write-all
 
 env: 
+    PINO_BUILD_DIRECTORY: /tmp
     PINO_BUILD_PARALLEL_LEVEL: 20
     PINO_RELEASE: 16
 
@@ -31,7 +32,7 @@ jobs:
       id: check-cache
       uses: actions/cache@main
       with:
-        key: 'cache-${{ env.PINO_RELEASE }}.1'
+        key: 'cache-${{ env.PINO_RELEASE }}'
         lookup-only: true
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
@@ -68,7 +69,7 @@ jobs:
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       uses: actions/cache@main
       with:
-        key: 'cache-${{ env.PINO_RELEASE }}.1'
+        key: 'cache-${{ env.PINO_RELEASE }}'
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
           /tmp/x86_64-linux-gnu.tar.xz.sha256
@@ -129,6 +130,8 @@ jobs:
           'aarch64-unknown-linux-android',
           'riscv64-unknown-linux-android',
           'armv7-unknown-linux-androideabi21',
+          'mips64el-unknown-linux-android',
+          'mipsel-unknown-linux-android21'
         ]
     steps:
     - uses: actions/checkout@main
@@ -144,7 +147,7 @@ jobs:
     - name: Restore from cache
       uses: actions/cache@main
       with:
-        key: 'cache-${{ env.PINO_RELEASE }}.1'
+        key: 'cache-${{ env.PINO_RELEASE }}'
         fail-on-cache-miss: true
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
@@ -170,7 +173,7 @@ jobs:
             
             source "${RAIDEN_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-linux-gnu'* ]]; then
-            declare -r OBGGCC_TAG='gcc-15'
+            declare -r OBGGCC_TAG='gcc-16'
             declare -r OBGGCC_TARBALL='/tmp/toolchain.tar.xz'
             declare -r OBGGCC_URL="https://github.com/AmanoTeam/obggcc/releases/download/${OBGGCC_TAG}/x86_64-unknown-linux-gnu.tar.xz"
             

@@ -1,10 +1,10 @@
-From 4cf0111b65b344f2c9ac0c764a284da1ff0bff95 Mon Sep 17 00:00:00 2001
+From 4ee803f0483287b1c34578906d4d5642c16e207b Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Fri, 22 May 2026 21:53:17 +0200
 Subject: [PATCH] Add support for the Android operating system
 
 ---
- gcc/config.gcc                                |  22 ++-
+ gcc/config.gcc                                |  27 +++-
  gcc/config/aarch64/aarch64-linux.h            |  35 ++++-
  gcc/config/android-driver.cc                  | 137 ++++++++++++++++++
  gcc/config/android.cc                         |  29 ++++
@@ -15,7 +15,8 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/config/i386/pmm_malloc.h                  |   2 +-
  gcc/config/linux-android.h                    |  88 +++++++++--
  gcc/config/linux-android.opt                  |   8 +
- gcc/config/mips/gnu-user.h                    |   6 -
+ gcc/config/mips/android-elf.h                 |  25 ++++
+ gcc/config/mips/linux-common.h                |   4 -
  gcc/config/riscv/linux.h                      |  30 +++-
  gcc/config/t-android                          |  25 ++++
  libgcc/config/i386/cpuinfo.c                  |   2 +-
@@ -28,14 +29,15 @@ Subject: [PATCH] Add support for the Android operating system
  libstdc++-v3/include/c_global/cwchar          |   6 +-
  libstdc++-v3/include/c_global/cwctype         |   4 +-
  libstdc++-v3/include/c_std/cwchar             |   2 +-
- 24 files changed, 435 insertions(+), 50 deletions(-)
+ 25 files changed, 465 insertions(+), 48 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/arm/android-elf.h
+ create mode 100644 gcc/config/mips/android-elf.h
  create mode 100644 gcc/config/t-android
 
 diff --git a/gcc/config.gcc b/gcc/config.gcc
-index 8fe99616f..ecf19df9e 100644
+index 8fe99616f..4a6f8913f 100644
 --- a/gcc/config.gcc
 +++ b/gcc/config.gcc
 @@ -965,7 +965,15 @@ case ${target} in
@@ -92,6 +94,18 @@ index 8fe99616f..ecf19df9e 100644
  	case "x${enable_multilib}" in
  	xno) ;;
  	xyes) tmake_file="${tmake_file} riscv/t-linux-multilib" ;;
+@@ -2767,6 +2783,11 @@ mips*-*-linux*)				# Linux MIPS, either endian.
+ 	if test x$enable_mips_multilibs = xyes; then
+ 		tmake_file="${tmake_file} mips/t-linux64"
+ 	fi
++	case ${target} in
++	*-android)
++	    tm_file="${tm_file} mips/android-elf.h"
++	    ;;
++	esac
+ 	;;
+ mips*-mti-elf*)
+ 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h mips/mti-elf.h"
 diff --git a/gcc/config/aarch64/aarch64-linux.h b/gcc/config/aarch64/aarch64-linux.h
 index 8f1ecc4e2..7f1e1736b 100644
 --- a/gcc/config/aarch64/aarch64-linux.h
@@ -568,24 +582,52 @@ index bd8b96e0a..bd5566302 100644
  tno-android-cc
  Driver
  
-diff --git a/gcc/config/mips/gnu-user.h b/gcc/config/mips/gnu-user.h
-index 7cc59b1e6..03a055eb7 100644
---- a/gcc/config/mips/gnu-user.h
-+++ b/gcc/config/mips/gnu-user.h
-@@ -97,13 +97,7 @@ along with GCC; see the file COPYING3.  If not see
- #undef LIB_SPEC
- #define LIB_SPEC GNU_USER_TARGET_LIB_SPEC
+diff --git a/gcc/config/mips/android-elf.h b/gcc/config/mips/android-elf.h
+new file mode 100644
+index 000000000..9e5f9aab6
+--- /dev/null
++++ b/gcc/config/mips/android-elf.h
+@@ -0,0 +1,25 @@
++/* Configuration file for Android MIPS targets.
++   Copyright (C) 2026 Free Software Foundation, Inc.
++
++   This file is part of GCC.
++
++   GCC is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published
++   by the Free Software Foundation; either version 3, or (at your
++   option) any later version.
++
++   GCC is distributed in the hope that it will be useful, but WITHOUT
++   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
++   License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with GCC; see the file COPYING3.  If not see
++   <http://www.gnu.org/licenses/>.  */
++
++#if !defined(USED_FOR_TARGET)
++/* Android already hardcodes -fPIC, but the -mno-shared spec overrides it. */
++#undef NO_SHARED_SPECS
++#define NO_SHARED_SPECS ""
++#endif
++
+diff --git a/gcc/config/mips/linux-common.h b/gcc/config/mips/linux-common.h
+index 81aa8c7f0..a8e6f0c91 100644
+--- a/gcc/config/mips/linux-common.h
++++ b/gcc/config/mips/linux-common.h
+@@ -37,10 +37,6 @@ along with GCC; see the file COPYING3.  If not see
+   LINUX_OR_ANDROID_CC (GNU_USER_TARGET_CC1_SPEC,			\
+ 		       GNU_USER_TARGET_CC1_SPEC " " ANDROID_CC1_SPEC)
  
--#ifdef HAVE_AS_NO_SHARED
--/* Default to -mno-shared for non-PIC.  */
--# define NO_SHARED_SPECS \
--  " %{mshared|mno-shared:;:%{" NO_FPIE_AND_FPIC_SPEC ":-mno-shared}}"
--#else
- # define NO_SHARED_SPECS ""
--#endif
- 
- /* -march=native handling only makes sense with compiler running on
-    a MIPS chip.  */
+-#undef  CC1PLUS_SPEC
+-#define CC1PLUS_SPEC							\
+-  LINUX_OR_ANDROID_CC ("", ANDROID_CC1PLUS_SPEC)
+-
+ #undef  LIB_SPEC
+ #define LIB_SPEC							\
+   LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC,			\
 diff --git a/gcc/config/riscv/linux.h b/gcc/config/riscv/linux.h
 index 38126eff1..4eee2d0be 100644
 --- a/gcc/config/riscv/linux.h
