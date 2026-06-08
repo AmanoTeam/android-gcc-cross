@@ -279,19 +279,27 @@ for directory in "${directories[@]}"; do
 			
 			declare subdirectory=''
 			
-			if [ "${original_triplet}" = 'aarch64-linux-android' ]; then
-				subdirectory="${toolchains_directory}/${original_triplet}-4.9"
-			elif [ "${original_triplet}" = 'arm-linux-androideabi' ]; then
-				subdirectory="${toolchains_directory}/${original_triplet}-4.9"
-			elif [ "${original_triplet}" = 'x86_64-linux-android' ]; then
+			if [ "${original_triplet}" = 'x86_64-linux-android' ]; then
 				subdirectory="${toolchains_directory}/x86_64-4.9"
 			elif [ "${original_triplet}" = 'i686-linux-android' ]; then
 				subdirectory="${toolchains_directory}/x86-4.9"
+			else
+				subdirectory="${toolchains_directory}/${original_triplet}-4.9"
 			fi
 			
 			if [ -d "${subdirectory}" ]; then
 				subdirectory+="/prebuilt/${slug}/bin"
 				destination="${subdirectory}/${original_triplet}-${name}"
+				
+				if [[ "$(readlink "${destination}")" != "${source}" ]]; then
+					echo "symlinking ${source} to ${destination}"
+					symlink "${source}" "${destination}"
+				fi
+				
+				subdirectory="${subdirectory/\/bin/}"
+				subdirectory+="/${original_triplet}/bin"
+				
+				destination="${subdirectory}/${name}"
 				
 				if [[ "$(readlink "${destination}")" != "${source}" ]]; then
 					echo "symlinking ${source} to ${destination}"
