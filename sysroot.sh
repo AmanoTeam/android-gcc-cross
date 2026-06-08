@@ -154,6 +154,14 @@ if ! [ -f "${ndk_archive}" ]; then
 	
 	python -B "${workdir}/tools/add_nonnull_attrs.py" "${include_dir}"
 	
+	python \
+		-B \
+		"${workdir}/tools/add_throw_attrs.py" \
+		"${include_dir}" \
+		"${workdir}/tools/thrown/__throw.json" \
+		"${workdir}/tools/thrown/__thrownl.json" \
+		"${workdir}/tools/thrown/none.json"
+	
 	while read file; do
 		sed \
 			--in-place \

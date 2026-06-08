@@ -1,35 +1,26 @@
-From 4ee803f0483287b1c34578906d4d5642c16e207b Mon Sep 17 00:00:00 2001
+From ee11817c9f82a43c1bcc6560a3423658dd0cd3f7 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
-Date: Fri, 22 May 2026 21:53:17 +0200
+Date: Sun, 7 Jun 2026 23:45:02 -0300
 Subject: [PATCH] Add support for the Android operating system
 
 ---
- gcc/config.gcc                                |  27 +++-
- gcc/config/aarch64/aarch64-linux.h            |  35 ++++-
- gcc/config/android-driver.cc                  | 137 ++++++++++++++++++
- gcc/config/android.cc                         |  29 ++++
- gcc/config/arm/android-elf.h                  |  29 ++++
- gcc/config/arm/linux-eabi.h                   |   3 -
- gcc/config/i386/gnu-user64.h                  |   2 +
- gcc/config/i386/i386.cc                       |   6 +
- gcc/config/i386/pmm_malloc.h                  |   2 +-
- gcc/config/linux-android.h                    |  88 +++++++++--
- gcc/config/linux-android.opt                  |   8 +
- gcc/config/mips/android-elf.h                 |  25 ++++
- gcc/config/mips/linux-common.h                |   4 -
- gcc/config/riscv/linux.h                      |  30 +++-
- gcc/config/t-android                          |  25 ++++
- libgcc/config/i386/cpuinfo.c                  |   2 +-
- libstdc++-v3/config/os/bionic/ctype_base.h    |  27 ++--
- libstdc++-v3/include/bits/basic_string.h      |   4 +
- libstdc++-v3/include/c_compatibility/stdlib.h |   6 +
- libstdc++-v3/include/c_global/clocale         |   2 +
- libstdc++-v3/include/c_global/cstdio          |   4 +-
- libstdc++-v3/include/c_global/cstdlib         |   6 +
- libstdc++-v3/include/c_global/cwchar          |   6 +-
- libstdc++-v3/include/c_global/cwctype         |   4 +-
- libstdc++-v3/include/c_std/cwchar             |   2 +-
- 25 files changed, 465 insertions(+), 48 deletions(-)
+ gcc/config.gcc                             |  27 +++-
+ gcc/config/aarch64/aarch64-linux.h         |  35 +++++-
+ gcc/config/android-driver.cc               | 137 +++++++++++++++++++++
+ gcc/config/android.cc                      |  29 +++++
+ gcc/config/arm/android-elf.h               |  29 +++++
+ gcc/config/arm/linux-eabi.h                |   3 -
+ gcc/config/i386/gnu-user64.h               |   2 +
+ gcc/config/i386/i386.cc                    |   6 +
+ gcc/config/linux-android.h                 |  88 +++++++++++--
+ gcc/config/linux-android.opt               |   8 ++
+ gcc/config/mips/android-elf.h              |  25 ++++
+ gcc/config/mips/linux-common.h             |   4 -
+ gcc/config/riscv/linux.h                   |  30 ++++-
+ gcc/config/t-android                       |  25 ++++
+ libgcc/config/i386/cpuinfo.c               |   2 +-
+ libstdc++-v3/config/os/bionic/ctype_base.h |  27 ++--
+ 17 files changed, 436 insertions(+), 43 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/arm/android-elf.h
@@ -434,19 +425,6 @@ index 660a921e2..b93cfd223 100644
    return TARGET_64BIT
  	 ? default_external_stack_protect_fail ()
  	 : default_hidden_stack_protect_fail ();
-diff --git a/gcc/config/i386/pmm_malloc.h b/gcc/config/i386/pmm_malloc.h
-index abc479c83..ea6186094 100644
---- a/gcc/config/i386/pmm_malloc.h
-+++ b/gcc/config/i386/pmm_malloc.h
-@@ -31,7 +31,7 @@
- #ifndef __cplusplus
- extern int posix_memalign (void **, size_t, size_t);
- #else
--extern "C" int posix_memalign (void **, size_t, size_t) throw ();
-+extern "C" int posix_memalign (void **, size_t, size_t);
- #endif
- 
- static __inline void *
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
 index f68acecb8..46ed9f07b 100644
 --- a/gcc/config/linux-android.h
@@ -780,194 +758,6 @@ index b28d018b6..986b5fcff 100644
  #endif
    };
  
-diff --git a/libstdc++-v3/include/bits/basic_string.h b/libstdc++-v3/include/bits/basic_string.h
-index af4e5d948..057fddfd7 100644
---- a/libstdc++-v3/include/bits/basic_string.h
-+++ b/libstdc++-v3/include/bits/basic_string.h
-@@ -4781,10 +4781,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
-   { return __gnu_cxx::__stoa<long, int>(&std::wcstol, "stoi", __str.c_str(),
- 					__idx, __base); }
- 
-+#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   inline long
-   stol(const wstring& __str, size_t* __idx = 0, int __base = 10)
-   { return __gnu_cxx::__stoa(&std::wcstol, "stol", __str.c_str(),
- 			     __idx, __base); }
-+#endif
- 
-   inline unsigned long
-   stoul(const wstring& __str, size_t* __idx = 0, int __base = 10)
-@@ -4801,10 +4803,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
-   { return __gnu_cxx::__stoa(&std::wcstoull, "stoull", __str.c_str(),
- 			     __idx, __base); }
- 
-+#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   // NB: wcstof vs wcstod.
-   inline float
-   stof(const wstring& __str, size_t* __idx = 0)
-   { return __gnu_cxx::__stoa(&std::wcstof, "stof", __str.c_str(), __idx); }
-+#endif
- 
-   inline double
-   stod(const wstring& __str, size_t* __idx = 0)
-diff --git a/libstdc++-v3/include/c_compatibility/stdlib.h b/libstdc++-v3/include/c_compatibility/stdlib.h
-index b094f2c22..7a0acc6fc 100644
---- a/libstdc++-v3/include/c_compatibility/stdlib.h
-+++ b/libstdc++-v3/include/c_compatibility/stdlib.h
-@@ -67,9 +67,13 @@ using std::labs;
- using std::ldiv;
- using std::malloc;
- #ifdef _GLIBCXX_HAVE_MBSTATE_T
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 26)
- using std::mblen;
-+#endif
- using std::mbstowcs;
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
- using std::mbtowc;
-+#endif
- #endif // _GLIBCXX_HAVE_MBSTATE_T
- using std::qsort;
- using std::rand;
-@@ -81,7 +85,9 @@ using std::strtoul;
- using std::system;
- #ifdef _GLIBCXX_USE_WCHAR_T
- using std::wcstombs;
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
- using std::wctomb;
-+#endif
- #endif // _GLIBCXX_USE_WCHAR_T
- #endif
- 
-diff --git a/libstdc++-v3/include/c_global/clocale b/libstdc++-v3/include/c_global/clocale
-index 3bd46614f..5de119e9e 100644
---- a/libstdc++-v3/include/c_global/clocale
-+++ b/libstdc++-v3/include/c_global/clocale
-@@ -54,7 +54,9 @@ namespace std
- {
-   using ::lconv;
-   using ::setlocale;
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   using ::localeconv;
-+#endif
- } // namespace std
- 
- #endif
-diff --git a/libstdc++-v3/include/c_global/cstdio b/libstdc++-v3/include/c_global/cstdio
-index 188ddc012..1fe836228 100644
---- a/libstdc++-v3/include/c_global/cstdio
-+++ b/libstdc++-v3/include/c_global/cstdio
-@@ -106,7 +106,6 @@ namespace std
-   using ::ferror;
-   using ::fflush;
-   using ::fgetc;
--  using ::fgetpos;
-   using ::fgets;
-   using ::fopen;
-   using ::fprintf;
-@@ -116,7 +115,10 @@ namespace std
-   using ::freopen;
-   using ::fscanf;
-   using ::fseek;
-+#if !(defined(__ANDROID__) && (__ANDROID_API__ < 24))
-   using ::fsetpos;
-+  using ::fgetpos;
-+#endif
-   using ::ftell;
-   using ::fwrite;
-   using ::getc;
-diff --git a/libstdc++-v3/include/c_global/cstdlib b/libstdc++-v3/include/c_global/cstdlib
-index 1c42f8614..9a841f67f 100644
---- a/libstdc++-v3/include/c_global/cstdlib
-+++ b/libstdc++-v3/include/c_global/cstdlib
-@@ -160,9 +160,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
-   using ::ldiv;
-   using ::malloc;
- #ifdef _GLIBCXX_HAVE_MBSTATE_T
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 26)
-   using ::mblen;
-+#endif
-   using ::mbstowcs;
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   using ::mbtowc;
-+#endif
- #endif // _GLIBCXX_HAVE_MBSTATE_T
-   using ::qsort;
- #if __cplusplus >= 201103L
-@@ -179,7 +183,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
-   using ::system;
- #ifdef _GLIBCXX_USE_WCHAR_T
-   using ::wcstombs;
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   using ::wctomb;
-+#endif
- #endif // _GLIBCXX_USE_WCHAR_T
- 
- #ifndef __CORRECT_ISO_CPP_STDLIB_H_PROTO
-diff --git a/libstdc++-v3/include/c_global/cwchar b/libstdc++-v3/include/c_global/cwchar
-index b6a6f2d03..0f52e9f0b 100644
---- a/libstdc++-v3/include/c_global/cwchar
-+++ b/libstdc++-v3/include/c_global/cwchar
-@@ -191,7 +191,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
-   using ::wcsrtombs;
-   using ::wcsspn;
-   using ::wcstod;
--#if _GLIBCXX_HAVE_WCSTOF
-+#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   using ::wcstof;
- #endif
-   using ::wcstok;
-@@ -259,9 +259,11 @@ namespace __gnu_cxx
-     (wcstoull)(const wchar_t * __restrict, wchar_t ** __restrict, int) throw ();
- #endif
- #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   using ::wcstoll;
-   using ::wcstoull;
- #endif
-+#endif
- } // namespace __gnu_cxx
- 
- namespace std
-@@ -281,7 +283,7 @@ namespace std
- 
- namespace std
- {
--#if _GLIBCXX_HAVE_WCSTOF
-+#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   using std::wcstof;
- #endif
- #if _GLIBCXX_HAVE_VFWSCANF
-diff --git a/libstdc++-v3/include/c_global/cwctype b/libstdc++-v3/include/c_global/cwctype
-index c52c3d28f..c6b006e38 100644
---- a/libstdc++-v3/include/c_global/cwctype
-+++ b/libstdc++-v3/include/c_global/cwctype
-@@ -100,10 +100,12 @@ namespace std
-   using ::iswspace;
-   using ::iswupper;
-   using ::iswxdigit;
-+#if !(defined(__ANDROID__) && __ANDROID_API__ < 26)
-   using ::towctrans;
-+  using ::wctrans;
-+#endif
-   using ::towlower;
-   using ::towupper;
--  using ::wctrans;
-   using ::wctype;
- } // namespace
- 
-diff --git a/libstdc++-v3/include/c_std/cwchar b/libstdc++-v3/include/c_std/cwchar
-index 7c3a2a4e2..47431bee5 100644
---- a/libstdc++-v3/include/c_std/cwchar
-+++ b/libstdc++-v3/include/c_std/cwchar
-@@ -185,7 +185,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
-   using ::wcsrtombs;
-   using ::wcsspn;
-   using ::wcstod;
--#if _GLIBCXX_HAVE_WCSTOF
-+#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
-   using ::wcstof;
- #endif
-   using ::wcstok;
 -- 
 2.54.0
 

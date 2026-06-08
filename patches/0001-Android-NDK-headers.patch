@@ -1,4 +1,4 @@
-From 1a8cd2423043b7b4f975477a4ba387ea36f58f7a Mon Sep 17 00:00:00 2001
+From 93b5a5b75ed7a17971f0b3510fe76c85aa0ebbf1 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Tue, 19 May 2026 18:14:57 -0300
 Subject: [PATCH] Android NDK headers
@@ -60,7 +60,7 @@ Subject: [PATCH] Android NDK headers
  strings.h                           |  14 +-
  sys/auxv.h                          |   8 +-
  sys/cachectl.h                      |   3 +
- sys/cdefs.h                         | 232 +++++++++++++++++++-
+ sys/cdefs.h                         | 244 ++++++++++++++++++++-
  sys/endian.h                        |  22 +-
  sys/epoll.h                         |   8 +-
  sys/fsuid.h                         |   6 +-
@@ -87,7 +87,7 @@ Subject: [PATCH] Android NDK headers
  unistd.h                            |  63 +++++-
  wchar.h                             |  67 ++++--
  wctype.h                            |  36 +--
- 83 files changed, 2007 insertions(+), 1059 deletions(-)
+ 83 files changed, 2019 insertions(+), 1059 deletions(-)
  create mode 100644 android/legacy_fenv_inlines_arm.h
  create mode 100644 android/legacy_fenv_inlines_mips.h
  create mode 100644 android/legacy_signal_inlines.h
@@ -4056,7 +4056,7 @@ index d06d683..cae83e4 100644
  __BEGIN_DECLS
  
 diff --git a/sys/cdefs.h b/sys/cdefs.h
-index c4d8ea5..983d485 100644
+index c4d8ea5..dee0447 100644
 --- a/sys/cdefs.h
 +++ b/sys/cdefs.h
 @@ -93,7 +93,7 @@
@@ -4077,7 +4077,7 @@ index c4d8ea5..983d485 100644
  #  define __BIONIC_INCLUDE_FORTIFY_HEADERS 1
  #endif
  
-@@ -328,6 +328,234 @@
+@@ -328,6 +328,246 @@
  /* Used to rename functions so that the compiler emits a call to 'x' rather than the function this was applied to. */
  #define __RENAME(x) __asm__(#x)
  
@@ -4085,6 +4085,18 @@ index c4d8ea5..983d485 100644
 +	#define __static_inline__ static inline
 +#else
 +	#define __static_inline__ static __inline
++#endif
++
++#if defined(__cplusplus)
++	#if __cplusplus >= 201103L
++		#define __THROW noexcept (true)
++	#else
++		#define __THROW throw ()
++	#endif
++	#define __THROWNL __THROW
++#else
++	#define __THROW __attribute__((__nothrow__ , __leaf__))
++	#define __THROWNL __attribute__((__nothrow__))
 +#endif
 +
 +#define _Nonnull
