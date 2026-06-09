@@ -1,0 +1,207 @@
+From ef40525114faa2157cba52ba4b050f711767f885 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Sun, 7 Jun 2026 23:44:22 -0300
+Subject: [PATCH] Add version guards for some libstdc++ header definitions
+
+---
+ libstdc++-v3/include/bits/basic_string.h      | 4 ++++
+ libstdc++-v3/include/c_compatibility/stdlib.h | 6 ++++++
+ libstdc++-v3/include/c_global/clocale         | 2 ++
+ libstdc++-v3/include/c_global/cstdio          | 4 +++-
+ libstdc++-v3/include/c_global/cstdlib         | 6 ++++++
+ libstdc++-v3/include/c_global/cwchar          | 6 ++++--
+ libstdc++-v3/include/c_global/cwctype         | 4 +++-
+ libstdc++-v3/include/c_std/cwchar             | 2 +-
+ 8 files changed, 29 insertions(+), 5 deletions(-)
+
+diff --git a/libstdc++-v3/include/bits/basic_string.h b/libstdc++-v3/include/bits/basic_string.h
+index af4e5d948..057fddfd7 100644
+--- a/libstdc++-v3/include/bits/basic_string.h
++++ b/libstdc++-v3/include/bits/basic_string.h
+@@ -4781,10 +4781,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
+   { return __gnu_cxx::__stoa<long, int>(&std::wcstol, "stoi", __str.c_str(),
+ 					__idx, __base); }
+ 
++#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   inline long
+   stol(const wstring& __str, size_t* __idx = 0, int __base = 10)
+   { return __gnu_cxx::__stoa(&std::wcstol, "stol", __str.c_str(),
+ 			     __idx, __base); }
++#endif
+ 
+   inline unsigned long
+   stoul(const wstring& __str, size_t* __idx = 0, int __base = 10)
+@@ -4801,10 +4803,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
+   { return __gnu_cxx::__stoa(&std::wcstoull, "stoull", __str.c_str(),
+ 			     __idx, __base); }
+ 
++#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   // NB: wcstof vs wcstod.
+   inline float
+   stof(const wstring& __str, size_t* __idx = 0)
+   { return __gnu_cxx::__stoa(&std::wcstof, "stof", __str.c_str(), __idx); }
++#endif
+ 
+   inline double
+   stod(const wstring& __str, size_t* __idx = 0)
+diff --git a/libstdc++-v3/include/c_compatibility/stdlib.h b/libstdc++-v3/include/c_compatibility/stdlib.h
+index b094f2c22..7a0acc6fc 100644
+--- a/libstdc++-v3/include/c_compatibility/stdlib.h
++++ b/libstdc++-v3/include/c_compatibility/stdlib.h
+@@ -67,9 +67,13 @@ using std::labs;
+ using std::ldiv;
+ using std::malloc;
+ #ifdef _GLIBCXX_HAVE_MBSTATE_T
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 26)
+ using std::mblen;
++#endif
+ using std::mbstowcs;
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+ using std::mbtowc;
++#endif
+ #endif // _GLIBCXX_HAVE_MBSTATE_T
+ using std::qsort;
+ using std::rand;
+@@ -81,7 +85,9 @@ using std::strtoul;
+ using std::system;
+ #ifdef _GLIBCXX_USE_WCHAR_T
+ using std::wcstombs;
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+ using std::wctomb;
++#endif
+ #endif // _GLIBCXX_USE_WCHAR_T
+ #endif
+ 
+diff --git a/libstdc++-v3/include/c_global/clocale b/libstdc++-v3/include/c_global/clocale
+index 3bd46614f..5de119e9e 100644
+--- a/libstdc++-v3/include/c_global/clocale
++++ b/libstdc++-v3/include/c_global/clocale
+@@ -54,7 +54,9 @@ namespace std
+ {
+   using ::lconv;
+   using ::setlocale;
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   using ::localeconv;
++#endif
+ } // namespace std
+ 
+ #endif
+diff --git a/libstdc++-v3/include/c_global/cstdio b/libstdc++-v3/include/c_global/cstdio
+index 188ddc012..1fe836228 100644
+--- a/libstdc++-v3/include/c_global/cstdio
++++ b/libstdc++-v3/include/c_global/cstdio
+@@ -106,7 +106,6 @@ namespace std
+   using ::ferror;
+   using ::fflush;
+   using ::fgetc;
+-  using ::fgetpos;
+   using ::fgets;
+   using ::fopen;
+   using ::fprintf;
+@@ -116,7 +115,10 @@ namespace std
+   using ::freopen;
+   using ::fscanf;
+   using ::fseek;
++#if !(defined(__ANDROID__) && (__ANDROID_API__ < 24))
+   using ::fsetpos;
++  using ::fgetpos;
++#endif
+   using ::ftell;
+   using ::fwrite;
+   using ::getc;
+diff --git a/libstdc++-v3/include/c_global/cstdlib b/libstdc++-v3/include/c_global/cstdlib
+index 1c42f8614..9a841f67f 100644
+--- a/libstdc++-v3/include/c_global/cstdlib
++++ b/libstdc++-v3/include/c_global/cstdlib
+@@ -160,9 +160,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   using ::ldiv;
+   using ::malloc;
+ #ifdef _GLIBCXX_HAVE_MBSTATE_T
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 26)
+   using ::mblen;
++#endif
+   using ::mbstowcs;
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   using ::mbtowc;
++#endif
+ #endif // _GLIBCXX_HAVE_MBSTATE_T
+   using ::qsort;
+ #if __cplusplus >= 201103L
+@@ -179,7 +183,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   using ::system;
+ #ifdef _GLIBCXX_USE_WCHAR_T
+   using ::wcstombs;
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   using ::wctomb;
++#endif
+ #endif // _GLIBCXX_USE_WCHAR_T
+ 
+ #ifndef __CORRECT_ISO_CPP_STDLIB_H_PROTO
+diff --git a/libstdc++-v3/include/c_global/cwchar b/libstdc++-v3/include/c_global/cwchar
+index b6a6f2d03..0f52e9f0b 100644
+--- a/libstdc++-v3/include/c_global/cwchar
++++ b/libstdc++-v3/include/c_global/cwchar
+@@ -191,7 +191,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   using ::wcsrtombs;
+   using ::wcsspn;
+   using ::wcstod;
+-#if _GLIBCXX_HAVE_WCSTOF
++#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   using ::wcstof;
+ #endif
+   using ::wcstok;
+@@ -259,9 +259,11 @@ namespace __gnu_cxx
+     (wcstoull)(const wchar_t * __restrict, wchar_t ** __restrict, int) throw ();
+ #endif
+ #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   using ::wcstoll;
+   using ::wcstoull;
+ #endif
++#endif
+ } // namespace __gnu_cxx
+ 
+ namespace std
+@@ -281,7 +283,7 @@ namespace std
+ 
+ namespace std
+ {
+-#if _GLIBCXX_HAVE_WCSTOF
++#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   using std::wcstof;
+ #endif
+ #if _GLIBCXX_HAVE_VFWSCANF
+diff --git a/libstdc++-v3/include/c_global/cwctype b/libstdc++-v3/include/c_global/cwctype
+index c52c3d28f..c6b006e38 100644
+--- a/libstdc++-v3/include/c_global/cwctype
++++ b/libstdc++-v3/include/c_global/cwctype
+@@ -100,10 +100,12 @@ namespace std
+   using ::iswspace;
+   using ::iswupper;
+   using ::iswxdigit;
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 26)
+   using ::towctrans;
++  using ::wctrans;
++#endif
+   using ::towlower;
+   using ::towupper;
+-  using ::wctrans;
+   using ::wctype;
+ } // namespace
+ 
+diff --git a/libstdc++-v3/include/c_std/cwchar b/libstdc++-v3/include/c_std/cwchar
+index 7c3a2a4e2..47431bee5 100644
+--- a/libstdc++-v3/include/c_std/cwchar
++++ b/libstdc++-v3/include/c_std/cwchar
+@@ -185,7 +185,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   using ::wcsrtombs;
+   using ::wcsspn;
+   using ::wcstod;
+-#if _GLIBCXX_HAVE_WCSTOF
++#if _GLIBCXX_HAVE_WCSTOF && !(defined(__ANDROID__) && __ANDROID_API__ < 21)
+   using ::wcstof;
+ #endif
+   using ::wcstok;
+-- 
+2.54.0
+
