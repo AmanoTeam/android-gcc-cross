@@ -170,7 +170,15 @@ if ! [ -f "${ndk_archive}" ]; then
 			--expression 's/ _Null_unspecified / /g; s/ _Null_unspecified,/,/g; s/_Null_unspecified)/)/g; s/\[_Null_unspecified /\[/g; s/ _Null_unspecified\*/\*/g; s/ \*_Null_unspecified/\*/g; s/\[_Null_unspecified\]/\[\]/g; s/\*_Null_unspecified /\*/g; s/\* _Null_unspecified/\*/g' \
 			--expression 's/ __BIONIC_COMPLICATED_NULLNESS / /g; s/ __BIONIC_COMPLICATED_NULLNESS,/,/g; s/__BIONIC_COMPLICATED_NULLNESS)/)/g; s/\[__BIONIC_COMPLICATED_NULLNESS /\[/g; s/ __BIONIC_COMPLICATED_NULLNESS\*/\*/g; s/ \*__BIONIC_COMPLICATED_NULLNESS/\*/g; s/\[__BIONIC_COMPLICATED_NULLNESS\]/\[\]/g; s/\*__BIONIC_COMPLICATED_NULLNESS /\*/g; s/\* __BIONIC_COMPLICATED_NULLNESS/\*/g' \
 			"${file}"
-	done <<< "$(find "${include_dir}" -type f)"
+		
+		sed \
+			--in-place \
+			--regexp-extended \
+			--expression 's/\s*__THROW\s*__THROW/__THROW/g' \
+			--expression 's/\s*__THROW\s*__RENAME\(([^)]*)\)/ __REDIRECT_NTH(\1)/g' \
+			--expression 's/\s*__THROW\s*__RENAME_IF_FILE_OFFSET64\(([^)]*)\)/ __REDIRECT_IF_FILE_OFFSET64_NTH(\1)/g' \
+			"${file}"
+	done <<< "$(find "${include_dir}" -type 'f')"
 	
 	mv './cdefs.h' "${include_dir}/sys/cdefs.h"
 	

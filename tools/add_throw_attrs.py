@@ -307,12 +307,35 @@ def find_func_declarations(clean_text):
         last_semi = stmt_text.rfind(';')
         semi_pos_clean = stmt_start_clean + last_semi
         
+        # Find closing paren of the function parameter list for insertion point.
+        # Insert __THROW right after the ) so it's the first thing after the
+        # function prototype, before any __attribute__, __RENAME, etc.
+        ins_pos_clean = semi_pos_clean  # fallback
+        func_re = re.compile(r'\b' + re.escape(candidate_name) + r'\s*\(')
+        m = func_re.search(stmt_text)
+        if m:
+            depth = 1
+            k = m.end()
+            while k < len(stmt_text) and depth > 0:
+                if stmt_text[k] == '(':
+                    depth += 1
+                elif stmt_text[k] == ')':
+                    depth -= 1
+                k += 1
+            if depth == 0:
+                # Position right after ), past any whitespace
+                ins = k
+                while ins < len(stmt_text) and stmt_text[ins] in ' \t\n\r':
+                    ins += 1
+                ins_pos_clean = stmt_start_clean + ins
+        
         results.append({
             'name': candidate_name,
             'stmt_text': stmt_text,
             'stmt_flat': flat,
             'stmt_start_clean': stmt_start_clean,
             'semi_pos_clean': semi_pos_clean,
+            'ins_pos_clean': ins_pos_clean,
             'already_has_throw': has_throw,
         })
         
@@ -357,19 +380,26 @@ def process_file(filepath, rel_path, nothrow_leaf, nothrow_only, neither, dry_ru
         name = d['name']
         
         # Determine annotation text
+        # Trailing space (not leading) because we insert right at the next token's
+        # first character, and the original whitespace before it serves as separator
+        # between )/__RENAME and __THROW.
         if name in nothrow_leaf:
-            annotation = ' __THROW'
+            annotation = '__THROW '
         elif name in nothrow_only:
-            annotation = ' __THROWNL'
+            annotation = '__THROWNL '
         else:
             continue
         
-        # Map semi_pos from clean to original
-        semi_pos_clean = d['semi_pos_clean']
-        if semi_pos_clean < len(pos_map):
-            semi_pos_orig = pos_map[semi_pos_clean]
+        # Map ins_pos from clean to original
+        ins_pos_clean = d['ins_pos_clean']
+        if ins_pos_clean < len(pos_map):
+            ins_pos_orig = pos_map[ins_pos_clean]
         else:
             continue
+        
+        # Map semi_pos for safety check
+        semi_pos_clean = d['semi_pos_clean']
+        semi_pos_orig = pos_map[semi_pos_clean] if semi_pos_clean < len(pos_map) else ins_pos_orig
         
         # Before inserting, verify no __THROW/__THROWNL in the declaration itself.
         # Use the statement text from clean text to find the declaration bounds.
@@ -388,7 +418,7 @@ def process_file(filepath, rel_path, nothrow_leaf, nothrow_only, neither, dry_ru
             if '__THROW' in decl_only or '__THROWNL' in decl_only:
                 continue
         
-        modifications.append((semi_pos_orig, annotation))
+        modifications.append((ins_pos_orig, annotation))
     
     if not modifications:
         return False, 0, already_count
