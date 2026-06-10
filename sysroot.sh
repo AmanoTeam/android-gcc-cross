@@ -9,7 +9,7 @@ declare -r mips64_sysroot='/tmp/mips64el-unknown-linux-gnuabi642.31'
 
 declare -ra targets=(
 	'aarch64-unknown-linux-android'
-	'riscv64-unknown-linux-android'
+	# 'riscv64-unknown-linux-android'
 	'armv7-unknown-linux-androideabi'
 	# 'armv5-unknown-linux-androideabi'
 	'x86_64-unknown-linux-android'
@@ -406,7 +406,7 @@ cp \
 cp \
 	--recursive \
 	'riscv64-unknown-linux-android36' \
-	'riscv64-unknown-linux-android'
+	'riscv64-unknown-linux-android' || true
 
 cp \
 	--recursive \

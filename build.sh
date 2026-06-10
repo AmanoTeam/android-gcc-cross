@@ -99,7 +99,7 @@ declare -ra targets=(
 	'x86_64-unknown-linux-android'
 	'aarch64-unknown-linux-android'
 	'i686-unknown-linux-android'
-	'riscv64-unknown-linux-android'
+	# 'riscv64-unknown-linux-android'
 )
 
 declare -ra ktargets=(
