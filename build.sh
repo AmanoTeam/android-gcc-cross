@@ -551,6 +551,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-support-for-the-Android-operating-system.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-version-guards-for-some-libstdc-header-definitions.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Force-disable-TLS-support-in-libstdc.patch"
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Avoid-relying-on-dynamic-shadow-when-building-libsan.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Skip-FILE64_FLAGS-for-Android-MIPS-targets.patch"
@@ -1375,6 +1376,11 @@ for directory in "${toolchain_directory}/"*'-linux-android'*; do
 		"${toolchain_directory}/include" \
 		"${directory}"
 done
+
+sed \
+	--in-place \
+	's|#define _GLIBCXX_HAVE_TLS 1|/* #undef _GLIBCXX_HAVE_TLS */|g' \
+	"${toolchain_directory}/include/c++/${gcc_major}/"*'-unknown-linux-android'*'/bits/c++config.h'
 
 find \
 	"${toolchain_directory}" \

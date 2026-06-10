@@ -1,0 +1,76 @@
+From e281744c66d59933a032ebcec0862c5178bd2020 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Thu, 11 Jun 2026 10:22:46 -0300
+Subject: [PATCH] Force-disable TLS support in libstdc++
+
+---
+ libstdc++-v3/include/std/mutex                       | 4 ++--
+ libstdc++-v3/libsupc++/eh_globals.cc                 | 2 +-
+ libstdc++-v3/src/c++11/compatibility-thread-c++0x.cc | 2 +-
+ libstdc++-v3/src/c++11/mutex.cc                      | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/libstdc++-v3/include/std/mutex b/libstdc++-v3/include/std/mutex
+index fb5b50738..6fb9bc926 100644
+--- a/libstdc++-v3/include/std/mutex
++++ b/libstdc++-v3/include/std/mutex
+@@ -54,7 +54,7 @@
+ #endif
+ #include <ext/atomicity.h>     // __gnu_cxx::__is_single_threaded
+ 
+-#if defined _GLIBCXX_HAS_GTHREADS && ! defined _GLIBCXX_HAVE_TLS
++#if defined _GLIBCXX_HAS_GTHREADS && (!defined(_GLIBCXX_HAVE_TLS) || defined(__ANDROID__))
+ # include <bits/std_function.h>  // std::function
+ #endif
+ 
+@@ -814,7 +814,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   };
+ 
+   /// @cond undocumented
+-# ifdef _GLIBCXX_HAVE_TLS
++# if defined(_GLIBCXX_HAVE_TLS) && !defined(__ANDROID__)
+   // If TLS is available use thread-local state for the type-erased callable
+   // that is being run by std::call_once in the current thread.
+ #  ifdef _GLIBCXX_NO_EXTERN_THREAD_LOCAL
+diff --git a/libstdc++-v3/libsupc++/eh_globals.cc b/libstdc++-v3/libsupc++/eh_globals.cc
+index 5930eeced..17839bcd2 100644
+--- a/libstdc++-v3/libsupc++/eh_globals.cc
++++ b/libstdc++-v3/libsupc++/eh_globals.cc
+@@ -41,7 +41,7 @@ extern "C" void free(void *);
+ 
+ using namespace __cxxabiv1;
+ 
+-#if _GLIBCXX_HAVE_TLS
++#if _GLIBCXX_HAVE_TLS && !defined(__ANDROID__)
+ 
+ namespace
+ {
+diff --git a/libstdc++-v3/src/c++11/compatibility-thread-c++0x.cc b/libstdc++-v3/src/c++11/compatibility-thread-c++0x.cc
+index f0b81ef4c..5c03d1e5d 100644
+--- a/libstdc++-v3/src/c++11/compatibility-thread-c++0x.cc
++++ b/libstdc++-v3/src/c++11/compatibility-thread-c++0x.cc
+@@ -117,7 +117,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+     thread _M_thread;
+     once_flag _M_once;
+   };
+-#if defined(_GLIBCXX_HAVE_TLS)
++#if defined(_GLIBCXX_HAVE_TLS) && !defined(__ANDROID__)
+   // Replaced with inline definition in gcc-4.8.0
+   __future_base::_Async_state_common::~_Async_state_common() { _M_join(); }
+ 
+diff --git a/libstdc++-v3/src/c++11/mutex.cc b/libstdc++-v3/src/c++11/mutex.cc
+index 8f0449462..c6c062d49 100644
+--- a/libstdc++-v3/src/c++11/mutex.cc
++++ b/libstdc++-v3/src/c++11/mutex.cc
+@@ -30,7 +30,7 @@ namespace std _GLIBCXX_VISIBILITY(default)
+ {
+ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 
+-#ifdef _GLIBCXX_HAVE_TLS
++#if defined(_GLIBCXX_HAVE_TLS) && !defined(__ANDROID__)
+   __thread void* __once_callable;
+   __thread void (*__once_call)();
+ 
+-- 
+2.54.0
+

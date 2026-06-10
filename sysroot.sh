@@ -11,11 +11,11 @@ declare -ra targets=(
 	'aarch64-unknown-linux-android'
 	'riscv64-unknown-linux-android'
 	'armv7-unknown-linux-androideabi'
-	'armv5-unknown-linux-androideabi'
+	# 'armv5-unknown-linux-androideabi'
 	'x86_64-unknown-linux-android'
 	'i686-unknown-linux-android'
-	'mipsel-unknown-linux-android'
-	'mips64el-unknown-linux-android'
+	# 'mipsel-unknown-linux-android'
+	# 'mips64el-unknown-linux-android'
 )
 
 declare -r versions=(
