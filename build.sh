@@ -1219,6 +1219,13 @@ for triplet in "${targets[@]}"; do
 			"${toolchain_directory}/${triplet}/lib/"lib{c,dl,m,z}.a \
 			"${toolchain_directory}/${triplet}${version}/lib"
 		
+		ln \
+			--symbolic \
+			--relative \
+			--force \
+			"${toolchain_directory}/${triplet}${version}/lib/"*.{a,so,o} \
+			"${toolchain_directory}/${triplet}${version}/lib/static"
+		
 		for library in "${libraries[@]}"; do
 			for file in "${toolchain_directory}/${triplet}/lib/${library}"*; do
 				if [[ "${file}" = *'*' ]]; then
