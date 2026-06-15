@@ -1032,6 +1032,10 @@ for triplet in "${targets[@]}"; do
 	specs+=' %{!Wno-psabi: %{!Wpsabi: -Wno-psabi}}'
 	specs+=' %{!Qy: -Qn}'
 	
+	if [[ "${triplet}" = 'arm'*'-unknown-linux-androideabi' ]]; then
+		specs+=' -masm-syntax-unified'
+	fi
+	
 	specs="$(xargs <<< "${specs}")"
 	
 	if ! (( native )); then
