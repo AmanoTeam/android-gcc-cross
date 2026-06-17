@@ -23,7 +23,7 @@ This will download the GCC toolchain and install it to `/data/data/com.termux/fi
 
 ### Other platforms
 
-* [Windows](https://github.com/AmanoTeam/android-gcc-cross/releases/latest/download/x86_64-w64-mingw32.zip)
+* [Windows](https://github.com/AmanoTeam/android-gcc-cross/releases/latest/download/x86_64-w64-mingw32.7z)
 * [macOS](https://github.com/AmanoTeam/android-gcc-cross/releases/latest/download/aarch64-apple-darwin.tar.xz)
 * [Linux](https://github.com/AmanoTeam/android-gcc-cross/releases/latest/download/x86_64-unknown-linux-gnu.tar.xz)
 
@@ -179,6 +179,9 @@ The toolchain allows you to change its behavior in certain scenarios through the
 - `PINO_LTO`  
   - Tells the cross-compiler to use LTO (Link-Time Optimization) during the build process. This flag accepts a string instead of a boolean, and the values for it can be `thin` or `full`.
 
+- `PINO_OPT_LEVEL`  
+  - Overrides any `-O` optimization flags passed on the command line. It accepts the same values as GCC's `-O` option, such as `2`, `3`, `fast`, and others.
+
 Most options, unless specified otherwise, take a boolean. You can enable a switch by setting its value to `true` (e.g., `export PINO_NZ=true`), and disable it by setting its value to `false` (e.g., `export PINO_NZ=false`).
 
 ## Software availability
@@ -290,7 +293,7 @@ PINO_NEON: bool = [true/false]
 - `-D_FORTIFY_SOURCE` has no effect.
   - The fortify headers shipped with the NDK currently rely on Clang-specific syntax that is not supported by GCC. We need to either adapt these headers or migrate to a GCC-compatible alternative, such as [fortify-headers](https://github.com/jvoisin/fortify-headers).
 - The HWAddressSanitizer (`-fsanitize=hwaddress`) runtime is broken.
-  - It requires ELF TLS support and possibly other missing components (not fully investigated). If you really need it, use the older AddressSanitizer implementation (`-fsanitize=address`) implementation instead.
+  - We have not yet fully investigated what is needed to make it work. If you really need it, use the older AddressSanitizer implementation (`-fsanitize=address`) implementation instead.
 
 ## Releases
 
