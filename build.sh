@@ -79,6 +79,9 @@ declare -r ninja_directory="${build_directory}/ninja-master"
 declare -r patchelf_tarball="${build_directory}/patchelf.tar.gz"
 declare -r patchelf_directory="${build_directory}/patchelf-master"
 
+declare -r elf_cleaner_tarball="${build_directory}/elf_cleaner.tar.gz"
+declare -r elf_cleaner_directory="${build_directory}/termux-elf-cleaner-master"
+
 declare -r nz_directory="${workdir}/submodules/nz"
 declare -r nz_prefix="${build_directory}/nz"
 
@@ -514,6 +517,23 @@ if ! [ -f "${patchelf_tarball}" ]; then
 		--file="${patchelf_tarball}"
 fi
 
+if ! [ -f "${elf_cleaner_tarball}" ]; then
+	curl \
+		--url 'https://github.com/termux/termux-elf-cleaner/archive/master.tar.gz' \
+		--retry '30' \
+		--retry-delay '0' \
+		--retry-all-errors \
+		--retry-max-time '0' \
+		--location \
+		--silent \
+		--output "${elf_cleaner_tarball}"
+	
+	tar \
+		--directory="$(dirname "${elf_cleaner_directory}")" \
+		--extract \
+		--file="${elf_cleaner_tarball}"
+fi
+
 if ! [ -f "${gcc_tarball}" ]; then
 	if [ "${gcc_major}" != '17' ]; then
 		gcc_url="https://github.com/gcc-mirror/gcc/archive/releases/gcc-${gcc_major}.tar.gz"
@@ -762,6 +782,21 @@ rm --force --recursive ./*
 cmake \
 	-S "${patchelf_directory}" \
 	-B "${PWD}" \
+	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
+	-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
+
+cmake --build "${PWD}"
+cmake --install "${PWD}" --strip
+
+[ -d "${elf_cleaner_directory}/build" ] || mkdir "${elf_cleaner_directory}/build"
+
+cd "${elf_cleaner_directory}/build"
+rm --force --recursive ./*
+
+cmake \
+	-S "${elf_cleaner_directory}" \
+	-B "${PWD}" \
+	-DCMAKE_CXX_FLAGS='-pthread' \
 	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
 	-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
 
