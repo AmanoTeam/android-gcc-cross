@@ -93,6 +93,7 @@ jobs:
           # Windows
           'x86_64-w64-mingw32',
           'i686-w64-mingw32',
+          'aarch64-w64-mingw32',
           
           # macOS
           'aarch64-unknown-apple-darwin',
