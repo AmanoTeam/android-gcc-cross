@@ -212,7 +212,7 @@ for directory in "${directories[@]}"; do
 	fi
 	
 	# llvm-ar (architecture-independent)
-	source="${source/llvm-objcopy/x86_64-unknown-linux-android-ar}"
+	source="${source/llvm-objcopy/aarch64-unknown-linux-android-ar}"
 	destination="${destination/llvm-objcopy/llvm-ar}"
 	
 	if [[ "$(readlink "${destination}")" != "${source}" ]]; then
