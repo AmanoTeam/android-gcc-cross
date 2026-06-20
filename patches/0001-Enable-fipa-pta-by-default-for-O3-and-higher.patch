@@ -1,0 +1,24 @@
+From 9b44392d3ebf330bf6b6cb2541e5adc8f91ea9bf Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Sat, 20 Jun 2026 05:00:03 +0200
+Subject: [PATCH] Enable -fipa-pta by default for -O3 and higher
+
+---
+ gcc/opts.cc | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gcc/opts.cc b/gcc/opts.cc
+index 342517528..c3e854fe7 100644
+--- a/gcc/opts.cc
++++ b/gcc/opts.cc
+@@ -713,6 +713,7 @@ static const struct default_options default_options_table[] =
+     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
+     { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
+     { OPT_LEVELS_3_PLUS, OPT_fversion_loops_for_strides, NULL, 1 },
++    { OPT_LEVELS_3_PLUS, OPT_fipa_pta, NULL, 1 },
+ 
+     /* -O3 parameters.  */
+     { OPT_LEVELS_3_PLUS, OPT__param_max_inline_insns_auto_, NULL, 30 },
+-- 
+2.36.6
+
