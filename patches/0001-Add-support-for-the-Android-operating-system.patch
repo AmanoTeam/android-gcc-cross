@@ -1,34 +1,68 @@
-From ee11817c9f82a43c1bcc6560a3423658dd0cd3f7 Mon Sep 17 00:00:00 2001
+From 911155f107bdbf421586e03f5b9202fc39fece7f Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sun, 7 Jun 2026 23:45:02 -0300
 Subject: [PATCH] Add support for the Android operating system
 
 ---
+ configure.ac                               |   8 ++
+ gcc/Makefile.in                            |   1 +
  gcc/config.gcc                             |  27 +++-
  gcc/config/aarch64/aarch64-linux.h         |  35 +++++-
  gcc/config/android-driver.cc               | 137 +++++++++++++++++++++
  gcc/config/android.cc                      |  29 +++++
- gcc/config/arm/android-elf.h               |  29 +++++
+ gcc/config/arm/android-elf.h               |  27 ++++
  gcc/config/arm/linux-eabi.h                |   3 -
  gcc/config/i386/gnu-user64.h               |   2 +
  gcc/config/i386/i386.cc                    |   6 +
- gcc/config/linux-android.h                 |  88 +++++++++++--
+ gcc/config/linux-android.h                 |  84 +++++++++++--
  gcc/config/linux-android.opt               |   8 ++
- gcc/config/mips/android-elf.h              |  25 ++++
+ gcc/config/linux.h                         |   5 +
+ gcc/config/mips/android-elf.h              |  23 ++++
  gcc/config/mips/linux-common.h             |   4 -
  gcc/config/riscv/linux.h                   |  30 ++++-
  gcc/config/t-android                       |  25 ++++
  libgcc/config/i386/cpuinfo.c               |   2 +-
  libstdc++-v3/config/os/bionic/ctype_base.h |  27 ++--
- 17 files changed, 436 insertions(+), 43 deletions(-)
+ 19 files changed, 441 insertions(+), 42 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/arm/android-elf.h
  create mode 100644 gcc/config/mips/android-elf.h
  create mode 100644 gcc/config/t-android
 
+diff --git a/configure.ac b/configure.ac
+index c5de225b0..0f189c942 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3978,6 +3978,14 @@ if test -d ${srcdir}/gcc; then
+ 
+   # Search for pre-installed headers if nothing else fits.
+   FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -isystem $(build_tooldir)/include -isystem $(build_tooldir)/sys-include'
++  
++  # Targets such as Android place all architecture-specific headers in a single
++  # include directory, organized into subdirectories named after the target triplet.
++  case "${target}" in
++    *linux-android*)
++        FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -isystem $(build_tooldir)/include/'"${target_noncanonical}"
++      ;;
++  esac
+ fi
+ 
+ if test "x${use_gnu_ld}" = x &&
+diff --git a/gcc/Makefile.in b/gcc/Makefile.in
+index 8ecef4ccd..e60a4af9e 100644
+--- a/gcc/Makefile.in
++++ b/gcc/Makefile.in
+@@ -3484,6 +3484,7 @@ PREPROCESSOR_DEFINES = \
+   -DNATIVE_SYSTEM_HEADER_DIR=\"$(NATIVE_SYSTEM_HEADER_DIR)\" \
+   -DPREFIX=\"$(prefix)/\" \
+   -DSTANDARD_EXEC_PREFIX=\"$(libdir)/gcc/\" \
++  -DTARGET=\"$(target_noncanonical)\" \
+   @TARGET_SYSTEM_ROOT_DEFINE@
+ 
+ CFLAGS-cppbuiltin.o += $(PREPROCESSOR_DEFINES) -DBASEVER=$(BASEVER_s)
 diff --git a/gcc/config.gcc b/gcc/config.gcc
-index 8fe99616f..4a6f8913f 100644
+index e7c8ea20f..f42114fcd 100644
 --- a/gcc/config.gcc
 +++ b/gcc/config.gcc
 @@ -965,7 +965,15 @@ case ${target} in
@@ -348,10 +382,10 @@ index 000000000..a3a25780d
 +}
 diff --git a/gcc/config/arm/android-elf.h b/gcc/config/arm/android-elf.h
 new file mode 100644
-index 000000000..ba2d29599
+index 000000000..33dc8db33
 --- /dev/null
 +++ b/gcc/config/arm/android-elf.h
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,27 @@
 +/* Configuration file for Android ARM targets.
 +   Copyright (C) 2026 Free Software Foundation, Inc.
 +
@@ -371,7 +405,6 @@ index 000000000..ba2d29599
 +   along with GCC; see the file COPYING3.  If not see
 +   <http://www.gnu.org/licenses/>.  */
 +
-+#if !defined(USED_FOR_TARGET)
 +/* Android requires thread-local variables on ARM targets to be aligned to BITS_PER_WORD * 8. */
 +#undef DATA_ABI_ALIGNMENT
 +#define DATA_ABI_ALIGNMENT(TYPE, ALIGN) (targetm.have_tls && DECL_THREAD_LOCAL_P (decl) ? BITS_PER_WORD * 8 : ALIGN)
@@ -379,7 +412,6 @@ index 000000000..ba2d29599
 +/* Android reserves the x18 register for ShadowCallStack. */
 +#undef FIXED_X18
 +#define FIXED_X18 1
-+#endif
 +
 diff --git a/gcc/config/arm/linux-eabi.h b/gcc/config/arm/linux-eabi.h
 index 947ffc67c..1dda7f9b6 100644
@@ -409,7 +441,7 @@ index c5267f082..db5778313 100644
  #define ASM_SPEC "%{" SPEC_32 ":--32} \
   %{" SPEC_64 ":--64} \
 diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
-index 660a921e2..b93cfd223 100644
+index 1974f05a0..a236cb7ac 100644
 --- a/gcc/config/i386/i386.cc
 +++ b/gcc/config/i386/i386.cc
 @@ -25547,6 +25547,12 @@ ix86_stack_protect_runtime_enabled_p (void)
@@ -426,14 +458,14 @@ index 660a921e2..b93cfd223 100644
  	 ? default_external_stack_protect_fail ()
  	 : default_hidden_stack_protect_fail ();
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index f68acecb8..46ed9f07b 100644
+index f68acecb8..26a9fe159 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
 @@ -19,10 +19,32 @@
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.  */
  
-+#if !defined(USED_FOR_TARGET)
++#if DEFAULT_LIBC == LIBC_BIONIC
 +extern void android_driver_init(unsigned int*, struct cl_decoded_option**);
 +#define GCC_DRIVER_HOST_INITIALIZATION android_driver_init(&decoded_options_count, &decoded_options)
 +
@@ -464,7 +496,7 @@ index f68acecb8..46ed9f07b 100644
      } while (0)
  
  #if ANDROID_DEFAULT
-@@ -37,23 +59,67 @@
+@@ -37,23 +59,63 @@
  #define LINUX_OR_ANDROID_LD(LINUX_SPEC, ANDROID_SPEC) \
    "%{" NOANDROID "|tno-android-ld:" LINUX_SPEC ";:" ANDROID_SPEC "}"
  
@@ -486,10 +518,6 @@ index f68acecb8..46ed9f07b 100644
 -  "%{!fno-pic:%{!fno-PIC:%{!fpic:%{!fPIC: -fPIC}}}}"
 +/*
 +* Enable DT_RELR packed relocations on Android 9+ (API level 28).
-+* 
-+* Android 10 and earlier use a nonstandard implementation of DT_RELR
-+* that BFD does not support. For these versions, DT_RELR should only
-+* be enabled on Android 11+ (API level 30).
 +*/
 +#define ANDROID_RELR_SPEC \
 +  "%{fuse-ld=lld|fuse-ld=mold: " \
@@ -501,7 +529,7 @@ index f68acecb8..46ed9f07b 100644
 +  " %:version-compare(>= 30 mandroid-version-min= pack-relative-relocs) " \
 +  " } "
 +
-+/* Use a separate read-only segment on Android 10+ (API level 29). */
++/* Use read-only segments on Android 10+ (API level 29). */
 +#define ANDROID_ROSEGMENT_SPEC \
 +  "%:version-compare(!> 28 mandroid-version-min= --no-rosegment) " \
 +  "%:version-compare(>= 29 mandroid-version-min= -z) " \
@@ -560,12 +588,25 @@ index bd8b96e0a..bd5566302 100644
  tno-android-cc
  Driver
  
+diff --git a/gcc/config/linux.h b/gcc/config/linux.h
+index 36f06c172..a7ba0bb86 100644
+--- a/gcc/config/linux.h
++++ b/gcc/config/linux.h
+@@ -219,3 +219,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ #define TARGET_FORTIFY_SOURCE_DEFAULT_LEVEL linux_fortify_source_default_level
+ 
+ #endif
++
++#if DEFAULT_LIBC == LIBC_BIONIC
++#undef LOCAL_INCLUDE_DIR
++#define LOCAL_INCLUDE_DIR "/include/" TARGET
++#endif
 diff --git a/gcc/config/mips/android-elf.h b/gcc/config/mips/android-elf.h
 new file mode 100644
-index 000000000..9e5f9aab6
+index 000000000..53f258998
 --- /dev/null
 +++ b/gcc/config/mips/android-elf.h
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,23 @@
 +/* Configuration file for Android MIPS targets.
 +   Copyright (C) 2026 Free Software Foundation, Inc.
 +
@@ -585,11 +626,9 @@ index 000000000..9e5f9aab6
 +   along with GCC; see the file COPYING3.  If not see
 +   <http://www.gnu.org/licenses/>.  */
 +
-+#if !defined(USED_FOR_TARGET)
 +/* Android already hardcodes -fPIC, but the -mno-shared spec overrides it. */
 +#undef NO_SHARED_SPECS
 +#define NO_SHARED_SPECS ""
-+#endif
 +
 diff --git a/gcc/config/mips/linux-common.h b/gcc/config/mips/linux-common.h
 index 81aa8c7f0..a8e6f0c91 100644

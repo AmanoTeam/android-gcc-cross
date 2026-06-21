@@ -35,6 +35,8 @@ fi
 
 set -eu
 
+mkdir -p "${build_directory}"
+
 declare -r toolchain_directory="${build_directory}/android-gcc-cross"
 declare -r share_directory="${toolchain_directory}/usr/local/share/android-gcc-cross"
 
@@ -84,6 +86,9 @@ declare -r patchelf_directory="${build_directory}/patchelf-master"
 
 declare -r elf_cleaner_tarball="${build_directory}/elf_cleaner.tar.gz"
 declare -r elf_cleaner_directory="${build_directory}/termux-elf-cleaner-master"
+
+declare -r gcc_tools_tarball="${build_directory}/gcc_tools.tar.xz"
+declare -r gcc_tools_directory="${build_directory}/autotools"
 
 declare -r nz_directory="${workdir}/submodules/nz"
 declare -r nz_prefix="${build_directory}/nz"
@@ -242,6 +247,24 @@ if [[ "${host}" = *'-android'* ]]; then
 fi
 
 source "${workdir}/submodules/obggcc/utils.sh"
+
+if ! [ -f "${gcc_tools_tarball}" ]; then
+	curl \
+		--url 'https://github.com/AmanoTeam/gcc-tools/releases/download/rolling/x86_64-unknown-linux-gnu.tar.xz' \
+		--retry '30' \
+		--retry-delay '0' \
+		--retry-all-errors \
+		--retry-max-time '0' \
+		--show-error \
+		--location \
+		--silent \
+		--output "${gcc_tools_tarball}"
+	
+	tar \
+		--directory="$(dirname "${gcc_tools_directory}")" \
+		--extract \
+		--file="${gcc_tools_tarball}"
+fi
 
 if ! [ -f "${gmp_tarball}" ]; then
 	curl \
@@ -537,6 +560,8 @@ if ! [ -f "${elf_cleaner_tarball}" ]; then
 		--file="${elf_cleaner_tarball}"
 fi
 
+export PATH="${build_directory}:${gcc_tools_directory}/bin:${PATH}"
+
 if ! [ -f "${gcc_tarball}" ]; then
 	if [ "${gcc_major}" != '17' ]; then
 		gcc_url="https://github.com/gcc-mirror/gcc/archive/releases/gcc-${gcc_major}.tar.gz"
@@ -595,6 +620,9 @@ if ! [ -f "${gcc_tarball}" ]; then
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Prevent-libstdc-from-trying-to-implement-math-stubs.patch"
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Enable-automatic-linking-of-libandroid-stb.patch"
+	
+	cd "${gcc_directory}"
+	autoreconf
 fi
 
 # Follow Debian's approach to remove hardcoded RPATHs from binaries
@@ -799,7 +827,6 @@ rm --force --recursive ./*
 cmake \
 	-S "${elf_cleaner_directory}" \
 	-B "${PWD}" \
-	-DCMAKE_CXX_FLAGS='-pthread' \
 	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
 	-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
 
@@ -886,8 +913,6 @@ make \
 
 # We prefer symbolic links over hard links.
 cp "${workdir}/submodules/obggcc/tools/ln.sh" "${build_directory}/ln"
-
-export PATH="${build_directory}:${PATH}"
 
 if [[ "${host}" = 'arm'*'-android'* ]] || [[ "${host}" = 'i686-'*'-android'* ]] || [[ "${host}" = 'mipsel-'*'-android'* ]]; then
 	export \
@@ -1060,11 +1085,7 @@ for triplet in "${targets[@]}"; do
 		cp "${binutils_gnu_wrapper}" "${bin}"
 	done
 	
-	if (( native )); then
-		declare specs="-isystem ${bionic_headers}/${triplet}"
-	else
-		declare specs=''
-	fi
+	declare specs=''
 	
 	specs+=' %{!Wno-complain-wrong-lang: %{!Wcomplain-wrong-lang: -Wno-complain-wrong-lang}}'
 	specs+=' %{!Wno-psabi: %{!Wpsabi: -Wno-psabi}}'
@@ -1152,6 +1173,7 @@ for triplet in "${targets[@]}"; do
 		--without-static-standard-libraries \
 		${extra_configure_flags} \
 		LDFLAGS="-L${toolchain_directory}/lib ${linkflags}"
+		
 	
 	declare args=''
 	
@@ -1159,7 +1181,7 @@ for triplet in "${targets[@]}"; do
 		args+="${environment}"
 	fi
 	
-	declare target_cflags="-O2 -isystem ${toolchain_directory}/${triplet}/include/${triplet}"
+	declare target_cflags="-O2"
 	declare target_cxxflags="${target_cflags} -D_ABIN32=2"
 	
 	env ${args} make \
@@ -1175,7 +1197,6 @@ for triplet in "${targets[@]}"; do
 	
 	cp "${workdir}/tools/stubs/lib"*'.a' "${toolchain_directory}/${triplet}/lib"
 	
-	# cp --recursive "${toolchain_directory}/${triplet}/include" "$(dirname "${bionic_headers}")"
 	unlink "${toolchain_directory}/${triplet}/include"
 	
 	cp "${workdir}/submodules/obggcc/tools/pkg-config.sh" "${toolchain_directory}/bin/${triplet}-pkg-config"
