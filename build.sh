@@ -792,7 +792,8 @@ cmake --install "${PWD}" --strip
 cd "${ninja_directory}/build"
 rm --force --recursive ./*
 
-cmake \
+CMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE/21/28}" \
+	cmake \
 	-S "${ninja_directory}" \
 	-B "${PWD}" \
 	-DBUILD_TESTING='OFF' \
@@ -800,10 +801,8 @@ cmake \
 	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
 	-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
 
-if [[ "${host}" != *'-android'* ]]; then
-	cmake --build "${PWD}"
-	cmake --install "${PWD}" --strip
-fi
+cmake --build "${PWD}"
+cmake --install "${PWD}" --strip
 
 [ -d "${patchelf_directory}/build" ] || mkdir "${patchelf_directory}/build"
 
