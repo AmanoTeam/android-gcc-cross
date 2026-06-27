@@ -76,7 +76,7 @@ declare -r zstd_tarball="${build_directory}/zstd.tar.gz"
 declare -r zstd_directory="${build_directory}/zstd-dev"
 
 declare -r yasm_tarball="${build_directory}/yasm.tar.gz"
-declare -r yasm_directory="${build_directory}/yasm-1.3.0"
+declare -r yasm_directory="${build_directory}/yasm-master"
 
 declare -r ninja_tarball="${build_directory}/ninja.tar.gz"
 declare -r ninja_directory="${build_directory}/ninja-master"
@@ -470,7 +470,7 @@ fi
 
 if ! [ -f "${yasm_tarball}" ]; then
 	curl \
-		--url 'https://deb.debian.org/debian/pool/main/y/yasm/yasm_1.3.0.orig.tar.gz' \
+		--url 'https://github.com/yasm/yasm/archive/master.tar.gz' \
 		--retry '30' \
 		--retry-delay '0' \
 		--retry-all-errors \
@@ -483,6 +483,8 @@ if ! [ -f "${yasm_tarball}" ]; then
 		--directory="$(dirname "${yasm_directory}")" \
 		--extract \
 		--file="${yasm_tarball}"
+	
+	patch --directory="${yasm_directory}" --strip='1' --input="${workdir}/patches/0001-yasm-import-Debian-patches.patch"
 	
 	cd "${yasm_directory}"
 	autoreconf --force --install
