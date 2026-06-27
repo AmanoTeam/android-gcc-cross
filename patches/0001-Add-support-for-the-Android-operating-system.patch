@@ -1,9 +1,10 @@
-From 40c3343e7b0ef8b6bb575ea7307584317a3a8c7b Mon Sep 17 00:00:00 2001
+From c45aba1bae69830432b0b834c12d25f93ed7ce06 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sun, 7 Jun 2026 23:45:02 -0300
 Subject: [PATCH] Add support for the Android operating system
 
 ---
+ configure                                  |   8 ++
  configure.ac                               |   8 ++
  gcc/Makefile.in                            |   1 +
  gcc/config.gcc                             |  27 +++-
@@ -23,13 +24,32 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/config/t-android                       |  25 ++++
  libgcc/config/i386/cpuinfo.c               |   2 +-
  libstdc++-v3/config/os/bionic/ctype_base.h |  27 ++--
- 19 files changed, 444 insertions(+), 42 deletions(-)
+ 20 files changed, 452 insertions(+), 42 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/arm/android-elf.h
  create mode 100644 gcc/config/mips/android-elf.h
  create mode 100644 gcc/config/t-android
 
+diff --git a/configure b/configure
+index 083e8823d..4339cd709 100755
+--- a/configure
++++ b/configure
+@@ -11909,6 +11909,14 @@ if test -d ${srcdir}/gcc; then
+ 
+   # Search for pre-installed headers if nothing else fits.
+   FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -isystem $(build_tooldir)/include -isystem $(build_tooldir)/sys-include'
++
++  # Targets such as Android place all architecture-specific headers in a single
++  # include directory, organized into subdirectories named after the target triplet.
++  case "${target}" in
++    *linux-android*)
++        FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -isystem $(build_tooldir)/include/'"${target_noncanonical}"
++      ;;
++  esac
+ fi
+ 
+ if test "x${use_gnu_ld}" = x &&
 diff --git a/configure.ac b/configure.ac
 index c5de225b0..0f189c942 100644
 --- a/configure.ac
@@ -801,5 +821,5 @@ index b28d018b6..986b5fcff 100644
    };
  
 -- 
-2.54.0
+2.36.6
 

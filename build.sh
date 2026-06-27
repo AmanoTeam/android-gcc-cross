@@ -87,9 +87,6 @@ declare -r patchelf_directory="${build_directory}/patchelf-master"
 declare -r elf_cleaner_tarball="${build_directory}/elf_cleaner.tar.gz"
 declare -r elf_cleaner_directory="${build_directory}/termux-elf-cleaner-master"
 
-declare -r gcc_tools_tarball="${build_directory}/gcc_tools.tar.xz"
-declare -r gcc_tools_directory="${build_directory}/autotools"
-
 declare -r nz_directory="${workdir}/submodules/nz"
 declare -r nz_prefix="${build_directory}/nz"
 
@@ -247,24 +244,6 @@ if [[ "${host}" = *'-android'* ]]; then
 fi
 
 source "${workdir}/submodules/obggcc/utils.sh"
-
-if ! [ -f "${gcc_tools_tarball}" ]; then
-	curl \
-		--url 'https://github.com/AmanoTeam/gcc-tools/releases/download/rolling/x86_64-unknown-linux-gnu.tar.xz' \
-		--retry '30' \
-		--retry-delay '0' \
-		--retry-all-errors \
-		--retry-max-time '0' \
-		--show-error \
-		--location \
-		--silent \
-		--output "${gcc_tools_tarball}"
-	
-	tar \
-		--directory="$(dirname "${gcc_tools_directory}")" \
-		--extract \
-		--file="${gcc_tools_tarball}"
-fi
 
 if ! [ -f "${gmp_tarball}" ]; then
 	curl \
@@ -560,7 +539,7 @@ if ! [ -f "${elf_cleaner_tarball}" ]; then
 		--file="${elf_cleaner_tarball}"
 fi
 
-export PATH="${build_directory}:${gcc_tools_directory}/bin:${PATH}"
+export PATH="${build_directory}:${PATH}"
 
 if ! [ -f "${gcc_tarball}" ]; then
 	if [ "${gcc_major}" != '17' ]; then
@@ -620,9 +599,6 @@ if ! [ -f "${gcc_tarball}" ]; then
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Prevent-libstdc-from-trying-to-implement-math-stubs.patch"
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Enable-automatic-linking-of-libandroid-stb.patch"
-	
-	cd "${gcc_directory}"
-	autoreconf
 fi
 
 # Follow Debian's approach to remove hardcoded RPATHs from binaries
