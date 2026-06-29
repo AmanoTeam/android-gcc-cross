@@ -807,8 +807,10 @@ cmake \
 	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
 	-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
 
-cmake --build "${PWD}"
-cmake --install "${PWD}" --strip
+if [[ "${host}" != *'-mingw32' ]]; then
+	cmake --build "${PWD}"
+	cmake --install "${PWD}" --strip
+fi
 
 [ -d "${gold_directory}/build" ] || mkdir "${gold_directory}/build"
 
