@@ -1600,3 +1600,5 @@ ln \
 	--relative \
 	"${share_directory}/"* \
 	"${toolchain_directory}/build"
+
+cp "${workdir}/README.md" "${toolchain_directory}"
