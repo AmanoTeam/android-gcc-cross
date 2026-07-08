@@ -88,7 +88,6 @@ jobs:
           # Windows
           'x86_64-w64-mingw32',
           'i686-w64-mingw32',
-          'aarch64-w64-mingw32',
           
           # macOS
           'aarch64-unknown-apple-darwin',
@@ -124,10 +123,7 @@ jobs:
           'x86_64-unknown-linux-android',
           'i686-unknown-linux-android21',
           'aarch64-unknown-linux-android',
-          'riscv64-unknown-linux-android',
-          'armv7-unknown-linux-androideabi21',
-          'mips64el-unknown-linux-android',
-          'mipsel-unknown-linux-android21'
+          'armv7-unknown-linux-androideabi21'
         ]
     steps:
     - uses: actions/checkout@main
