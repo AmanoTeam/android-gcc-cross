@@ -1,6 +1,6 @@
-From b884d05dc3b8c57a5baeb6ea74c453ba26753102 Mon Sep 17 00:00:00 2001
+From c9f105eed059a7b9cd2797c6a0b34329d20a2e3a Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
-Date: Tue, 19 May 2026 18:14:57 -0300
+Date: Wed, 8 Jul 2026 23:12:57 -0300
 Subject: [PATCH] Android NDK headers
 
 ---
@@ -8,10 +8,10 @@ Subject: [PATCH] Android NDK headers
  android/api-level.h                 |   6 +-
  android/configuration.h             |   2 +
  android/dlext.h                     |   4 +-
- android/legacy_fenv_inlines_arm.h   | 156 +++++++++++++
+ android/legacy_fenv_inlines_arm.h   | 156 ++++++++++++++
  android/legacy_fenv_inlines_mips.h  | 170 +++++++++++++++
- android/legacy_signal_inlines.h     | 130 +++++++++++
- android/legacy_sys_stat_inlines.h   |  48 ++++
+ android/legacy_signal_inlines.h     | 130 ++++++++++++
+ android/legacy_sys_stat_inlines.h   |  48 +++++
  android/legacy_sys_wait_inlines.h   |  50 +++++
  android/legacy_termios_inlines.h    |   3 -
  android/legacy_threads_inlines.h    |   1 -
@@ -23,17 +23,17 @@ Subject: [PATCH] Android NDK headers
  bits/fenv_mips.h                    |  98 +++++++++
  bits/get_device_api_level_inlines.h |  22 +-
  bits/glibc-syscalls.h               |   3 +
- bits/ioctl.h                        |   3 +-
+ bits/ioctl.h                        |  19 --
+ bits/posix_limits.h                 |   8 +-
  bits/sigcontext_riscv64.h           |  27 +++
  bits/signal_types.h                 |  33 ++-
  bits/stdatomic.h                    | 245 ---------------------
- bits/stdlib_inlines.h               |  41 +++-
  bits/swab.h                         |   6 +-
  bits/termios_inlines.h              |  32 ++-
  bits/termios_winsize_inlines.h      |   8 +-
- bits/threads_inlines.h              |  58 +++--
+ bits/threads_inlines.h              |  56 +++--
  bits/wctype.h                       |   6 +-
- complex.h                           | 325 +++++++---------------------
+ complex.h                           | 317 ++++++----------------------
  ctype.h                             |  75 +++----
  dirent.h                            |  14 +-
  fcntl.h                             |  29 ++-
@@ -41,21 +41,21 @@ Subject: [PATCH] Android NDK headers
  fts.h                               |  12 +-
  ftw.h                               |  13 +-
  inttypes.h                          |  13 +-
- langinfo.h                          |   3 +
+ langinfo.h                          |   6 +-
  link.h                              |   4 +-
  locale.h                            |  16 +-
  malloc.h                            |  13 +-
  math.h                              |  11 +-
- mntent.h                            |  13 +-
+ mntent.h                            |   8 +-
  poll.h                              |   4 +-
  pthread.h                           |  21 +-
- sched.h                             |  12 +-
+ sched.h                             |  16 +-
  search.h                            |  26 ++-
  setjmp.h                            |   8 +
  signal.h                            |  52 ++++-
  stdatomic.h                         | 135 ------------
  stdio.h                             |  17 +-
- stdlib.h                            | 124 ++++++++---
+ stdlib.h                            |  56 +++--
  string.h                            |  40 +++-
  strings.h                           |  14 +-
  sys/auxv.h                          |   8 +-
@@ -65,11 +65,11 @@ Subject: [PATCH] Android NDK headers
  sys/epoll.h                         |   8 +-
  sys/fsuid.h                         |   6 +-
  sys/inotify.h                       |   6 +-
- sys/mman.h                          |  16 +-
+ sys/mman.h                          |   6 +-
  sys/personality.h                   |   4 +-
  sys/resource.h                      |  17 +-
  sys/select.h                        |  14 +-
- sys/sendfile.h                      |   6 +-
+ sys/sendfile.h                      |   8 +-
  sys/signalfd.h                      |   4 +-
  sys/socket.h                        |  39 +++-
  sys/stat.h                          |  51 ++++-
@@ -81,13 +81,13 @@ Subject: [PATCH] Android NDK headers
  sys/user.h                          |  16 ++
  sys/vfs.h                           |  46 +++-
  sys/wait.h                          |   7 +-
- sys/xattr.h                         |  26 ++-
+ sys/xattr.h                         |  26 +--
  time.h                              |   6 +-
  uchar.h                             |  10 +-
- unistd.h                            |  63 +++++-
+ unistd.h                            |  56 ++++-
  wchar.h                             |  67 ++++--
- wctype.h                            |  36 +--
- 83 files changed, 2028 insertions(+), 1059 deletions(-)
+ wctype.h                            |  36 ++--
+ 83 files changed, 1929 insertions(+), 1050 deletions(-)
  create mode 100644 android/legacy_fenv_inlines_arm.h
  create mode 100644 android/legacy_fenv_inlines_mips.h
  create mode 100644 android/legacy_signal_inlines.h
@@ -112,11 +112,11 @@ index 5dc3006..3f51c2d 100644
  
  #endif /* _OPENSLES_PLATFORM_H_ */
 diff --git a/android/api-level.h b/android/api-level.h
-index b954731..527718e 100644
+index 2965bb5..80c9856 100644
 --- a/android/api-level.h
 +++ b/android/api-level.h
 @@ -180,12 +180,10 @@ int android_get_application_target_sdk_version() __INTRODUCED_IN(24);
- #endif /* __BIONIC_AVAILABILITY_GUARD(24) */
+ #endif
  
  #if __ANDROID_API__ < 29
 -
@@ -787,7 +787,7 @@ index c614cd0..0a45c72 100644
  
  #endif
 diff --git a/android/native_window.h b/android/native_window.h
-index 96b2f8e..69183b8 100644
+index d6620f3..19a533e 100644
 --- a/android/native_window.h
 +++ b/android/native_window.h
 @@ -378,7 +378,7 @@ int32_t ANativeWindow_setFrameRateWithChangeStrategy(ANativeWindow* _Nonnull win
@@ -1080,10 +1080,10 @@ index dc5871b..c039820 100644
 -#endif  // __BIONIC_GET_DEVICE_API_LEVEL_INLINE
 +#endif /* defined(__GET_DEVICE_API_LEVEL_INLINE__) */
 diff --git a/bits/glibc-syscalls.h b/bits/glibc-syscalls.h
-index 6eeaaf5..bf4a890 100644
+index 2c2fd31..d9dda7f 100644
 --- a/bits/glibc-syscalls.h
 +++ b/bits/glibc-syscalls.h
-@@ -1296,6 +1296,9 @@
+@@ -1305,6 +1305,9 @@
  #if defined(__NR_tee)
    #define SYS_tee __NR_tee
  #endif
@@ -1094,19 +1094,63 @@ index 6eeaaf5..bf4a890 100644
    #define SYS_tgkill __NR_tgkill
  #endif
 diff --git a/bits/ioctl.h b/bits/ioctl.h
-index ae75880..ad328b0 100644
+index e15aaa7..1519059 100644
 --- a/bits/ioctl.h
 +++ b/bits/ioctl.h
-@@ -55,7 +55,8 @@ int ioctl(int __fd, int __op, ...);
-  * - defining BIONIC_IOCTL_NO_SIGNEDNESS_OVERLOAD, which will make the
-  *   overloading go away.
+@@ -42,23 +42,4 @@ __BEGIN_DECLS
   */
+ int ioctl(int __fd, int __op, ...);
+ 
 -#if !defined(BIONIC_IOCTL_NO_SIGNEDNESS_OVERLOAD)
-+#if defined(__clang__) && __has_extension(overloadable_unmarked) && \
-+  !defined(BIONIC_IOCTL_NO_SIGNEDNESS_OVERLOAD)
- /* enable_if(1) just exists to break overloading ties. */
- int ioctl(int __fd, unsigned __op, ...) __overloadable __enable_if(1, "") __RENAME(ioctl);
- #endif
+-/*
+- * Work around unsigned -> signed conversion warnings: many common ioctl
+- * constants are unsigned.
+- *
+- * Since this workaround introduces an overload to ioctl, it's possible that it
+- * will break existing code that takes the address of ioctl. If such a breakage
+- * occurs, you can work around it by either:
+- * - specifying a concrete, correct type for ioctl (whether it be through a cast
+- *   in `(int (*)(int, int, ...))ioctl`, creating a temporary variable with the
+- *   type of the ioctl you prefer, ...), or
+- * - defining BIONIC_IOCTL_NO_SIGNEDNESS_OVERLOAD, which will make the
+- *   overloading go away.
+- *
+- * The always-true enable_if(1) just exists to break overloading ties.
+- */
+-int ioctl(int __fd, unsigned __op, ...) __overloadable __enable_if(1, "") __RENAME(ioctl);
+-#endif
+-
+ __END_DECLS
+diff --git a/bits/posix_limits.h b/bits/posix_limits.h
+index 2cb91ff..4d9749c 100644
+--- a/bits/posix_limits.h
++++ b/bits/posix_limits.h
+@@ -48,13 +48,13 @@ __BEGIN_DECLS
+ #define _POSIX_ASYNCHRONOUS_IO __BIONIC_POSIX_FEATURE_MISSING
+ #define _POSIX_BARRIERS __BIONIC_POSIX_FEATURE_SINCE(24)
+ #define _POSIX_CHOWN_RESTRICTED 1 /* chown/fchown require appropriate privileges. */
+-#define _POSIX_CLOCK_SELECTION _POSIX_VERSION /* clock_nanosleep/pthread_condattr_getclock/pthread_condattr_setclock. */
++#define _POSIX_CLOCK_SELECTION __BIONIC_POSIX_FEATURE_SINCE(21) /* clock_nanosleep/pthread_condattr_getclock/pthread_condattr_setclock. */
+ #define _POSIX_CPUTIME _POSIX_VERSION /* CLOCK_PROCESS_CPUTIME_ID. */
+ #define _POSIX_FSYNC _POSIX_VERSION /* fsync. */
+ #define _POSIX_IPV6 _POSIX_VERSION
+-#define _POSIX_JOB_CONTROL _POSIX_VERSION /* setpgid/tcdrain/tcflush/tcgetpgrp/tcsendbreak/tcsetattr/tcsetpgrp. */
++#define _POSIX_JOB_CONTROL __BIONIC_POSIX_FEATURE_SINCE(21) /* setpgid/tcdrain/tcflush/tcgetpgrp/tcsendbreak/tcsetattr/tcsetpgrp. */
+ #define _POSIX_MAPPED_FILES _POSIX_VERSION /* mmap/msync/munmap. */
+-#define _POSIX_MEMLOCK _POSIX_VERSION /* mlockall/munlockall. */
++#define _POSIX_MEMLOCK __BIONIC_POSIX_FEATURE_SINCE(17) /* mlockall/munlockall. */
+ #define _POSIX_MEMLOCK_RANGE _POSIX_VERSION /* mlock/munlock. */
+ #define _POSIX_MEMORY_PROTECTION _POSIX_VERSION /* mprotect. */
+ #define _POSIX_MESSAGE_PASSING __BIONIC_POSIX_FEATURE_MISSING
+@@ -86,7 +86,7 @@ __BEGIN_DECLS
+ #define _POSIX_THREAD_SAFE_FUNCTIONS _POSIX_VERSION
+ #define _POSIX_THREAD_SPORADIC_SERVER __BIONIC_POSIX_FEATURE_MISSING /* No SCHED_SPORADIC. */
+ #define _POSIX_THREADS _POSIX_VERSION /* Strictly, pthread_cancel/pthread_testcancel are missing. */
+-#define _POSIX_TIMEOUTS _POSIX_VERSION /* pthread_mutex_timedlock. */
++#define _POSIX_TIMEOUTS __BIONIC_POSIX_FEATURE_SINCE(21) /* pthread_mutex_timedlock. */
+ #define _POSIX_TIMERS _POSIX_VERSION /* clock_getres/clock_gettime/clock_settime/nanosleep/timer_create/timer_delete/timer_gettime/timer_getoverrun/timer_settime. */
+ #define _POSIX_TRACE __BIONIC_POSIX_FEATURE_MISSING
+ #define _POSIX_TRACE_EVENT_FILTER __BIONIC_POSIX_FEATURE_MISSING
 diff --git a/bits/sigcontext_riscv64.h b/bits/sigcontext_riscv64.h
 new file mode 100644
 index 0000000..0e68836
@@ -1450,65 +1494,6 @@ index 0d39a61..0000000
 -static __inline void atomic_flag_clear(volatile atomic_flag * _Nonnull __object) {
 -	atomic_flag_clear_explicit(__object, memory_order_seq_cst);
 -}
-diff --git a/bits/stdlib_inlines.h b/bits/stdlib_inlines.h
-index fffca19..44fac92 100644
---- a/bits/stdlib_inlines.h
-+++ b/bits/stdlib_inlines.h
-@@ -28,21 +28,46 @@
- 
- #pragma once
- 
-+#include <errno.h>
-+#include <float.h>
-+#include <stdlib.h>
- #include <xlocale.h>
- #include <sys/cdefs.h>
- 
--#if !defined(__BIONIC_STDLIB_INLINE)
--#define __BIONIC_STDLIB_INLINE static __inline
--#endif
--
- __BEGIN_DECLS
- 
--__BIONIC_STDLIB_INLINE double strtod_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l) {
--  return strtod(__s, __end_ptr);
-+#if __ANDROID_API__ < 21
-+__static_inline__ float strtof(const char* nptr, char** endptr) {
-+  double d = strtod(nptr, endptr);
-+  if (d > FLT_MAX) {
-+    errno = ERANGE;
-+    return __builtin_huge_valf();
-+  } else if (d < -FLT_MAX) {
-+    errno = ERANGE;
-+    return -__builtin_huge_valf();
-+  }
-+  return __BIONIC_CAST(static_cast, float, d);
- }
- 
--__BIONIC_STDLIB_INLINE float strtof_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l) {
--  return strtof(__s, __end_ptr);
-+__static_inline__ double atof(const char *nptr) { return (strtod(nptr, NULL)); }
-+
-+__static_inline__ int abs(int __n) { return __builtin_abs(__n); }
-+
-+__static_inline__ long labs(long __n) { return __builtin_labs(__n); }
-+
-+__static_inline__ long long llabs(long long __n) { return __builtin_llabs(__n); }
-+
-+__static_inline__ int rand(void) { return (int) lrand48(); }
-+
-+__static_inline__ void srand(unsigned int __s) { srand48(__s); }
-+
-+__static_inline__ long random(void) { return lrand48(); }
-+
-+__static_inline__ void srandom(unsigned int __s) { srand48(__s); }
-+
-+__static_inline__ int grantpt(int __fd __attribute((unused))) {
-+  return 0; /* devpts does this all for us! */
- }
-+#endif /* __ANDROID_API__ < 21 */
- 
- __END_DECLS
 diff --git a/bits/swab.h b/bits/swab.h
 index da2865a..b394c35 100644
 --- a/bits/swab.h
@@ -1651,7 +1636,7 @@ index 86777b0..15e44f8 100644
  }
  
 diff --git a/bits/threads_inlines.h b/bits/threads_inlines.h
-index ab294c1..b188fe5 100644
+index 53bad2d..cf2fafa 100644
 --- a/bits/threads_inlines.h
 +++ b/bits/threads_inlines.h
 @@ -36,11 +36,9 @@
@@ -1667,15 +1652,7 @@ index ab294c1..b188fe5 100644
    switch (__pthread_code) {
      case 0: return 0;
      case ENOMEM: return thrd_nomem;
-@@ -50,46 +48,46 @@ static __inline int __bionic_thrd_error(int __pthread_code) {
-   }
- }
- 
--__BIONIC_THREADS_INLINE void call_once(once_flag* _Nonnull __flag,
-+__static_inline__ void call_once(once_flag* _Nonnull __flag,
-                                        void (* _Nonnull __function)(void)) {
-   pthread_once(__flag, __function);
- }
+@@ -52,39 +50,39 @@ static __inline int __bionic_thrd_error(int __pthread_code) {
  
  
  
@@ -1723,7 +1700,7 @@ index ab294c1..b188fe5 100644
    int __pthread_type = (__type & mtx_recursive) ? PTHREAD_MUTEX_RECURSIVE
                                                  : PTHREAD_MUTEX_NORMAL;
    __type &= ~mtx_recursive;
-@@ -101,20 +99,20 @@ __BIONIC_THREADS_INLINE int mtx_init(mtx_t* _Nonnull __mtx, int __type) {
+@@ -96,20 +94,20 @@ __BIONIC_THREADS_INLINE int mtx_init(mtx_t* _Nonnull __mtx, int __type) {
    return __bionic_thrd_error(pthread_mutex_init(__mtx, &__attr));
  }
  
@@ -1748,7 +1725,7 @@ index ab294c1..b188fe5 100644
    return __bionic_thrd_error(pthread_mutex_unlock(__mtx));
  }
  
-@@ -123,7 +121,7 @@ struct __bionic_thrd_data {
+@@ -118,7 +116,7 @@ struct __bionic_thrd_data {
    void* _Nullable __arg;
  };
  
@@ -1757,7 +1734,7 @@ index ab294c1..b188fe5 100644
    struct __bionic_thrd_data __data =
        *__BIONIC_CAST(static_cast, struct __bionic_thrd_data*, __arg);
    free(__arg);
-@@ -132,7 +130,7 @@ static __inline void* _Nonnull __bionic_thrd_trampoline(void* _Nonnull __arg) {
+@@ -127,7 +125,7 @@ static __inline void* _Nonnull __bionic_thrd_trampoline(void* _Nonnull __arg) {
                         __BIONIC_CAST(static_cast, uintptr_t, __result));
  }
  
@@ -1766,7 +1743,7 @@ index ab294c1..b188fe5 100644
                                          thrd_start_t _Nonnull __func,
                                          void* _Nullable __arg) {
    struct __bionic_thrd_data* __pthread_arg =
-@@ -147,24 +145,24 @@ __BIONIC_THREADS_INLINE int thrd_create(thrd_t* _Nonnull __thrd,
+@@ -142,24 +140,24 @@ __BIONIC_THREADS_INLINE int thrd_create(thrd_t* _Nonnull __thrd,
    return __result;
  }
  
@@ -1796,7 +1773,7 @@ index ab294c1..b188fe5 100644
    void* __pthread_result;
    if (pthread_join(__thrd, &__pthread_result) != 0) return thrd_error;
    if (__result) {
-@@ -173,35 +171,33 @@ __BIONIC_THREADS_INLINE int thrd_join(thrd_t __thrd, int* _Nullable __result) {
+@@ -168,35 +166,33 @@ __BIONIC_THREADS_INLINE int thrd_join(thrd_t __thrd, int* _Nullable __result) {
    return thrd_success;
  }
  
@@ -1839,7 +1816,7 @@ index ab294c1..b188fe5 100644
 -
 -#endif  // __BIONIC_THREADS_INLINE
 diff --git a/bits/wctype.h b/bits/wctype.h
-index 237da1a..c8bb8ba 100644
+index bc78b61..c977e78 100644
 --- a/bits/wctype.h
 +++ b/bits/wctype.h
 @@ -39,7 +39,11 @@ typedef __WINT_TYPE__ wint_t;
@@ -1856,22 +1833,19 @@ index 237da1a..c8bb8ba 100644
  int iswdigit(wint_t __wc);
  int iswgraph(wint_t __wc);
 diff --git a/complex.h b/complex.h
-index c5280e3..9c3000a 100644
+index 1fae4b6..9ca62d7 100644
 --- a/complex.h
 +++ b/complex.h
-@@ -46,326 +46,153 @@ _Static_assert(__generic(_Complex_I, float _Complex, 1, 0),
+@@ -46,326 +46,147 @@ _Static_assert(__generic(_Complex_I, float _Complex, 1, 0),
  #define	I		_Complex_I
  
  #if __STDC_VERSION__ >= 201112L
-+#ifdef __clang__
- #define	CMPLX(x, y)	((double complex){ x, y })
- #define	CMPLXF(x, y)	((float complex){ x, y })
- #define	CMPLXL(x, y)	((long double complex){ x, y })
-+#else
+-#define	CMPLX(x, y)	((double complex){ x, y })
+-#define	CMPLXF(x, y)	((float complex){ x, y })
+-#define	CMPLXL(x, y)	((long double complex){ x, y })
 +#define	CMPLX(x, y)	__builtin_complex((double)(x), (double)(y))
 +#define	CMPLXF(x, y)	__builtin_complex((float)(x), (float)(y))
 +#define	CMPLXL(x, y)	__builtin_complex((long double)(x), (long double)(y))
-+#endif
  #endif
  
  /* 7.3.5 Trigonometric functions */
@@ -1879,15 +1853,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex cacos(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex cacosf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex cacosl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex cacos(double complex __z);
 +float complex cacosf(float complex __z);
 +long double complex cacosl(long double complex __z);
@@ -1896,88 +1870,84 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex casin(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex casinf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex casinl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
--
--/* 7.3.5.1 The catan functions */
--
--#if __BIONIC_AVAILABILITY_GUARD(23)
--double complex catan(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
--
--#if __BIONIC_AVAILABILITY_GUARD(23)
--float complex catanf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
--
--#if __BIONIC_AVAILABILITY_GUARD(26)
--long double complex catanl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
--
--/* 7.3.5.1 The ccos functions */
--
--#if __BIONIC_AVAILABILITY_GUARD(23)
--double complex ccos(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
--
--#if __BIONIC_AVAILABILITY_GUARD(23)
--float complex ccosf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 +double complex casin(double complex __z);
 +float complex casinf(float complex __z);
 +long double complex casinl(long double complex __z);
  
--#if __BIONIC_AVAILABILITY_GUARD(26)
--long double complex ccosl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
-+/* 7.3.5.3 The catan functions */
+ /* 7.3.5.1 The catan functions */
  
--/* 7.3.5.1 The csin functions */
+-#if __BIONIC_AVAILABILITY_GUARD(23)
+-double complex catan(double complex __z) __INTRODUCED_IN(23);
+-#endif
+-
+-#if __BIONIC_AVAILABILITY_GUARD(23)
+-float complex catanf(float complex __z) __INTRODUCED_IN(23);
+-#endif
+-
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-long double complex catanl(long double complex __z) __INTRODUCED_IN(26);
+-#endif
 +double complex catan(double complex __z);
 +float complex catanf(float complex __z);
 +long double complex catanl(long double complex __z);
  
--#if __BIONIC_AVAILABILITY_GUARD(23)
--double complex csin(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
-+/* 7.3.5.4 The ccos functions */
+ /* 7.3.5.1 The ccos functions */
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
--float complex csinf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-double complex ccos(double complex __z) __INTRODUCED_IN(23);
+-#endif
+-
+-#if __BIONIC_AVAILABILITY_GUARD(23)
+-float complex ccosf(float complex __z) __INTRODUCED_IN(23);
+-#endif
+-
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-long double complex ccosl(long double complex __z) __INTRODUCED_IN(26);
+-#endif
 +double complex ccos(double complex __z);
 +float complex ccosf(float complex __z);
 +long double complex ccosl(long double complex __z);
  
+ /* 7.3.5.1 The csin functions */
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(23)
+-double complex csin(double complex __z) __INTRODUCED_IN(23);
+-#endif
+-
+-#if __BIONIC_AVAILABILITY_GUARD(23)
+-float complex csinf(float complex __z) __INTRODUCED_IN(23);
+-#endif
+-
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex csinl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
-+/* 7.3.5.5 The csin functions */
- 
--/* 7.3.5.1 The ctan functions */
+-#endif
 +double complex csin(double complex __z);
 +float complex csinf(float complex __z);
 +long double complex csinl(long double complex __z);
  
+ /* 7.3.5.1 The ctan functions */
+ 
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex ctan(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex ctanf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex ctanl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
-+/* 7.3.5.6 The ctan functions */
- 
+-#endif
+-
 +double complex ctan(double complex __z);
 +float complex ctanf(float complex __z);
 +long double complex ctanl(long double complex __z);
@@ -1987,15 +1957,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex cacosh(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex cacoshf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex cacoshl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex cacosh(double complex __z);
 +float complex cacoshf(float complex __z);
 +long double complex cacoshl(long double complex __z);
@@ -2004,15 +1974,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex casinh(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex casinhf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex casinhl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex casinh(double complex __z);
 +float complex casinhf(float complex __z);
 +long double complex casinhl(long double complex __z);
@@ -2021,15 +1991,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex catanh(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex catanhf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex catanhl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex catanh(double complex __z);
 +float complex catanhf(float complex __z);
 +long double complex catanhl(long double complex __z);
@@ -2038,15 +2008,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex ccosh(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex ccoshf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex ccoshl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex ccosh(double complex __z);
 +float complex ccoshf(float complex __z);
 +long double complex ccoshl(long double complex __z);
@@ -2055,15 +2025,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex csinh(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex csinhf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex csinhl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex csinh(double complex __z);
 +float complex csinhf(float complex __z);
 +long double complex csinhl(long double complex __z);
@@ -2072,15 +2042,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex ctanh(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex ctanhf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex ctanhl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 -
 +double complex ctanh(double complex __z);
 +float complex ctanhf(float complex __z);
@@ -2091,15 +2061,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex cexp(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex cexpf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex cexpl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex cexp(double complex __z);
 +float complex cexpf(float complex __z);
 +long double complex cexpl(long double complex __z);
@@ -2108,15 +2078,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -double complex clog(double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -float complex clogf(float complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex clogl(long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex clog(double complex __z);
 +float complex clogf(float complex __z);
 +long double complex clogl(long double complex __z);
@@ -2126,15 +2096,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double cabs(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float cabsf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -long double cabsl(long double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 +double cabs(double complex __z);
 +float cabsf(float complex __z);
 +long double cabsl(long double complex __z);
@@ -2143,15 +2113,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -double complex cpow(double complex __x, double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -float complex cpowf(float complex __x, float complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
 -long double complex cpowl(long double complex __x, long double complex __z) __INTRODUCED_IN(26);
--#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+-#endif
 +double complex cpow(double complex __x, double complex __z);
 +float complex cpowf(float complex __x, float complex __z);
 +long double complex cpowl(long double complex __x, long double complex __z);
@@ -2160,15 +2130,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex csqrt(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex csqrtf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -long double complex csqrtl(long double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 +double complex csqrt(double complex __z);
 +float complex csqrtf(float complex __z);
@@ -2179,15 +2149,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double carg(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float cargf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -long double cargl(long double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 +double carg(double complex __z);
 +float cargf(float complex __z);
 +long double cargl(long double complex __z);
@@ -2196,15 +2166,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double cimag(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float cimagf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -long double cimagl(long double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 +double cimag(double complex __z);
 +float cimagf(float complex __z);
 +long double cimagl(long double complex __z);
@@ -2213,15 +2183,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex conj(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex conjf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -long double complex conjl(long double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 +double complex conj(double complex __z);
 +float complex conjf(float complex __z);
 +long double complex conjl(long double complex __z);
@@ -2230,15 +2200,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double complex cproj(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float complex cprojf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -long double complex cprojl(long double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 +double complex cproj(double complex __z);
 +float complex cprojf(float complex __z);
 +long double complex cprojl(long double complex __z);
@@ -2247,15 +2217,15 @@ index c5280e3..9c3000a 100644
  
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -double creal(double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -float crealf(float complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(23)
 -long double creall(long double complex __z) __INTRODUCED_IN(23);
--#endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+-#endif
 +double creal(double complex __z);
 +float crealf(float complex __z);
 +long double creall(long double complex __z);
@@ -2490,7 +2460,7 @@ index beabc90..52e61e8 100644
  }
  
 diff --git a/dirent.h b/dirent.h
-index 399af18..5be7433 100644
+index a63570d..cfefa87 100644
 --- a/dirent.h
 +++ b/dirent.h
 @@ -116,6 +116,7 @@ DIR* _Nullable fdopendir(int __dir_fd);
@@ -2515,7 +2485,7 @@ index 399af18..5be7433 100644
  
  /**
   * [closedir(3)](https://man7.org/linux/man-pages/man3/closedir.3.html)
-@@ -182,11 +184,13 @@ int dirfd(DIR* _Nonnull __dir);
+@@ -181,11 +183,13 @@ int dirfd(DIR* _Nonnull __dir);
   */
  int alphasort(const struct dirent* _Nonnull * _Nonnull __lhs, const struct dirent* _Nonnull * _Nonnull __rhs);
  
@@ -2530,7 +2500,7 @@ index 399af18..5be7433 100644
  
  /**
   * [scandir(3)](https://man7.org/linux/man-pages/man3/scandir.3.html)
-@@ -200,6 +204,7 @@ int alphasort64(const struct dirent64* _Nonnull * _Nonnull __lhs, const struct d
+@@ -199,6 +203,7 @@ int alphasort64(const struct dirent64* _Nonnull * _Nonnull __lhs, const struct d
   */
  int scandir(const char* _Nonnull __path, struct dirent* _Nonnull * _Nonnull * _Nonnull __name_list, int (* _Nullable __filter)(const struct dirent* _Nonnull), int (* _Nullable __comparator)(const struct dirent* _Nonnull * _Nonnull, const struct dirent* _Nonnull * _Nonnull));
  
@@ -2538,7 +2508,7 @@ index 399af18..5be7433 100644
  /**
   * [scandir64(3)](https://man7.org/linux/man-pages/man3/scandir.3.html)
   * scans all the directory `__path`, filtering entries with `__filter` and
-@@ -210,7 +215,8 @@ int scandir(const char* _Nonnull __path, struct dirent* _Nonnull * _Nonnull * _N
+@@ -209,7 +214,8 @@ int scandir(const char* _Nonnull __path, struct dirent* _Nonnull * _Nonnull * _N
   * Returns the number of entries returned in the list on success,
   * and returns -1 and sets `errno` on failure.
   */
@@ -2546,10 +2516,10 @@ index 399af18..5be7433 100644
 +int scandir64(const char* _Nonnull __path, struct dirent64* _Nonnull * _Nonnull * _Nonnull __name_list, int (* _Nullable __filter)(const struct dirent64* _Nonnull), int (* _Nullable __comparator)(const struct dirent64* _Nonnull * _Nonnull, const struct dirent64* _Nonnull * _Nonnull)) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
+ #if defined(__USE_GNU) && __BIONIC_AVAILABILITY_GUARD(24)
  /**
-  * [scandirat64(3)](https://man7.org/linux/man-pages/man3/scandirat.3.html)
 diff --git a/fcntl.h b/fcntl.h
-index 4385053..ae84dad 100644
+index 8f876b6..039dd44 100644
 --- a/fcntl.h
 +++ b/fcntl.h
 @@ -108,8 +108,11 @@ __BEGIN_DECLS
@@ -2639,16 +2609,22 @@ index 4385053..ae84dad 100644
  /** See posix_fadvise(). */
  int posix_fadvise64(int __fd, off64_t __offset, off64_t __length, int __advice);
  
-@@ -217,7 +226,9 @@ int posix_fallocate64(int __fd, off64_t __offset, off64_t __length);
-  * Available when compiling with `_GNU_SOURCE`.
-  */
+@@ -209,6 +218,7 @@ int posix_fallocate(int __fd, off_t __offset, off_t __length) __RENAME_IF_FILE_O
+ int posix_fallocate64(int __fd, off64_t __offset, off64_t __length);
+ 
  #if defined(__USE_GNU)
 +#if __BIONIC_AVAILABILITY_GUARD(16)
+ /**
+  * [readahead(2)](https://man7.org/linux/man-pages/man2/readahead.2.html)
+  * initiates readahead for the given file.
+@@ -218,6 +228,7 @@ int posix_fallocate64(int __fd, off64_t __offset, off64_t __length);
+  * Available when compiling with `_GNU_SOURCE`.
+  */
  ssize_t readahead(int __fd, off64_t __offset, size_t __length);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(16) */
++#endif /* __BIONIC_AVAILABILITY_GUARD(16) */   
  #endif
  
- /**
+ #if defined(__USE_GNU) && __BIONIC_AVAILABILITY_GUARD(26)
 diff --git a/fenv.h b/fenv.h
 index 4c1d490..3fd690b 100644
 --- a/fenv.h
@@ -2894,17 +2870,21 @@ index 43c8ea8..e951950 100644
  __END_DECLS
  
 diff --git a/langinfo.h b/langinfo.h
-index a39c259..c789c25 100644
+index e015ecc..e8cbce9 100644
 --- a/langinfo.h
 +++ b/langinfo.h
-@@ -98,6 +98,9 @@ char* _Nonnull nl_langinfo(nl_item __item) __INTRODUCED_IN(26);
+@@ -94,10 +94,10 @@ __BEGIN_DECLS
  
  #if __BIONIC_AVAILABILITY_GUARD(26)
+ char* _Nonnull nl_langinfo(nl_item __item) __INTRODUCED_IN(26);
+-#endif
+-
+-#if __BIONIC_AVAILABILITY_GUARD(26)
  char* _Nonnull nl_langinfo_l(nl_item __item, locale_t _Nonnull __l) __INTRODUCED_IN(26);
 +#else
 +__static_inline__ char* _Nonnull nl_langinfo(nl_item __item) { return "ASCII"; }
 +__static_inline__ char* _Nonnull nl_langinfo_l(nl_item __item, locale_t _Nonnull __l) { return "ASCII"; }
- #endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+ #endif
  
  __END_DECLS
 diff --git a/link.h b/link.h
@@ -2959,7 +2939,7 @@ index f5c79cb..c12408a 100644
  #define LC_GLOBAL_LOCALE __BIONIC_CAST(reinterpret_cast, locale_t, -1L)
  
 diff --git a/malloc.h b/malloc.h
-index 6fb12a2..1b7d9a7 100644
+index f60292e..d4a52c2 100644
 --- a/malloc.h
 +++ b/malloc.h
 @@ -31,7 +31,11 @@
@@ -3031,10 +3011,10 @@ index 0d03940..2c81fd6 100644
  
  #if defined(__USE_BSD) || defined(__USE_GNU)
 diff --git a/mntent.h b/mntent.h
-index 009d685..51368fa 100644
+index 4b85882..2e98510 100644
 --- a/mntent.h
 +++ b/mntent.h
-@@ -58,16 +58,21 @@ struct mntent {
+@@ -58,10 +58,16 @@ struct mntent {
    int mnt_passno;
  };
  
@@ -3044,24 +3024,16 @@ index 009d685..51368fa 100644
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
 +
  struct mntent* _Nullable getmntent(FILE* _Nonnull __fp);
--struct mntent* _Nullable getmntent_r(FILE* _Nonnull __fp, struct mntent* _Nonnull __entry, char* _Nonnull __buf, int __size);
--FILE* _Nullable setmntent(const char* _Nonnull __filename, const char* _Nonnull __type);
 +
 +#if __BIONIC_AVAILABILITY_GUARD(21)
-+struct mntent* _Nullable getmntent_r(FILE* _Nonnull __fp, struct mntent* _Nonnull __entry, char* _Nonnull __buf, int __size) __INTRODUCED_IN(21);
-+FILE* _Nullable setmntent(const char* _Nonnull __filename, const char* _Nonnull __type) __INTRODUCED_IN(21);
+ struct mntent* _Nullable getmntent_r(FILE* _Nonnull __fp, struct mntent* _Nonnull __entry, char* _Nonnull __buf, int __size);
+ FILE* _Nullable setmntent(const char* _Nonnull __filename, const char* _Nonnull __type);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
  #if __BIONIC_AVAILABILITY_GUARD(26)
  char* _Nullable hasmntopt(const struct mntent* _Nonnull __entry, const char* _Nonnull __option) __INTRODUCED_IN(26);
- #endif /* __BIONIC_AVAILABILITY_GUARD(26) */
- 
--
- __END_DECLS
- 
- #endif
 diff --git a/poll.h b/poll.h
-index 873f970..71dd8db 100644
+index 5227a2b..cec0355 100644
 --- a/poll.h
 +++ b/poll.h
 @@ -51,6 +51,7 @@ typedef unsigned int nfds_t;
@@ -3080,13 +3052,13 @@ index 873f970..71dd8db 100644
 +int ppoll(struct pollfd* _Nullable __fds, nfds_t __count, const struct timespec* _Nullable __timeout, const sigset_t* _Nullable __mask) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
+ #if __BIONIC_AVAILABILITY_GUARD(28)
  /**
-  * Like ppoll() but allows setting a signal mask with RT signals even from a 32-bit process.
 diff --git a/pthread.h b/pthread.h
-index 06c952b..f804476 100644
+index 3645e87..b9e71c7 100644
 --- a/pthread.h
 +++ b/pthread.h
-@@ -124,10 +124,18 @@ int pthread_attr_setstack(pthread_attr_t* _Nonnull __attr, void* _Nonnull __addr
+@@ -125,10 +125,18 @@ int pthread_attr_setstack(pthread_attr_t* _Nonnull __attr, void* _Nonnull __addr
  int pthread_attr_setstacksize(pthread_attr_t* _Nonnull __addr, size_t __size);
  
  int pthread_condattr_destroy(pthread_condattr_t* _Nonnull __attr);
@@ -3107,7 +3079,7 @@ index 06c952b..f804476 100644
  int pthread_condattr_setpshared(pthread_condattr_t* _Nonnull __attr, int __shared);
  
  int pthread_cond_broadcast(pthread_cond_t* _Nonnull __cond);
-@@ -170,7 +178,9 @@ int pthread_getattr_np(pthread_t __pthread, pthread_attr_t* _Nonnull __attr);
+@@ -171,7 +179,9 @@ int pthread_getattr_np(pthread_t __pthread, pthread_attr_t* _Nonnull __attr);
  
  int pthread_getcpuclockid(pthread_t __pthread, clockid_t* _Nonnull __clock);
  
@@ -3118,7 +3090,7 @@ index 06c952b..f804476 100644
  
  int pthread_join(pthread_t __pthread, void* _Nullable * _Nullable __return_value_ptr);
  
-@@ -245,7 +255,10 @@ int pthread_mutex_clocklock(pthread_mutex_t* _Nonnull __mutex, clockid_t __clock
+@@ -246,7 +256,10 @@ int pthread_mutex_clocklock(pthread_mutex_t* _Nonnull __mutex, clockid_t __clock
  int pthread_mutex_destroy(pthread_mutex_t* _Nonnull __mutex);
  int pthread_mutex_init(pthread_mutex_t* _Nonnull __mutex, const pthread_mutexattr_t* _Nullable __attr);
  int pthread_mutex_lock(pthread_mutex_t* _Nonnull __mutex);
@@ -3128,57 +3100,74 @@ index 06c952b..f804476 100644
 +int pthread_mutex_timedlock(pthread_mutex_t* _Nonnull __mutex, const struct timespec* _Nullable __timeout) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
- /*
-  * POSIX historically only supported using pthread_mutex_timedlock() with CLOCK_REALTIME, however
+ #if __BIONIC_AVAILABILITY_GUARD(28)
+ /**
 diff --git a/sched.h b/sched.h
-index 4b67538..a8a114a 100644
+index 8f2b1ac..cb82f20 100644
 --- a/sched.h
 +++ b/sched.h
-@@ -165,6 +165,7 @@ int sched_getparam(pid_t __pid, struct sched_param* _Nonnull __param);
+@@ -158,15 +158,18 @@ int sched_setparam(pid_t __pid, const struct sched_param* _Nonnull __param);
   */
- int sched_rr_get_interval(pid_t __pid, struct timespec* _Nonnull __quantum);
+ int sched_getparam(pid_t __pid, struct sched_param* _Nonnull __param);
  
++#if __BIONIC_AVAILABILITY_GUARD(17)
+ /**
+  * [sched_rr_get_interval(2)](https://man7.org/linux/man-pages/man2/sched_rr_get_interval.2.html)
+  * queries the round-robin time quantum for the given thread.
+  *
+  * Returns 0 on success and returns -1 and sets `errno` on failure.
+  */
+-int sched_rr_get_interval(pid_t __pid, struct timespec* _Nonnull __quantum);
++int sched_rr_get_interval(pid_t __pid, struct timespec* _Nonnull __quantum) __INTRODUCED_IN(17);
++#endif /* __BIONIC_AVAILABILITY_GUARD(17) */
+ 
+ #if defined(__USE_GNU)
 +#if __BIONIC_AVAILABILITY_GUARD(17)
  /**
   * [clone(2)](https://man7.org/linux/man-pages/man2/clone.2.html)
   * creates a new child process.
-@@ -173,7 +174,7 @@ int sched_rr_get_interval(pid_t __pid, struct timespec* _Nonnull __quantum);
+@@ -174,7 +177,8 @@ int sched_rr_get_interval(pid_t __pid, struct timespec* _Nonnull __quantum);
+  * Returns the pid of the child to the caller on success and
   * returns -1 and sets `errno` on failure.
   */
- #if defined(__USE_GNU)
 -int clone(int (* __BIONIC_COMPLICATED_NULLNESS __fn)(void* __BIONIC_COMPLICATED_NULLNESS ), void* __BIONIC_COMPLICATED_NULLNESS __child_stack, int __flags, void* _Nullable __arg, ...);
 +int clone(int (* __BIONIC_COMPLICATED_NULLNESS __fn)(void* __BIONIC_COMPLICATED_NULLNESS ), void* __BIONIC_COMPLICATED_NULLNESS __child_stack, int __flags, void* _Nullable __arg, ...) __INTRODUCED_IN(17);
++#endif /* __BIONIC_AVAILABILITY_GUARD(17) */
  #endif
  
+ #if defined(__USE_GNU)
+@@ -191,23 +195,27 @@ int clone3(struct clone_args* __cl_args, size_t __size, int (* __BIONIC_COMPLICA
+ #endif
+ 
+ #if defined(__USE_GNU)
++#if __BIONIC_AVAILABILITY_GUARD(17)
  /**
-@@ -183,9 +184,11 @@ int clone(int (* __BIONIC_COMPLICATED_NULLNESS __fn)(void* __BIONIC_COMPLICATED_
+  * [unshare(2)](https://man7.org/linux/man-pages/man2/unshare.2.html)
+  * disassociates part of the caller's execution context.
+  *
   * Returns 0 on success and returns -1 and sets `errno` on failure.
   */
- #if defined(__USE_GNU)
 -int unshare(int __flags);
 +int unshare(int __flags) __INTRODUCED_IN(17);
- #endif
 +#endif /* __BIONIC_AVAILABILITY_GUARD(17) */
+ #endif
  
+ #if defined(__USE_GNU)
 +#if __BIONIC_AVAILABILITY_GUARD(21)
  /**
   * [setns(2)](https://man7.org/linux/man-pages/man2/setns.2.html)
   * reassociates a thread with a different namespace.
-@@ -193,9 +196,10 @@ int unshare(int __flags);
+  *
   * Returns 0 on success and returns -1 and sets `errno` on failure.
   */
- #if defined(__USE_GNU)
 -int setns(int __fd, int __ns_type);
 +int setns(int __fd, int __ns_type) __INTRODUCED_IN(21);
- #endif
--
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
-+ 
- /**
-  * [sched_getcpu(3)](https://man7.org/linux/man-pages/man3/sched_getcpu.3.html)
-  * reports which CPU the caller is running on.
+ #endif
+ 
+ #if defined(__USE_GNU)
 diff --git a/search.h b/search.h
-index ff6a47a..3a546d6 100644
+index 6f26750..422d474 100644
 --- a/search.h
 +++ b/search.h
 @@ -63,17 +63,19 @@ struct hsearch_data {
@@ -3201,8 +3190,8 @@ index ff6a47a..3a546d6 100644
 +void remque(void* _Nonnull __element) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
+ #if __BIONIC_AVAILABILITY_GUARD(28)
  /**
-  * [hcreate(3)](https://man7.org/linux/man-pages/man3/hcreate.3.html)
 @@ -151,6 +153,7 @@ void hdestroy_r(struct hsearch_data* _Nonnull __table) __INTRODUCED_IN(28);
  int hsearch_r(ENTRY __entry, ACTION __action, ENTRY* _Nullable * _Nonnull __result, struct hsearch_data* _Nonnull __table) __INTRODUCED_IN(28);
  #endif
@@ -3295,7 +3284,7 @@ index 0236fe6..0d291f9 100644
  /**
   * The size in words of a riscv64 jmp_buf. Room for callee-saved registers,
 diff --git a/signal.h b/signal.h
-index c4b6b13..02abeeb 100644
+index 7290b15..97de443 100644
 --- a/signal.h
 +++ b/signal.h
 @@ -32,7 +32,16 @@
@@ -3344,7 +3333,7 @@ index c4b6b13..02abeeb 100644
  
  #if __BIONIC_AVAILABILITY_GUARD(28)
  int sigaddset64(sigset64_t* _Nonnull __set, int __signal) __INTRODUCED_IN(28);
- #endif /* __BIONIC_AVAILABILITY_GUARD(28) */
+ #endif
  
 -int sigdelset(sigset_t* _Nonnull __set, int __signal);
 +#if __BIONIC_AVAILABILITY_GUARD(21)
@@ -3353,7 +3342,7 @@ index c4b6b13..02abeeb 100644
  
  #if __BIONIC_AVAILABILITY_GUARD(28)
  int sigdelset64(sigset64_t* _Nonnull __set, int __signal) __INTRODUCED_IN(28);
- #endif /* __BIONIC_AVAILABILITY_GUARD(28) */
+ #endif
  
 -int sigemptyset(sigset_t* _Nonnull __set);
 +#if __BIONIC_AVAILABILITY_GUARD(21)
@@ -3362,7 +3351,7 @@ index c4b6b13..02abeeb 100644
  
  #if __BIONIC_AVAILABILITY_GUARD(28)
  int sigemptyset64(sigset64_t* _Nonnull __set) __INTRODUCED_IN(28);
- #endif /* __BIONIC_AVAILABILITY_GUARD(28) */
+ #endif
  
 -int sigfillset(sigset_t* _Nonnull __set);
 +#if __BIONIC_AVAILABILITY_GUARD(21)
@@ -3371,7 +3360,7 @@ index c4b6b13..02abeeb 100644
  
  #if __BIONIC_AVAILABILITY_GUARD(28)
  int sigfillset64(sigset64_t* _Nonnull __set) __INTRODUCED_IN(28);
- #endif /* __BIONIC_AVAILABILITY_GUARD(28) */
+ #endif
  
 -int sigismember(const sigset_t* _Nonnull __set, int __signal);
 +#if __BIONIC_AVAILABILITY_GUARD(21)
@@ -3552,7 +3541,7 @@ index b7dac4a..0000000
 -
 -#endif /* !_STDATOMIC_H_ */
 diff --git a/stdio.h b/stdio.h
-index 101256a..eff4f7d 100644
+index d64658c..1625107 100644
 --- a/stdio.h
 +++ b/stdio.h
 @@ -69,7 +69,7 @@ extern FILE* _Nonnull stderr __INTRODUCED_IN(23);
@@ -3564,7 +3553,7 @@ index 101256a..eff4f7d 100644
  
  #define stdin (&__sF[0])
  #define stdout (&__sF[1])
-@@ -119,6 +119,7 @@ size_t fwrite(const void* _Nonnull __buf, size_t __size, size_t __count, FILE* _
+@@ -128,6 +128,7 @@ size_t fwrite(const void* _Nonnull __buf, size_t __size, size_t __count, FILE* _
  __nodiscard int getc(FILE* _Nonnull __fp);
  __nodiscard int getchar(void);
  
@@ -3572,7 +3561,7 @@ index 101256a..eff4f7d 100644
  /**
   * [getdelim(2)](https://man7.org/linux/man-pages/man3/getdelim.3.html)
   * reads a delimited chunk from the given file.
-@@ -132,12 +133,13 @@ __nodiscard int getchar(void);
+@@ -141,12 +142,13 @@ __nodiscard int getchar(void);
   * Returns the length of the chunk (excluding the terminating NUL),
   * and returns -1 and sets `errno` on failure.
   */
@@ -3588,7 +3577,7 @@ index 101256a..eff4f7d 100644
  
  void perror(const char* _Nullable __msg);
  int printf(const char* _Nonnull __fmt, ...) __printflike(1, 2);
-@@ -154,8 +156,13 @@ int ungetc(int __ch, FILE* _Nonnull __fp);
+@@ -183,8 +185,13 @@ int ungetc(int __ch, FILE* _Nonnull __fp);
  int vfprintf(FILE* _Nonnull __fp, const char* _Nonnull __fmt, va_list __args) __printflike(2, 0);
  int vprintf(const char* _Nonnull __fp, va_list __args) __printflike(1, 0);
  
@@ -3605,10 +3594,10 @@ index 101256a..eff4f7d 100644
  #if (defined(__STDC_VERSION__) && __STDC_VERSION__ < 201112L) || \
      (defined(__cplusplus) && __cplusplus < 201402L)
 diff --git a/stdlib.h b/stdlib.h
-index 9946952..c5126c5 100644
+index cb1ac1f..3dba6c6 100644
 --- a/stdlib.h
 +++ b/stdlib.h
-@@ -44,12 +44,19 @@ __BEGIN_DECLS
+@@ -53,12 +53,19 @@ __BEGIN_DECLS
  
  __noreturn void abort(void) __attribute__((__nomerge__));
  __noreturn void exit(int __status);
@@ -3629,11 +3618,11 @@ index 9946952..c5126c5 100644
 +void quick_exit(int __status) __noreturn __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
- char* _Nullable getenv(const char* _Nonnull __name);
- int putenv(char* _Nonnull __assignment);
-@@ -74,7 +81,10 @@ int mkostemps64(char* _Nonnull __template, int __suffix_length, int __flags) __I
+ /**
+  * [getenv(3)](https://man7.org/linux/man-pages/man3/getenv.3.html)
+@@ -180,7 +187,10 @@ int mkostemps64(char* _Nonnull __template, int __suffix_length, int __flags) __I
  int mkostemps(char* _Nonnull __template, int __suffix_length, int __flags) __INTRODUCED_IN(23);
- #endif /* __BIONIC_AVAILABILITY_GUARD(23) */
+ #endif
  
 -int mkstemp64(char* _Nonnull __template);
 +#if __BIONIC_AVAILABILITY_GUARD(21)
@@ -3643,18 +3632,18 @@ index 9946952..c5126c5 100644
  int mkstemp(char* _Nonnull __template);
  
  #if __BIONIC_AVAILABILITY_GUARD(23)
-@@ -83,7 +93,9 @@ int mkstemps64(char* _Nonnull __template, int __flags) __INTRODUCED_IN(23);
- 
- int mkstemps(char* _Nonnull __template, int __flags);
+@@ -203,7 +213,9 @@ void free_sized(void* _Nullable __ptr, size_t __size) __INTRODUCED_IN(37);
+ */
+ void free_aligned_sized(void* _Nullable __ptr, size_t __alignment, size_t __size) __INTRODUCED_IN(37);
  
 -int posix_memalign(void* _Nullable * _Nullable __memptr, size_t __alignment, size_t __size);
 +#if __BIONIC_AVAILABILITY_GUARD(16)
 +int posix_memalign(void* _Nullable * _Nullable __memptr, size_t __alignment, size_t __size) __INTRODUCED_IN(16);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(16) */
  
+ #if __BIONIC_AVAILABILITY_GUARD(28)
  /**
-  * [aligned_alloc(3)](https://man7.org/linux/man-pages/man3/aligned_alloc.3.html)
-@@ -158,7 +170,9 @@ void arc4random_buf(void* _Nonnull __buf, size_t __n);
+@@ -276,7 +288,9 @@ void arc4random_buf(void* _Nonnull __buf, size_t __n);
  
  #define RAND_MAX 0x7fffffff
  
@@ -3665,7 +3654,7 @@ index 9946952..c5126c5 100644
  
  double drand48(void);
  double erand48(unsigned short __xsubi[_Nonnull 3]);
-@@ -174,11 +188,17 @@ long nrand48(unsigned short __xsubi[_Nonnull 3]);
+@@ -292,11 +306,17 @@ long nrand48(unsigned short __xsubi[_Nonnull 3]);
  unsigned short* _Nonnull seed48(unsigned short __seed16v[_Nonnull 3]);
  void srand48(long __seed);
  
@@ -3686,7 +3675,7 @@ index 9946952..c5126c5 100644
  char* _Nullable ptsname(int __fd);
  int ptsname_r(int __fd, char* _Nonnull __buf, size_t __n);
  int unlockpt(int __fd);
-@@ -242,7 +262,10 @@ int getloadavg(double __averages[_Nonnull], int __n) __INTRODUCED_IN(29);
+@@ -360,7 +380,10 @@ int getloadavg(double __averages[_Nonnull], int __n) __INTRODUCED_IN(29);
  
  
  /* BSD compatibility. */
@@ -3698,8 +3687,8 @@ index 9946952..c5126c5 100644
  void setprogname(const char* _Nonnull __name);
  
  #if __BIONIC_AVAILABILITY_GUARD(26)
-@@ -250,41 +273,49 @@ int mblen(const char* _Nullable __s, size_t __n) __INTRODUCED_IN(26);
- #endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+@@ -368,13 +391,20 @@ int mblen(const char* _Nullable __s, size_t __n) __INTRODUCED_IN(26);
+ #endif
  
  size_t mbstowcs(wchar_t* _Nullable __dst, const char* _Nullable __src, size_t __n);
 -int mbtowc(wchar_t* _Nullable __wc_ptr, const char*  _Nullable __s, size_t __n);
@@ -3722,149 +3711,8 @@ index 9946952..c5126c5 100644
  
  #if defined(__BIONIC_INCLUDE_FORTIFY_HEADERS)
  #include <bits/fortify/stdlib.h>
- #endif
- 
-+#if __BIONIC_AVAILABILITY_GUARD(21)
- /**
-  * Returns the absolute value where possible.
-  * For the most negative value, the result is unchanged (and thus also negative).
-  */
--int abs(int __x) __attribute_const__;
-+int abs(int __x) __attribute_const__ __INTRODUCED_IN(21);
- 
- /**
-  * Returns the absolute value where possible.
-  * For the most negative value, the result is unchanged (and thus also negative).
-  */
--long labs(long __x) __attribute_const__;
-+long labs(long __x) __attribute_const__ __INTRODUCED_IN(21);
- 
- /**
-  * Returns the absolute value where possible.
-  * For the most negative value, the result is unchanged (and thus also negative).
-  */
--long long llabs(long long __x) __attribute_const__;
-+long long llabs(long long __x) __attribute_const__ __INTRODUCED_IN(21);
- 
--int rand(void);
--void srand(unsigned int __seed);
--long random(void);
--void srandom(unsigned int __seed);
--int grantpt(int __fd);
-+int rand(void) __INTRODUCED_IN(21);
-+void srand(unsigned int __seed) __INTRODUCED_IN(21);
-+long random(void) __INTRODUCED_IN(21);
-+void srandom(unsigned int __seed) __INTRODUCED_IN(21);
-+int grantpt(int __fd) __INTRODUCED_IN(21);
- 
- /**
-  * [atof(3)](https://man7.org/linux/man-pages/man3/atof.3.html) converts a
-@@ -292,7 +323,8 @@ int grantpt(int __fd);
-  *
-  * Returns the double; use strtof() or strtod() if you need to detect errors.
-  */
--double atof(const char* _Nonnull __s) __attribute_pure__;
-+double atof(const char* _Nonnull __s) __attribute_pure__ __INTRODUCED_IN(21);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
- 
- /**
-  * [atoi(3)](https://man7.org/linux/man-pages/man3/atoi.3.html) converts a
-@@ -341,8 +373,15 @@ long strtol_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, i
-  */
- long long strtoll(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, int __base);
- 
-+#if __BIONIC_AVAILABILITY_GUARD(21)
- /** Equivalent to strtoll() on Android. */
--long long strtoll_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, int __base, locale_t _Nonnull __l);
-+long long strtoll_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, int __base, locale_t _Nonnull __l) __INTRODUCED_IN(21);
-+#else
-+__static_inline__ long long strtoll_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, int __base, locale_t _Nonnull __l) {
-+	(void) __l;
-+	return strtoll(__s, __end_ptr, __base);
-+}
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
- 
- /**
-  * [strtoul(3)](https://man7.org/linux/man-pages/man3/strtoul.3.html) converts a
-@@ -367,9 +406,12 @@ unsigned long strtoul_l(const char* _Nonnull __s, char* _Nullable * _Nullable __
-  */
- unsigned long long strtoull(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, int __base);
- 
-+#if __BIONIC_AVAILABILITY_GUARD(21)
- /** Equivalent to strtoull() on Android. */
--unsigned long long strtoull_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, int __base, locale_t _Nonnull __l);
-+unsigned long long strtoull_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, int __base, locale_t _Nonnull __l) __INTRODUCED_IN(21);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
- 
-+#if __BIONIC_AVAILABILITY_GUARD(21)
- /**
-  * [strtof(3)](https://man7.org/linux/man-pages/man3/strtof.3.html) converts a
-  * string to a float.
-@@ -378,7 +420,10 @@ unsigned long long strtoull_l(const char* _Nonnull __s, char* _Nullable * _Nulla
-  * `__end_ptr` is set to the last character in `__s` that was converted.
-  * errno is set to ERANGE if the result overflowed or underflowed.
-  */
--float strtof(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr);
-+float strtof(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr) __INTRODUCED_IN(21);
-+#else
-+__static_inline__ float strtof(const char* nptr, char** endptr);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
- 
- /**
-  * [strtod(3)](https://man7.org/linux/man-pages/man3/strtod.3.html) converts a
-@@ -390,6 +435,7 @@ float strtof(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr);
-  */
- double strtod(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr);
- 
-+#if __BIONIC_AVAILABILITY_GUARD(21)
- /**
-  * [strtold(3)](https://man7.org/linux/man-pages/man3/strtold.3.html) converts a
-  * string to a long double.
-@@ -398,19 +444,37 @@ double strtod(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr);
-  * `__end_ptr` is set to the last character in `__s` that was converted.
-  * errno is set to ERANGE if the result overflowed or underflowed.
-  */
--long double strtold(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr);
-+long double strtold(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr) __INTRODUCED_IN(21);
-+#else
-+long double strtold(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr) __RENAME(strtod);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
- 
-+#if __BIONIC_AVAILABILITY_GUARD(21)
- /** Equivalent to strtold() on Android. */
--long double strtold_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l);
-+long double strtold_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l) __INTRODUCED_IN(21);
-+#else
-+__static_inline__ long double strtold_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l) {
-+	(void) __l;
-+	return strtold(__s, __end_ptr);
-+}
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
- 
--#if __ANDROID_API__ >= 26
-+#if __BIONIC_AVAILABILITY_GUARD(26)
- /** Equivalent to strtod() on Android. */
- double strtod_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l) __INTRODUCED_IN(26);
- /** Equivalent to strtof() on Android. */
- float strtof_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l) __INTRODUCED_IN(26);
- #else
--// Implemented as static inlines before 26.
--#endif
-+__static_inline__ double strtod_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l) {
-+	(void) __l;
-+	return strtod(__s, __end_ptr);
-+}
-+
-+__static_inline__ float strtof_l(const char* _Nonnull __s, char* _Nullable * _Nullable __end_ptr, locale_t _Nonnull __l) {
-+	(void) __l;
-+	return strtof(__s, __end_ptr);
-+}
-+#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
- 
- __END_DECLS
- 
 diff --git a/string.h b/string.h
-index eb2ce53..d1494e1 100644
+index 06793c3..aa46d2b 100644
 --- a/string.h
 +++ b/string.h
 @@ -52,8 +52,8 @@ void* _Nullable memrchr(const void* _Nonnull __s, int __ch, size_t __n) __attrib
@@ -4056,7 +3904,7 @@ index d06d683..cae83e4 100644
  __BEGIN_DECLS
  
 diff --git a/sys/cdefs.h b/sys/cdefs.h
-index c4d8ea5..ad7d96f 100644
+index bd57ef0..476f048 100644
 --- a/sys/cdefs.h
 +++ b/sys/cdefs.h
 @@ -93,7 +93,7 @@
@@ -4077,8 +3925,8 @@ index c4d8ea5..ad7d96f 100644
  #  define __BIONIC_INCLUDE_FORTIFY_HEADERS 1
  #endif
  
-@@ -328,6 +328,255 @@
- /* Used to rename functions so that the compiler emits a call to 'x' rather than the function this was applied to. */
+@@ -357,6 +357,255 @@
+  */
  #define __RENAME(x) __asm__(#x)
  
 +#if defined(__cplusplus)
@@ -4383,7 +4231,7 @@ index a6f01e2..cd2a18a 100644
  /* Bionic additions */
  
 diff --git a/sys/epoll.h b/sys/epoll.h
-index 4d21e43..982bea8 100644
+index c06be22..ad634b1 100644
 --- a/sys/epoll.h
 +++ b/sys/epoll.h
 @@ -51,6 +51,7 @@ __BEGIN_DECLS
@@ -4416,8 +4264,8 @@ index 4d21e43..982bea8 100644
 +int epoll_pwait(int __epoll_fd, struct epoll_event* _Nonnull __events, int __event_count, int __timeout_ms, const sigset_t* _Nullable __mask) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
+ #if __BIONIC_AVAILABILITY_GUARD(28)
  /**
-  * Like epoll_pwait() but using a 64-bit signal mask even on 32-bit systems.
 diff --git a/sys/fsuid.h b/sys/fsuid.h
 index eeb5783..398b307 100644
 --- a/sys/fsuid.h
@@ -4465,35 +4313,10 @@ index 75ed542..0358e65 100644
  int inotify_rm_watch(int __fd, uint32_t __watch_descriptor);
  
 diff --git a/sys/mman.h b/sys/mman.h
-index 993ec0f..8fb3185 100644
+index b545a9c..267a6de 100644
 --- a/sys/mman.h
 +++ b/sys/mman.h
-@@ -49,18 +49,20 @@ __BEGIN_DECLS
-  * Returns the address of the mapping on success,
-  * and returns `MAP_FAILED` and sets `errno` on failure.
-  */
-+void* _Nonnull mmap(void* _Nullable __addr, size_t __size, int __prot, int __flags, int __fd, off_t __offset)
- #if defined(__USE_FILE_OFFSET64)
--void* _Nonnull mmap(void* _Nullable __addr, size_t __size, int __prot, int __flags, int __fd, off_t __offset) __RENAME(mmap64);
--#else
--void* _Nonnull mmap(void* _Nullable __addr, size_t __size, int __prot, int __flags, int __fd, off_t __offset);
-+	__RENAME(mmap64)
- #endif
-+;
- 
-+#if __BIONIC_AVAILABILITY_GUARD(21)
- /**
-  * mmap64() is a variant of mmap() that takes a 64-bit offset even on LP32.
-  *
-  * See https://android.googlesource.com/platform/bionic/+/main/docs/32-bit-abi.md
-  */
--void* _Nonnull mmap64(void* _Nullable __addr, size_t __size, int __prot, int __flags, int __fd, off64_t __offset);
-+void* _Nonnull mmap64(void* _Nullable __addr, size_t __size, int __prot, int __flags, int __fd, off64_t __offset) __INTRODUCED_IN(21);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
- 
- /**
-  * [munmap(2)](https://man7.org/linux/man-pages/man2/munmap.2.html)
-@@ -95,13 +97,14 @@ int mprotect(void* _Nonnull __addr, size_t __size, int __prot);
+@@ -95,13 +95,14 @@ int mprotect(void* _Nonnull __addr, size_t __size, int __prot);
   */
  void* _Nonnull mremap(void* _Nonnull __old_addr, size_t __old_size, size_t __new_size, int __flags, ...);
  
@@ -4509,7 +4332,7 @@ index 993ec0f..8fb3185 100644
  
  /**
   * [munlockall(2)](https://man7.org/linux/man-pages/man2/munlockall.2.html)
-@@ -109,7 +112,8 @@ int mlockall(int __flags);
+@@ -109,7 +110,8 @@ int mlockall(int __flags);
   *
   * Returns 0 on success, and returns -1 and sets `errno` on failure.
   */
@@ -4575,7 +4398,7 @@ index 05ef2c2..b6a7981 100644
  __END_DECLS
  
 diff --git a/sys/select.h b/sys/select.h
-index 685e6ac..02cb87e 100644
+index 5ee8869..88ef4de 100644
 --- a/sys/select.h
 +++ b/sys/select.h
 @@ -70,9 +70,11 @@ typedef struct {
@@ -4614,21 +4437,24 @@ index 685e6ac..02cb87e 100644
  /**
   * [select(2)](https://man7.org/linux/man-pages/man2/select.2.html) waits on a
 diff --git a/sys/sendfile.h b/sys/sendfile.h
-index ac623e7..bdfdab8 100644
+index ff3c8ac..79317b5 100644
 --- a/sys/sendfile.h
 +++ b/sys/sendfile.h
-@@ -40,7 +40,9 @@ __BEGIN_DECLS
+@@ -39,21 +39,25 @@
+ __BEGIN_DECLS
  
- /* See https://android.googlesource.com/platform/bionic/+/main/docs/32-bit-abi.md */
  #if defined(__USE_FILE_OFFSET64)
--ssize_t sendfile(int __out_fd, int __in_fd, off_t* _Nullable __offset, size_t __count) __RENAME(sendfile64);
 +#if __BIONIC_AVAILABILITY_GUARD(21)
+ /**
+  * [sendfile(2)](https://man7.org/linux/man-pages/man2/sendfile.2.html) copies data directly
+  * between two file descriptors.
+  *
+  * Returns the number of bytes copied on success, and returns -1 and sets `errno` on failure.
+  */
+-ssize_t sendfile(int __out_fd, int __in_fd, off_t* _Nullable __offset, size_t __count) __RENAME(sendfile64);
 +ssize_t sendfile(int __out_fd, int __in_fd, off_t* _Nullable __offset, size_t __count) __RENAME(sendfile64) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  #else
- /**
-  * [sendfile(2)](https://man7.org/linux/man-pages/man2/sendfile.2.html) copies data directly
-@@ -51,10 +53,12 @@ ssize_t sendfile(int __out_fd, int __in_fd, off_t* _Nullable __offset, size_t __
  ssize_t sendfile(int __out_fd, int __in_fd, off_t* _Nullable __offset, size_t __count);
  #endif
  
@@ -4637,12 +4463,13 @@ index ac623e7..bdfdab8 100644
   * Like sendfile() but allows using a 64-bit offset
   * even from a 32-bit process without `_FILE_OFFSET_BITS=64`.
   */
- ssize_t sendfile64(int __out_fd, int __in_fd, off64_t* _Nullable __offset, size_t __count);
+-ssize_t sendfile64(int __out_fd, int __in_fd, off64_t* _Nullable __offset, size_t __count);
++ssize_t sendfile64(int __out_fd, int __in_fd, off64_t* _Nullable __offset, size_t __count) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
  __END_DECLS
 diff --git a/sys/signalfd.h b/sys/signalfd.h
-index ed2c7bc..1348743 100644
+index dd949bb..f3d0062 100644
 --- a/sys/signalfd.h
 +++ b/sys/signalfd.h
 @@ -40,13 +40,15 @@
@@ -4660,8 +4487,8 @@ index ed2c7bc..1348743 100644
 +int signalfd(int __fd, const sigset_t* _Nonnull __mask, int __flags) __INTRODUCED_IN(18);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(18) */
  
+ #if __BIONIC_AVAILABILITY_GUARD(28)
  /**
-  * Like signalfd() but allows setting a signal mask with RT signals even from a 32-bit process.
 diff --git a/sys/socket.h b/sys/socket.h
 index 47ddce0..cd423dd 100644
 --- a/sys/socket.h
@@ -4736,7 +4563,7 @@ index 47ddce0..cd423dd 100644
  int setsockopt(int __fd, int __level, int __option, const void* _Nullable __value, socklen_t __value_length);
  int shutdown(int __fd, int __how);
 diff --git a/sys/stat.h b/sys/stat.h
-index 344a7c3..e0ad434 100644
+index 09a9ddd..15908a8 100644
 --- a/sys/stat.h
 +++ b/sys/stat.h
 @@ -41,7 +41,7 @@
@@ -4854,9 +4681,9 @@ index 344a7c3..e0ad434 100644
 +int mkfifo(const char* _Nonnull __path, mode_t __mode) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
  
+ #if __BIONIC_AVAILABILITY_GUARD(23)
  /**
-  * [mkfifoat(2)](https://man7.org/linux/man-pages/man2/mkfifoat.2.html)
-@@ -333,6 +364,7 @@ int mkfifoat(int __dir_fd, const char* _Nonnull __path, mode_t __mode) __INTRODU
+@@ -332,6 +363,7 @@ int mkfifoat(int __dir_fd, const char* _Nonnull __path, mode_t __mode) __INTRODU
   */
  int utimensat(int __dir_fd, const char* __BIONIC_COMPLICATED_NULLNESS __path, const struct timespec __times[_Nullable 2], int __flags);
  
@@ -4864,7 +4691,7 @@ index 344a7c3..e0ad434 100644
  /**
   * [futimens(3)](https://man7.org/linux/man-pages/man3/futimens.3.html) sets
   * the given file descriptor's timestamp.
-@@ -343,7 +375,8 @@ int utimensat(int __dir_fd, const char* __BIONIC_COMPLICATED_NULLNESS __path, co
+@@ -342,7 +374,8 @@ int utimensat(int __dir_fd, const char* __BIONIC_COMPLICATED_NULLNESS __path, co
   *
   * Returns 0 on success and returns -1 and sets `errno` on failure.
   */
@@ -4872,9 +4699,9 @@ index 344a7c3..e0ad434 100644
 +int futimens(int __fd, const struct timespec __times[_Nullable 2]) __INTRODUCED_IN(19);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(19) */
  
+ #if defined(__USE_GNU) && __BIONIC_AVAILABILITY_GUARD(30)
  /**
-  * [statx(2)](https://man7.org/linux/man-pages/man2/statx.2.html) returns
-@@ -358,3 +391,5 @@ int statx(int __dir_fd, const char* _Nullable __path, int __flags, unsigned __ma
+@@ -357,3 +390,5 @@ int statx(int __dir_fd, const char* _Nullable __path, int __flags, unsigned __ma
  #endif
  
  __END_DECLS
@@ -4947,12 +4774,12 @@ index 2aaf86e..e468bdb 100644
  
  __END_DECLS
 diff --git a/sys/system_properties.h b/sys/system_properties.h
-index d850b1e..bbbfeea 100644
+index 1e72bf4..206734e 100644
 --- a/sys/system_properties.h
 +++ b/sys/system_properties.h
 @@ -77,6 +77,7 @@ void __system_property_read_callback(const prop_info* _Nonnull __pi,
      void* _Nullable __cookie) __INTRODUCED_IN(26);
- #endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+ #endif
  
 +#if __BIONIC_AVAILABILITY_GUARD(19)
  /**
@@ -5329,10 +5156,10 @@ index ebe4eb8..e532fcd 100644
  
  __END_DECLS
 diff --git a/time.h b/time.h
-index 04451d5..4bb6b86 100644
+index b15ca75..7dac8ba 100644
 --- a/time.h
 +++ b/time.h
-@@ -281,7 +281,7 @@ char* _Nullable strptime(const char* _Nonnull __s, const char* _Nonnull __fmt, s
+@@ -279,7 +279,7 @@ char* _Nullable strptime(const char* _Nonnull __s, const char* _Nonnull __fmt, s
  /**
   * Equivalent to strptime() on Android where only C/POSIX locales are available.
   */
@@ -5341,7 +5168,7 @@ index 04451d5..4bb6b86 100644
  
  /**
   * [strftime(3)](https://man7.org/linux/man-pages/man3/strftime.3.html) formats
-@@ -292,10 +292,12 @@ char* _Nullable strptime_l(const char* _Nonnull __s, const char* _Nonnull __fmt,
+@@ -290,10 +290,12 @@ char* _Nullable strptime_l(const char* _Nonnull __s, const char* _Nonnull __fmt,
   */
  size_t strftime(char* _Nonnull __buf, size_t __n, const char* _Nonnull __fmt, const struct tm* _Nullable __tm) __strftimelike(3);
  
@@ -5400,10 +5227,10 @@ index 94efb2d..b9fb3c8 100644
  
  __END_DECLS
 diff --git a/unistd.h b/unistd.h
-index 9aa5a5c..c71af0d 100644
+index 260019c..1e5dcdf 100644
 --- a/unistd.h
 +++ b/unistd.h
-@@ -138,12 +138,20 @@ int    setpgid(pid_t __pid, pid_t __pgid);
+@@ -152,12 +152,20 @@ int    setpgid(pid_t __pid, pid_t __pgid);
  pid_t  getppid(void);
  pid_t  getpgrp(void);
  int    setpgrp(void);
@@ -5426,7 +5253,7 @@ index 9aa5a5c..c71af0d 100644
  int execve(const char* _Nonnull __file, char* _Nullable const* _Nullable __argv, char* _Nullable const* _Nullable __envp);
  int execl(const char* _Nonnull __path, const char* _Nullable __arg0, ...) __attribute__((__sentinel__));
  int execlp(const char* _Nonnull __file, const char* _Nullable __arg0, ...) __attribute__((__sentinel__));
-@@ -262,9 +270,17 @@ long fpathconf(int __fd, int __name);
+@@ -276,9 +284,17 @@ long fpathconf(int __fd, int __name);
  long pathconf(const char* _Nonnull __path, int __name);
  
  int access(const char* _Nonnull __path, int __mode);
@@ -5446,7 +5273,7 @@ index 9aa5a5c..c71af0d 100644
  int unlink(const char* _Nonnull __path);
  int unlinkat(int __dirfd, const char* _Nonnull __path, int __flags);
  
-@@ -309,9 +325,17 @@ int pipe2(int __fds[_Nonnull 2], int __flags);
+@@ -323,9 +339,17 @@ int pipe2(int __fds[_Nonnull 2], int __flags);
  
  int chroot(const char* _Nonnull __path);
  int symlink(const char* _Nonnull __old_path, const char* _Nonnull __new_path);
@@ -5466,30 +5293,18 @@ index 9aa5a5c..c71af0d 100644
  int chown(const char* _Nonnull __path, uid_t __owner, gid_t __group);
  int fchown(int __fd, uid_t __owner, gid_t __group);
  int fchownat(int __dir_fd, const char* _Nonnull __path, uid_t __owner, gid_t __group, int __flags);
-@@ -364,13 +388,20 @@ ssize_t write(int __fd, const void* __BIONIC_COMPLICATED_NULLNESS __buf, size_t
+@@ -378,7 +402,9 @@ ssize_t write(int __fd, const void* __BIONIC_COMPLICATED_NULLNESS __buf, size_t
  
  int dup(int __old_fd);
  int dup2(int __old_fd, int __new_fd);
 -int dup3(int __old_fd, int __new_fd, int __flags);
-+
 +#if __BIONIC_AVAILABILITY_GUARD(21)
 +int dup3(int __old_fd, int __new_fd, int __flags) __INTRODUCED_IN(21);
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
-+
  int fsync(int __fd);
  int fdatasync(int __fd);
  
- /* See https://android.googlesource.com/platform/bionic/+/main/docs/32-bit-abi.md */
- #if defined(__USE_FILE_OFFSET64)
--int truncate(const char* _Nonnull __path, off_t __length) __RENAME(truncate64);
-+#if __BIONIC_AVAILABILITY_GUARD(21)
-+int truncate(const char* _Nonnull __path, off_t __length) __RENAME(truncate64) __INTRODUCED_IN(21);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
-+
- off_t lseek(int __fd, off_t __offset, int __whence) __RENAME(lseek64);
- ssize_t pread(int __fd, void* _Nonnull __buf, size_t __count, off_t __offset) __RENAME(pread64);
- ssize_t pwrite(int __fd, const void* _Nonnull __buf, size_t __count, off_t __offset) __RENAME(pwrite64);
-@@ -383,7 +414,10 @@ ssize_t pwrite(int __fd, const void* _Nonnull __buf, size_t __count, off_t __off
+@@ -398,7 +424,10 @@ ssize_t pwrite(int __fd, const void* _Nonnull __buf, size_t __count, off_t __off
  int ftruncate(int __fd, off_t __length);
  #endif
  
@@ -5501,7 +5316,7 @@ index 9aa5a5c..c71af0d 100644
  off64_t lseek64(int __fd, off64_t __offset, int __whence);
  ssize_t pread64(int __fd, void* _Nonnull __buf, size_t __count, off64_t __offset);
  ssize_t pwrite64(int __fd, const void* _Nonnull __buf, size_t __count, off64_t __offset);
-@@ -436,6 +470,7 @@ int ttyname_r(int __fd, char* _Nonnull __buf, size_t __buf_size);
+@@ -451,6 +480,7 @@ int ttyname_r(int __fd, char* _Nonnull __buf, size_t __buf_size);
  
  int acct(const char* _Nullable __path);
  
@@ -5509,7 +5324,7 @@ index 9aa5a5c..c71af0d 100644
  /**
   * [getpagesize(2)](https://man7.org/linux/man-pages/man2/getpagesize.2.html)
   * returns the system's page size. This is slightly faster than going via
-@@ -443,13 +478,19 @@ int acct(const char* _Nullable __path);
+@@ -458,13 +488,19 @@ int acct(const char* _Nullable __path);
   *
   * Returns the system's page size in bytes.
   */
@@ -5532,7 +5347,7 @@ index 9aa5a5c..c71af0d 100644
   * New code should use __builtin___clear_cache() instead, which works on
   * all architectures.
 diff --git a/wchar.h b/wchar.h
-index f3cd98d..aaff0ad 100644
+index 9613bc3..67f908b 100644
 --- a/wchar.h
 +++ b/wchar.h
 @@ -78,18 +78,34 @@ size_t mbrlen(const char* _Nullable __s, size_t __n, mbstate_t* _Nullable __ps);
@@ -5653,7 +5468,7 @@ index f3cd98d..aaff0ad 100644
  size_t wcslcat(wchar_t* _Nonnull __dst, const wchar_t* _Nonnull __src, size_t __n);
  size_t wcslcpy(wchar_t* _Nonnull __dst, const wchar_t* _Nonnull __src, size_t __n);
 diff --git a/wctype.h b/wctype.h
-index b1d716c..c3e2f56 100644
+index 5e6c391..ba948bb 100644
 --- a/wctype.h
 +++ b/wctype.h
 @@ -36,21 +36,23 @@
@@ -5696,7 +5511,7 @@ index b1d716c..c3e2f56 100644
  wint_t towctrans_l(wint_t __wc, wctrans_t _Nonnull __transform, locale_t _Nonnull __l) __INTRODUCED_IN(26);
 @@ -60,8 +62,10 @@ wint_t towctrans_l(wint_t __wc, wctrans_t _Nonnull __transform, locale_t _Nonnul
  wctrans_t _Nonnull wctrans_l(const char* _Nonnull __name, locale_t _Nonnull __l) __INTRODUCED_IN(26);
- #endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+ #endif
  
 -wctype_t wctype_l(const char* _Nonnull __name, locale_t _Nonnull __l);
 -int iswctype_l(wint_t __wc, wctype_t __transform, locale_t _Nonnull __l);

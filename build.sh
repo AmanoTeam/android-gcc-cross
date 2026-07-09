@@ -105,8 +105,8 @@ declare -ra targets=(
 	# 'armv5-unknown-linux-androideabi'
 	'armv7-unknown-linux-androideabi'
 	'x86_64-unknown-linux-android'
-	'aarch64-unknown-linux-android'
 	'i686-unknown-linux-android'
+	'aarch64-unknown-linux-android'
 	# 'riscv64-unknown-linux-android'
 )
 
@@ -770,6 +770,8 @@ cmake --install "${PWD}" --strip
 cd "${ninja_directory}/build"
 rm --force --recursive ./*
 
+set +u
+
 CMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE/21/28}" \
 	cmake \
 	-S "${ninja_directory}" \
@@ -778,6 +780,8 @@ CMAKE_TOOLCHAIN_FILE="${CMAKE_TOOLCHAIN_FILE/21/28}" \
 	-DCMAKE_POLICY_VERSION_MINIMUM='3.5' \
 	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
 	-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'
+
+set -u
 
 cmake --build "${PWD}"
 cmake --install "${PWD}" --strip

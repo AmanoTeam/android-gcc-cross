@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 
@@ -45,7 +45,7 @@ declare -r versions=(
 )
 
 declare -r ndk_archive='/tmp/ndk.zip'
-declare -r ndk_directory='/tmp/android-ndk-r30-beta1'
+declare -r ndk_directory='/tmp/android-ndk-r30-beta2'
 declare -r unsupported_ndk_directory='/tmp/android-ndk-r16b'
 
 declare -r include_dir="${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
@@ -102,7 +102,7 @@ function remove_symbols() {
 
 if ! [ -f "${ndk_archive}" ]; then
 	curl \
-		--url 'https://dl.google.com/android/repository/android-ndk-r30-beta1-linux.zip' \
+		--url 'https://dl.google.com/android/repository/android-ndk-r30-beta2-linux.zip' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
@@ -169,6 +169,7 @@ if ! [ -f "${ndk_archive}" ]; then
 			--expression 's/ _Nullable / /g; s/ _Nullable,/,/g; s/_Nullable)/)/g; s/\[_Nullable /\[/g; s/ _Nullable\*/\*/g; s/ \*_Nullable/\*/g; s/\[_Nullable\]/\[\]/g; s/\*_Nullable /\*/g; s/\* _Nullable/\*/g' \
 			--expression 's/ _Null_unspecified / /g; s/ _Null_unspecified,/,/g; s/_Null_unspecified)/)/g; s/\[_Null_unspecified /\[/g; s/ _Null_unspecified\*/\*/g; s/ \*_Null_unspecified/\*/g; s/\[_Null_unspecified\]/\[\]/g; s/\*_Null_unspecified /\*/g; s/\* _Null_unspecified/\*/g' \
 			--expression 's/ __BIONIC_COMPLICATED_NULLNESS / /g; s/ __BIONIC_COMPLICATED_NULLNESS,/,/g; s/__BIONIC_COMPLICATED_NULLNESS)/)/g; s/\[__BIONIC_COMPLICATED_NULLNESS /\[/g; s/ __BIONIC_COMPLICATED_NULLNESS\*/\*/g; s/ \*__BIONIC_COMPLICATED_NULLNESS/\*/g; s/\[__BIONIC_COMPLICATED_NULLNESS\]/\[\]/g; s/\*__BIONIC_COMPLICATED_NULLNESS /\*/g; s/\* __BIONIC_COMPLICATED_NULLNESS/\*/g' \
+			--expression 's/ __attribute__((__nomerge__))//g' \
 			"${file}"
 		
 		sed \
@@ -412,6 +413,13 @@ cp \
 	--recursive \
 	'x86_64-unknown-linux-android21' \
 	'x86_64-unknown-linux-android'
+
+for target in "${targets[@]}"; do
+	make -C "${workdir}/tools/stubs" clean
+	make -C "${workdir}/tools/stubs" CC="${target}-gcc"
+	
+	cp "${workdir}/tools/stubs/lib"*'.a' "${target}/lib"
+done
 
 tar \
 	--create \
