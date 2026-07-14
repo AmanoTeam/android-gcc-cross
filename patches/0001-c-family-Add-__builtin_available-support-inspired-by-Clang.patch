@@ -1,0 +1,2019 @@
+From 27e5d663e4e3e5b76eed06e22cb34634cd21eace Mon Sep 17 00:00:00 2001
+From: root
+ <root@runnervm5mmn9.vbe0po14bteuxnpsttwp1nmvne.bx.internal.cloudapp.net>
+Date: Tue, 14 Jul 2026 08:15:46 +0000
+Subject: [PATCH] c-family: Add __builtin_available support inspired by Clang
+
+Implement __builtin_available (platform version, ...) as a keyword-based
+primary expression usable in C, C++, Objective-C and Objective-C++.
+The semantics mirror Clang's ParseAvailabilityCheckExpr so that
+existing source using the Clang extension continues to build, e.g.:
+
+    if (__builtin_available (macos 10.10, ios 13.0, *))
+        ...
+
+A comma-separated list of platform specs (case-insensitive, with
+aliases like macosx/osx/darwin mapping to macos, and anyappleos for
+the generic Apple-OS sentinel) is parsed by the C and C++ front-ends
+into an availability_spec list; the wildcard '*' terminating the list
+is mandatory (Clang-compatible).  Unknown platforms are diagnosed at
+parse time, as are duplicate specs and a missing wildcard.
+
+Each spec is matched against the compilation target via three new
+target hooks in the TARGET_C vector:
+
+  - availability_platform_name
+  - availability_min_version
+  - availability_platform_id
+
+Darwin and Android override these hooks.  When a platform matches and
+its version is below the compile-time deployment floor, the expression
+folds to true.  When no spec matches the target, the wildcard applies
+and the expression also folds to true, matching Clang's behaviour in
+clang/test/CodeGen/availability-check-anyappleos.c.
+
+Otherwise, GCC emits a runtime call:
+
+  - __isPlatformVersionAtLeast (platform_id, major, minor, subminor)
+    on Darwin, matching the Darwin runtime; or
+  - __isOSVersionAtLeast (major, minor, subminor) on Android and other
+    non-Darwin targets that hook in, matching the NDK's
+    libandroid_support helper which wraps android_get_device_api_level().
+    See https://developer.android.com/ndk/guides/using-newer-apis.
+
+To keep the runtime call symbol unmangled in C++, a new language hook
+make_runtime_function_decl is introduced; the C++ front-end overrides
+it through build_library_fn_ptr so that the FUNCTION_DECL carries
+C linkage (no _Z... mangling).  Without this hook, the C++
+immediate-escalation walk would also crash on a hook-built decl that
+lacks DECL_LANG_SPECIFIC.
+
+Tests cover all four front-ends and the Android codegen path (verifying
+that __isOSVersionAtLeast is emitted with the unmangled symbol and
+that the Darwin-specific __isPlatformVersionAtLeast helper does not
+leak into non-Darwin codegen).
+
+gcc/ChangeLog:
+
+	* Makefile.in (C_COMMON_OBJS): Add c-family/c-availability.o.
+	* target.def (TARGET_C): Add availability_platform_name,
+	availability_min_version, and availability_platform_id hooks.
+	* targhooks.cc (default_availability_platform_name,
+	default_availability_min_version,
+	default_availability_platform_id): New.
+	* targhooks.h: Declare them.
+	* langhooks.h (make_runtime_function_decl): New hook.
+	* langhooks.cc (lhd_make_runtime_function_decl): Default impl.
+	* langhooks-def.h (LANG_HOOKS_MAKE_RUNTIME_FUNCTION_DECL,
+	lhd_make_runtime_function_decl): Declare.
+	* doc/tm.texi.in: Add @hook entries.
+	* doc/tm.texi: Regenerate.
+
+gcc/c-family/ChangeLog:
+
+	* c-common.h (enum rid): Add RID_BUILTIN_AVAILABLE.
+	* c-common.cc: Register __builtin_available keyword.
+	* c-availability.h: New file.
+	* c-availability.cc: New file.
+
+gcc/c/ChangeLog:
+
+	* c-decl.cc (names_builtin_p): Add RID_BUILTIN_AVAILABLE.
+	* c-parser.cc (c_parser_builtin_available): New helper.
+	* config-lang.in: Add c-availability.cc to gtfiles.
+
+gcc/cp/ChangeLog:
+
+	* config-lang.in: Add c-availability.cc to gtfiles.
+	* cp-objcp-common.h (LANG_HOOKS_MAKE_RUNTIME_FUNCTION_DECL):
+	Override with cxx_make_runtime_function_decl.
+	* cp-tree.h (cxx_make_runtime_function_decl): Declare.
+	* decl.cc (cxx_make_runtime_function_decl): New, using
+	build_library_fn_ptr so the runtime function decl is emitted with
+	C linkage.
+	* parser.cc (cp_parser_builtin_available): New helper.
+
+gcc/objc/ChangeLog:
+
+	* config-lang.in: Add c-availability.cc to gtfiles.
+
+gcc/config/ChangeLog:
+
+	* darwin-protos.h (darwin_availability_platform_name,
+	darwin_availability_min_version,
+	darwin_availability_platform_id): Declare.
+	* darwin.cc: Implement them.
+	* darwin.h: Override TARGET_C_AVAILABILITY_*.
+	* linux-protos.h (android_availability_platform_name,
+	android_availability_min_version): Declare.
+	* linux.cc: Implement them (active on TARGET_ANDROID).
+	* linux-android.h: Override TARGET_C_AVAILABILITY_PLATFORM_NAME
+	and TARGET_C_AVAILABILITY_MIN_VERSION for Android.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.dg/builtin-available-1.c: New test.
+	* gcc.dg/builtin-available-android-1.c: New test.
+	* gcc.dg/builtin-available-has-builtin.c: New test.
+	* g++.dg/builtin-available-1.C: New test.
+	* g++.dg/builtin-available-android-1.C: New test.
+	* objc.dg/builtin-available-1.m: New test.
+	* obj-c++.dg/builtin-available-1.mm: New test.
+---
+ gcc/Makefile.in                               |   2 +-
+ gcc/c-family/c-availability.cc                | 367 ++++++++++++++++++
+ gcc/c-family/c-availability.h                 | 116 ++++++
+ gcc/c-family/c-common.cc                      |   1 +
+ gcc/c-family/c-common.h                       |   2 +-
+ gcc/c/c-decl.cc                               |   1 +
+ gcc/c/c-parser.cc                             | 216 +++++++++++
+ gcc/c/config-lang.in                          |   2 +-
+ gcc/config/darwin-protos.h                    |   5 +
+ gcc/config/darwin.cc                          |  52 +++
+ gcc/config/darwin.h                           |  10 +
+ gcc/config/linux-android.h                    |  18 +
+ gcc/config/linux-protos.h                     |   7 +
+ gcc/config/linux.cc                           |  52 +++
+ gcc/cp/config-lang.in                         |   1 +
+ gcc/cp/cp-objcp-common.h                      |   3 +
+ gcc/cp/cp-tree.h                              |   1 +
+ gcc/cp/decl.cc                                |  12 +
+ gcc/cp/parser.cc                              | 187 +++++++++
+ gcc/doc/tm.texi                               |  39 +-
+ gcc/doc/tm.texi.in                            |   6 +
+ gcc/langhooks-def.h                           |   3 +
+ gcc/langhooks.cc                              |  12 +
+ gcc/langhooks.h                               |  12 +
+ gcc/objc/config-lang.in                       |   2 +-
+ gcc/target.def                                |  50 ++-
+ gcc/targhooks.cc                              |  27 ++
+ gcc/targhooks.h                               |   5 +
+ gcc/testsuite/g++.dg/builtin-available-1.C    |  41 ++
+ .../g++.dg/builtin-available-android-1.C      |  47 +++
+ gcc/testsuite/gcc.dg/builtin-available-1.c    |  85 ++++
+ .../gcc.dg/builtin-available-android-1.c      |  48 +++
+ .../gcc.dg/builtin-available-has-builtin.c    |   9 +
+ .../obj-c++.dg/builtin-available-1.mm         |  13 +
+ gcc/testsuite/objc.dg/builtin-available-1.m   |  13 +
+ 35 files changed, 1454 insertions(+), 13 deletions(-)
+ create mode 100644 gcc/c-family/c-availability.cc
+ create mode 100644 gcc/c-family/c-availability.h
+ create mode 100644 gcc/testsuite/g++.dg/builtin-available-1.C
+ create mode 100644 gcc/testsuite/g++.dg/builtin-available-android-1.C
+ create mode 100644 gcc/testsuite/gcc.dg/builtin-available-1.c
+ create mode 100644 gcc/testsuite/gcc.dg/builtin-available-android-1.c
+ create mode 100644 gcc/testsuite/gcc.dg/builtin-available-has-builtin.c
+ create mode 100644 gcc/testsuite/obj-c++.dg/builtin-available-1.mm
+ create mode 100644 gcc/testsuite/objc.dg/builtin-available-1.m
+
+diff --git a/gcc/Makefile.in b/gcc/Makefile.in
+index e60a4af9e0b..ecd1e8e04a5 100644
+--- a/gcc/Makefile.in
++++ b/gcc/Makefile.in
+@@ -1329,7 +1329,7 @@ C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
+   c-family/c-semantics.o c-family/c-ada-spec.o \
+   c-family/c-ubsan.o c-family/known-headers.o \
+   c-family/c-attribs.o c-family/c-warn.o c-family/c-spellcheck.o \
+-  c-family/c-type-mismatch.o
++  c-family/c-type-mismatch.o c-family/c-availability.o
+ 
+ # Analyzer object files
+ ANALYZER_OBJS = \
+diff --git a/gcc/c-family/c-availability.cc b/gcc/c-family/c-availability.cc
+new file mode 100644
+index 00000000000..d6151c7de4d
+--- /dev/null
++++ b/gcc/c-family/c-availability.cc
+@@ -0,0 +1,367 @@
++/* Implementation of the `__builtin_available' availability-check
++   expression shared by the C and C++ front ends.  See c-availability.h for
++   the public entry points and the semantics of the expression.  This is the
++   GCC analog of Clang's `__builtin_available' / `@available' facility.
++
++   Copyright (C) 2026 Free Software Foundation, Inc.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify it under
++the terms of the GNU General Public License as published by the Free
++Software Foundation; either version 3, or (at your option) any later
++version.
++
++GCC is distributed in the hope that it will be useful, but WITHOUT ANY
++WARRANTY; without even the implied warranty of MERCHANTABILITY or
++FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++for more details.
++
++You should have received a copy of the GNU General Public License
++along with GCC; see the file COPYING3.  If not see
++<http://www.gnu.org/licenses/>.  */
++
++#include "config.h"
++#include "system.h"
++#include "coretypes.h"
++#include "target.h"
++#include "c-availability.h"
++#include "c-common.h"
++#include "tree.h"
++#include "fold-const.h"
++#include "stringpool.h"
++#include "diagnostic.h"
++#include "gcc-rich-location.h"
++#include "intl.h"
++#include "langhooks.h"
++
++/* The set of canonical platform names understood by __builtin_available.
++   Names are matched case-insensitively during parsing and stored in the
++   canonical (lowercase) form, the same way Clang canonicalizes them in
++   AvailabilityAttr::canonicalizePlatformName.
++   The "*_application_extension" spellings are accepted as the matching
++   base platform, mirroring Clang.  */
++
++struct availability_platform_info_t
++{
++  const char *canonical;
++  const char *const *aliases;
++};
++
++static const char *const macos_aliases[] =
++  { "macos", "macosx", "osx", "darwin", nullptr };
++static const char *const ios_aliases[] =
++  { "ios", "iosapplicationextension", nullptr };
++static const char *const tvos_aliases[] =
++  { "tvos", "tvosapplicationextension", nullptr };
++static const char *const watchos_aliases[] =
++  { "watchos", "watchosapplicationextension", nullptr };
++static const char *const xros_aliases[] =
++  { "visionos", "xros", "visionosapplicationextension",
++    "xrosapplicationextension", nullptr };
++static const char *const maccatalyst_aliases[] =
++  { "maccatalyst", nullptr };
++static const char *const driverkit_aliases[] =
++  { "driverkit", nullptr };
++static const char *const anyappleos_aliases[] =
++  { "anyappleos", nullptr };
++/* Android NDK exposes __builtin_available(android N, *) for guarding newer
++   Android APIs.  See https://developer.android.com/ndk/guides/using-newer-apis
++   for the user-facing documentation; this matches Clang's "android" entry in
++   AvailabilityAttr::platform() and its triple-based PlatformName assignment
++   in clang/lib/Basic/Targets/OSTargets.h.  */
++static const char *const android_aliases[] =
++  { "android", nullptr };
++
++static const availability_platform_info_t platforms[] =
++{
++  { "macos", macos_aliases },
++  { "ios", ios_aliases },
++  { "tvos", tvos_aliases },
++  { "watchos", watchos_aliases },
++  { "visionos", xros_aliases },
++  { "maccatalyst", maccatalyst_aliases },
++  { "driverkit", driverkit_aliases },
++  { "anyappleos", anyappleos_aliases },
++  { "android", android_aliases },
++};
++
++/* Return the canonical (lowercase) name for the platform spelt NAME,
++   or NULL if NAME is not recognized.  Comparison is case-insensitive.  */
++
++const char *
++c_lookup_availability_platform (const char *name)
++{
++  if (name == nullptr)
++    return nullptr;
++  for (const auto &p : platforms)
++    for (const char *const *alias = p.aliases; *alias; ++alias)
++      if (strcasecmp (name, *alias) == 0)
++	return p.canonical;
++  return nullptr;
++}
++
++/* Helper: case-insensitive comparator for the platform map.  */
++
++static bool
++spec_platform_eq (const char *a, const char *b)
++{
++  if (!a || !b)
++    return false;
++  return strcasecmp (a, b) == 0;
++}
++
++/* Validate the spec list SPEC.  Emits diagnostics:
++     - "must handle potential future platforms with '*'" if no wildcard
++     - "'*' query has already been specified" for duplicate wildcards
++     - "version for '%s' already specified" for duplicate platforms
++   Returns nonzero on success, zero on failure.  LOC is used to pinpoint the
++   diagnostics when the underlying spec location is UNKNOWN_LOCATION.  */
++
++int
++c_validate_availability_specs (location_t loc,
++			      vec<availability_spec> &specs)
++{
++  bool seen_wildcard = false;
++  hash_set <const char *> /*nozero*/ platforms_seen;
++  bool dies = false;
++
++  for (const auto &spec : specs)
++    {
++      if (spec.is_wildcard)
++	{
++	  if (seen_wildcard)
++	    {
++	      error_at (spec.begin_loc,
++		 "%<*%> query has already been specified");
++	      dies = true;
++	    }
++	  seen_wildcard = true;
++	  continue;
++	}
++
++      /* Same canonical platform as a previously-seen spec?  */
++      if (spec.platform != nullptr)
++	{
++      bool dup = platforms_seen.add (spec.platform);
++	  if (dup)
++	    {
++	      gcc_rich_location richloc (spec.begin_loc);
++	      richloc.add_range (spec.end_loc);
++	      error_at (&richloc,
++			 "version for %qs already specified",
++			 spec.platform);
++	      dies = true;
++	    }
++	}
++      else
++	{
++	  error_at (loc, "expected a platform name here");
++	  dies = true;
++	}
++    }
++
++  if (!seen_wildcard && !dies)
++    {
++      if (!specs.is_empty ())
++	{
++	  location_t hint_point = specs.last ().end_loc;
++	  gcc_rich_location richloc (hint_point);
++	  richloc.add_fixit_insert_after (", *");
++	  error_at (&richloc,
++		     "must handle potential future platforms with %<*%>");
++	}
++      else
++	error_at (loc,
++		  "must handle potential future platforms with %<*%>");
++      return 0;
++    }
++
++  return dies ? 0 : 1;
++}
++
++/* Look up the spec matching the current target's runtime platform.
++   Returns true and writes the matched version into *MAJOR_P et al on
++   success.  Returns false when no spec matches the current target
++   platform, in which case the check is equivalent to the wildcard spec
++   `*' (i.e., always false at runtime, since this is a guard for a
++   future platform).
++
++   The mapping follows Clang's SemaObjC::ActOnObjCAvailabilityCheckExpr
++   (clang/lib/Sema/SemaExprObjC.cc):
++     - "maccatalyst" target reuses "ios" specs if "maccatalyst" is absent.
++     - Darwin targets fall back to "anyappleos" if neither the platform
++       nor "maccatalyst" matches a spec.  */
++
++bool
++c_lookup_target_availability_spec (vec<availability_spec> &specs,
++				   unsigned &out_major,
++				   unsigned &out_minor,
++				   unsigned &out_subminor)
++{
++  const char *platform = targetm.c.availability_platform_name ();
++  if (platform == nullptr)
++    return false;
++
++  auto find_spec = [&](const char *plat) -> const availability_spec * {
++    for (const auto &s : specs)
++      if (!s.is_wildcard && s.platform != nullptr && spec_platform_eq (s.platform, plat))
++	return &s;
++    return nullptr;
++  };
++
++  /* Try the platform name verbatim first.  */
++  const availability_spec *match = find_spec (platform);
++
++  bool is_darwin = targetm.c.availability_platform_id () != 0;
++
++  /* maccatalyst transcription.  */
++  if (match == nullptr && spec_platform_eq (platform, "maccatalyst"))
++    match = find_spec ("ios");
++
++  /* anyappleos fallback for Darwin targets.  */
++  if (match == nullptr && is_darwin)
++    match = find_spec ("anyappleos");
++
++  if (match == nullptr)
++    return false;
++
++  out_major = match->ver_major;
++  out_minor = match->ver_minor;
++  out_subminor = match->ver_subminor;
++  return true;
++}
++
++/* Lazily build and cache the runtime function decl that backs
++   __builtin_available.  On Darwin targets this is
++   __isPlatformVersionAtLeast (int platform, int major, int minor,
++			      int subminor) -> int;
++   on every other target (including non-macOS Apple-aware targets) it
++   is __isOSVersionAtLeast (int major, int minor, int subminor) -> int.
++   The decl is shared via a tree-by-frontend private static; we don't
++   GTY it as it will be kept alive by any single user and CC1 will release
++   all decls at teardown anyway.  */
++
++static GTY(()) tree platform_version_at_least_fn;
++static GTY(()) tree os_version_at_least_fn;
++
++static tree
++get_availability_runtime_fn (bool is_darwin)
++{
++  tree &slot = is_darwin ? platform_version_at_least_fn
++			: os_version_at_least_fn;
++  if (slot)
++    return slot;
++
++  tree *arg_types;
++  int nargs;
++  const char *name;
++
++  if (is_darwin)
++    {
++      nargs = 4;
++      arg_types = XALLOCAVEC (tree, nargs);
++      arg_types[0] = arg_types[1] = arg_types[2] = arg_types[3] = integer_type_node;
++      name = "__isPlatformVersionAtLeast";
++    }
++  else
++    {
++      nargs = 3;
++      arg_types = XALLOCAVEC (tree, nargs);
++      arg_types[0] = arg_types[1] = arg_types[2] = integer_type_node;
++      name = "__isOSVersionAtLeast";
++    }
++
++  tree fntype = build_function_type_array (integer_type_node, nargs, arg_types);
++  /* Use the language hook to allocate the FUNCTION_DECL itself so that
++     language-specific machinery (CJK's lang_decl for the C++ immediate
++     escalation walk, etc.) is set up correctly without interfering with
++     the call/lower-level name mangling.  The hook always yields a decl
++     with C-linkage semantics -- _Z<mangled> mangling does NOT apply --
++     matching the way the Android NDK (libandroid_support) provides
++     __isOSVersionAtLeast and Darwin's runtime provides
++     __isPlatformVersionAtLeast.  */
++  tree fndecl = lang_hooks.make_runtime_function_decl (name, fntype);
++  DECL_EXTERNAL (fndecl) = 1;
++  TREE_PUBLIC (fndecl) = 1;
++  DECL_ARTIFICIAL (fndecl) = 1;
++  TREE_NOTHROW (fndecl) = 1;
++  DECL_VISIBILITY (fndecl) = VISIBILITY_DEFAULT;
++  DECL_VISIBILITY_SPECIFIED (fndecl) = 1;
++  TREE_USED (fndecl) = 1;
++  slot = fndecl;
++  return fndecl;
++}
++
++/* Build the tree node for a validated __builtin_available (specs).
++   Returns a tree of type `bool'.  Caps: emits no diagnostics beyond
++   those already issued by c_validate_availability_specs.  On error,
++   returns integer_zero_node.  */
++
++tree
++c_build_builtin_available (location_t loc,
++			  location_t rparen_loc,
++			  vec<availability_spec> &specs)
++{
++  /* Match the spec for the current target.  */
++  unsigned mmajor = 0, mminor = 0, msubminor = 0;
++  bool matched = c_lookup_target_availability_spec (specs,
++						    mmajor, mminor, msubminor);
++
++  /* No platform-specific spec matched the target's runtime platform.
++     Following Clang's semantics in ActOnObjCAvailabilityCheckExpr /
++     ObjCAvailabilityCheckExpr::Evaluate, this case represents a wildcard-only
++     match (i.e. the '*' catch-all), which Clang folds to `true' regardless of
++     whether the target knows about any runtime platform at all.  For example,
++     __builtin_available(anyAppleOS 28, *) on Android/Linux triples folds to
++     true in Clang because Android's platform name 'android' is not an Apple
++     OS, so only the wildcard applies; see clang/test/CodeGen/
++     availability-check-anyappleos.c (CHECK-ANDROID: br i1 true).  */
++  if (!matched)
++    return convert (boolean_type_node, integer_one_node);
++
++  /* Fold-to-true when the asked-for version is no greater than the
++     compile-time known minimum deployment version.  */
++  unsigned dmin_major = 0, dmin_minor = 0, dmin_subminor = 0;
++  bool min_known =
++    targetm.c.availability_min_version (&dmin_major, &dmin_minor, &dmin_subminor);
++  if (min_known)
++    {
++      unsigned long have = ((unsigned long) dmin_major << 24)
++			 + ((unsigned long) dmin_minor << 12)
++			 + (unsigned long) dmin_subminor;
++      unsigned long want = ((unsigned long) mmajor << 24)
++			 + ((unsigned long) mminor << 12)
++			 + (unsigned long) msubminor;
++      if (want <= have)
++	return convert (boolean_type_node, integer_one_node);
++    }
++
++  /* Otherwise build a runtime call.  */
++  int platform_id = targetm.c.availability_platform_id ();
++  tree runtime_fn = get_availability_runtime_fn (platform_id != 0);
++
++  tree args[4];
++  int nargs = 0;
++  if (platform_id != 0)
++    args[nargs++] = build_int_cst (integer_type_node, platform_id);
++  args[nargs++] = build_int_cst (integer_type_node, mmajor);
++  args[nargs++] = build_int_cst (integer_type_node, mminor);
++  args[nargs++] = build_int_cst (integer_type_node, msubminor);
++
++  tree call = build_call_expr_loc_array (loc, runtime_fn, nargs, args);
++  /* Encode "result != 0" as a boolean.  */
++  tree cmp = build2_loc (loc, NE_EXPR, boolean_type_node, call,
++			 build_int_cst (integer_type_node, 0));
++  /* set_c_expr_source_range expects plain integer; the caller in the C
++     front-end handles further folding and source range bookkeeping.  */
++  if (EXPR_HAS_LOCATION (cmp))
++    protected_set_expr_location (cmp, loc);
++  tree ret = cmp;
++  if (rparen_loc != UNKNOWN_LOCATION)
++    protected_set_expr_location (ret, loc != UNKNOWN_LOCATION ? loc
++							 : rparen_loc);
++  return ret;
++}
++
++#include "gt-c-family-c-availability.h"
+diff --git a/gcc/c-family/c-availability.h b/gcc/c-family/c-availability.h
+new file mode 100644
+index 00000000000..c540445d9ad
+--- /dev/null
++++ b/gcc/c-family/c-availability.h
+@@ -0,0 +1,116 @@
++/* Support for the `__builtin_available' availability-check expression.
++   Shared between the C and C++ front ends (and usable by Objective-C
++   and Objective-C++).
++
++   The expression takes the form
++
++     __builtin_available ( platform-spec-list )
++
++   where platform-spec-list is a comma-separated list ending with the
++   mandatory wildcard `*'.  Each item (other than `*') is of the form
++   `platform-name version-tuple'.  The expression has type `bool' and
++   evaluates to a non-zero value at runtime when the runtime platform
++   matches one of the listed specs and is at least as new as the given
++   version; it evaluates to zero otherwise.
++
++   This mirrors Clang's `__builtin_available' / `@available' facility
++   (see clang/lib/Parse/ParseExpr.cpp:ParseAvailabilityCheckExpr).
++
++   Copyright (C) 2026 Free Software Foundation, Inc.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify it under
++the terms of the GNU General Public License as published by the Free
++Software Foundation; either version 3, or (at your option) any later
++version.
++
++GCC is distributed in the hope that it will be useful, but WITHOUT ANY
++WARRANTY; without even the implied warranty of MERCHANTABILITY or
++FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++for more details.
++
++You should have received a copy of the GNU General Public License
++along with GCC; see the file COPYING3.  If not see
++<http://www.gnu.org/licenses/>.  */
++
++#ifndef GCC_C_AVAILABILITY_H
++#define GCC_C_AVAILABILITY_H
++
++#include "machmode.h"
++#include "input.h"
++
++/* One specifier in a __builtin_available (or @available) expression.
++
++   For example, in the expression `__builtin_available (macos 10.10, *)',
++   both `macos 10.10' and `*' map to an availability_spec.  */
++
++struct availability_spec
++{
++  /* The version tuple parsed from the spec.  Major is required; minor
++     and subminor default to zero if omitted.  The field names are
++     prefixed with `ver_' so that they do not collide with the
++     `major ()' / `minor ()' macros exported by glibc's and DragonFly's
++     <sys/types.h> (and also <sys/sysmacros.h>).  */
++  unsigned HOST_WIDE_INT ver_major;
++  unsigned HOST_WIDE_INT ver_minor;
++  unsigned HOST_WIDE_INT ver_subminor;
++  /* True when this represents the '*' wildcard.  The fields above are
++     all zero in this case.  */
++  bool is_wildcard;
++  /* The canonical (lowercase) platform name accepted by the front end.
++     The string is permanently interned via get_identifier (), so it is
++     safe to keep as a plain pointer.  NULL for the wildcard.  */
++  const char *platform;
++  /* Source range of this spec, used for diagnostics.  */
++  location_t begin_loc;
++  location_t end_loc;
++
++  availability_spec ()
++    : ver_major (0), ver_minor (0), ver_subminor (0), is_wildcard (false),
++      platform (nullptr), begin_loc (UNKNOWN_LOCATION),
++      end_loc (UNKNOWN_LOCATION)
++  {}
++};
++
++/* Look up the canonical (lowercase) name for the platform spelt NAME.
++   Returns NULL if NAME is not a recognized __builtin_available platform
++   name (compared case-insensitively).  The returned string is owned by
++   c-availability.cc and lives for the entire program.  */
++extern const char *c_lookup_availability_platform (const char *name);
++
++/* Look up SPEC's platform among the spec list SPEC and return the
++   matching version, considering maccatalyst -> ios transcription and the
++   special anyAppleOS fallback for Darwin targets, mirroring Clang's
++   SemaObjC::ActOnObjCAvailabilityCheckExpr.  Returns true and writes the
++   chosen version into *OUT_* on success, false when no spec matches the
++   current target.  */
++
++extern bool
++c_lookup_target_availability_spec (vec<availability_spec> &specs,
++				  unsigned &out_major,
++				  unsigned &out_minor,
++				  unsigned &out_subminor);
++
++/* Validate the spec list SPEC and produce the semantic analysis shared
++   by both the C and C++ front ends.  Emits diagnostics:
++     - "must handle potential future platforms with '*'" if no wildcard
++     - "version for '%s' already specified" for duplicate platforms
++     - "'*' query has already been specified" for duplicate wildcards
++     - "unrecognized platform name '%s'" for unknown platform names
++   Returns nonzero on success, zero on failure.  */
++
++extern int c_validate_availability_specs (location_t loc,
++					  vec<availability_spec> &specs);
++
++/* Build the tree node for `__builtin_available (...)'.  SPECS is the
++   validated list of specs, LOC is the location of the `__builtin_available'
++   keyword, RPAREN_LOC the closing parenthesis.  Returns an integer tree
++   of type `bool' (where type matches what Clang emits: `_Bool').  Errors
++   are reported and integer_zero_node is returned.  */
++
++extern tree c_build_builtin_available (location_t loc,
++				       location_t rparen_loc,
++				       vec<availability_spec> &specs);
++
++#endif /* GCC_C_AVAILABILITY_H */
+diff --git a/gcc/c-family/c-common.cc b/gcc/c-family/c-common.cc
+index de057411d6b..ad515428c47 100644
+--- a/gcc/c-family/c-common.cc
++++ b/gcc/c-family/c-common.cc
+@@ -433,6 +433,7 @@ const struct c_common_resword c_common_reswords[] =
+   { "__auto_type",	RID_AUTO_TYPE,	D_CONLY },
+   { "__builtin_addressof", RID_ADDRESSOF, D_CXXONLY },
+   { "__builtin_assoc_barrier", RID_BUILTIN_ASSOC_BARRIER, 0 },
++  { "__builtin_available",    RID_BUILTIN_AVAILABLE, 0 },
+   { "__builtin_bit_cast", RID_BUILTIN_BIT_CAST, D_CXXONLY },
+   { "__builtin_call_with_static_chain",
+     RID_BUILTIN_CALL_WITH_STATIC_CHAIN, D_CONLY },
+diff --git a/gcc/c-family/c-common.h b/gcc/c-family/c-common.h
+index 89517e2a80c..1833a7fadf6 100644
+--- a/gcc/c-family/c-common.h
++++ b/gcc/c-family/c-common.h
+@@ -111,7 +111,7 @@ enum rid
+   RID_TYPES_COMPATIBLE_P,      RID_BUILTIN_COMPLEX,	   RID_BUILTIN_SHUFFLE,
+   RID_BUILTIN_SHUFFLEVECTOR,   RID_BUILTIN_CONVERTVECTOR,  RID_BUILTIN_TGMATH,
+   RID_BUILTIN_HAS_ATTRIBUTE,   RID_BUILTIN_ASSOC_BARRIER,  RID_BUILTIN_STDC,
+-  RID_BUILTIN_COUNTED_BY_REF,
++  RID_BUILTIN_COUNTED_BY_REF,  RID_BUILTIN_AVAILABLE,
+   RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128, RID_DFLOAT64X,
+ 
+   /* TS 18661-3 keywords, in the same sequence as the TI_* values.  */
+diff --git a/gcc/c/c-decl.cc b/gcc/c/c-decl.cc
+index 2929db0e7fe..b90a90705cd 100644
+--- a/gcc/c/c-decl.cc
++++ b/gcc/c/c-decl.cc
+@@ -11937,6 +11937,7 @@ names_builtin_p (const char *name)
+     case RID_BUILTIN_ASSOC_BARRIER:
+     case RID_BUILTIN_CONVERTVECTOR:
+     case RID_BUILTIN_HAS_ATTRIBUTE:
++    case RID_BUILTIN_AVAILABLE:
+     case RID_BUILTIN_SHUFFLE:
+     case RID_BUILTIN_SHUFFLEVECTOR:
+     case RID_BUILTIN_STDC:
+diff --git a/gcc/c/c-parser.cc b/gcc/c/c-parser.cc
+index 4cf2d885166..98d20304a67 100644
+--- a/gcc/c/c-parser.cc
++++ b/gcc/c/c-parser.cc
+@@ -52,6 +52,9 @@ along with GCC; see the file COPYING3.  If not see
+ #include "c-family/c-pragma.h"
+ #include "c-lang.h"
+ #include "c-family/c-objc.h"
++#include "c-family/c-availability.h"
++#include "diagnostic.h"
++#include "diagnostics/file-cache.h"
+ #include "plugin.h"
+ #include "omp-general.h"
+ #include "omp-offload.h"
+@@ -11647,6 +11650,212 @@ enum tgmath_parm_kind
+     tgmath_fixed, tgmath_real, tgmath_complex
+   };
+ 
++/* Helper function for c_parser_postfix_expression.  Parse a
++   __builtin_available availability-check expression.
++
++   Pre-condition: the BOOT token has already been consumed by the caller,
++   so the parser is positioned at the '(' of the call.  */
++
++static struct c_expr
++c_parser_builtin_available (c_parser *parser, location_t start_loc)
++{
++  struct c_expr expr;
++  expr.original_code = ERROR_MARK;
++  expr.original_type = NULL;
++  expr.m_decimal = 0;
++
++  matching_parens parens;
++  if (!parens.require_open (parser))
++    {
++      expr.value = error_mark_node;
++      return expr;
++    }
++
++  /* The list of specs is comma-separated, ending with the mandatory
++     wildcard '*'.  */
++  auto_vec<availability_spec, 4> specs;
++
++  /* Empty __builtin_available () is rejected: at minimum the wildcard
++     is required, and our validator will emit the proper diagnostic.  */
++  bool want_more = true;
++  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
++    want_more = false;
++
++  while (want_more)
++    {
++      availability_spec s;
++
++      /* The '*' wildcard.  */
++      if (c_parser_next_token_is (parser, CPP_MULT))
++	{
++	  s.is_wildcard = true;
++	  s.begin_loc = c_parser_peek_token (parser)->location;
++	  s.end_loc = c_parser_peek_token (parser)->get_finish ();
++	  c_parser_consume_token (parser);
++	}
++      else
++	{
++	  /* platform-name version-tuple.  */
++	  if (c_parser_next_token_is_not (parser, CPP_NAME))
++	    {
++	      c_parser_error (parser, "expected a platform name");
++	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
++	      expr.value = error_mark_node;
++	      return expr;
++	    }
++	  location_t name_loc = c_parser_peek_token (parser)->location;
++	  tree name_tok = c_parser_peek_token (parser)->value;
++	  const char *name = IDENTIFIER_POINTER (name_tok);
++	  s.begin_loc = name_loc;
++	  s.platform = c_lookup_availability_platform (name);
++	  c_parser_consume_token (parser);
++
++	  if (s.platform == nullptr)
++	    {
++	      error_at (name_loc,
++			"unrecognized platform name %qs", name);
++	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
++	      expr.value = error_mark_node;
++	      return expr;
++	    }
++
++	  /* Now expect a version-tuple: a single numerical token of the form
++	     N(.N)?(.N)? or N(_N)?(_N)? (underscores are accepted like dots
++	     here, matching Clang's @available behavior).  */
++	  if (c_parser_next_token_is_not (parser, CPP_NUMBER))
++	    {
++	      c_parser_error (parser, "expected a version");
++	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
++	      expr.value = error_mark_node;
++	      return expr;
++	    }
++	  c_token *ver_tok = c_parser_peek_token (parser);
++	  s.end_loc = ver_tok->get_finish ();
++
++	  /* Re-derive the textual representation of the version by extracting
++	     the source text spanning the token's source range.  This avoids
++	     memory issues with using the possibly-rounded REAL_CST.  */
++	  source_range ver_range = ver_tok->get_range ();
++	  char *ver_text = nullptr;
++	  if (ver_range.m_start != UNKNOWN_LOCATION
++	      && ver_range.m_finish != UNKNOWN_LOCATION)
++	    {
++	      expanded_location start
++		= expand_location (ver_range.m_start);
++	      expanded_location finish
++		= expand_location (ver_range.m_finish);
++	      diagnostics::char_span line_span
++		= global_dc->get_file_cache ().get_source_line
++		    (start.file, start.line);
++	      if (line_span
++		  && start.line == finish.line
++		  && start.column >= 1
++		  && (size_t) start.column <= line_span.length ()
++		  && (size_t) finish.column <= line_span.length ()
++		  && start.column <= finish.column)
++		{
++		  diagnostics::char_span sub
++		    = line_span.subspan (start.column - 1,
++					 finish.column - start.column + 1);
++		  if (sub)
++		    ver_text = sub.xstrdup ();
++		}
++	    }
++
++	  if (ver_text == nullptr)
++	    {
++	      /* Fall back to a "0" version (treat as major=0).  This is
++		 mostly defensive.  */
++	      s.ver_major = 0;
++	      s.ver_minor = 0;
++	      s.ver_subminor = 0;
++	    }
++	  else
++	    {
++	      unsigned maj = 0, min = 0, sub = 0, *cur = &maj;
++	      bool any = false;
++	      for (const char *p = ver_text; *p; ++p)
++		{
++		  if (*p == '.' || *p == '_')
++		    {
++		      if (cur == &maj)
++			cur = &min;
++		      else if (cur == &min)
++			cur = &sub;
++		      else
++			{
++			  error_at (ver_tok->location,
++				     "invalid version %qs in "
++				     "availability check",
++				     ver_text);
++			  free (ver_text);
++			  c_parser_skip_until_found (parser,
++						     CPP_CLOSE_PAREN, NULL);
++			  expr.value = error_mark_node;
++			  return expr;
++			}
++		      continue;
++		    }
++		  if (*p < '0' || *p > '9')
++		    {
++		      error_at (ver_tok->location,
++				 "invalid version %qs in "
++				 "availability check",
++				 ver_text);
++		      free (ver_text);
++		      c_parser_skip_until_found (parser,
++						 CPP_CLOSE_PAREN, NULL);
++		      expr.value = error_mark_node;
++		      return expr;
++		    }
++		  *cur = *cur * 10u + (unsigned) (*p - '0');
++		  any = true;
++		}
++	      if (!any)
++		{
++		  error_at (ver_tok->location, "expected a version");
++		  free (ver_text);
++		  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
++		  expr.value = error_mark_node;
++		  return expr;
++		}
++	      s.ver_major = maj;
++	      s.ver_minor = min;
++	      s.ver_subminor = sub;
++	      free (ver_text);
++	    }
++	  c_parser_consume_token (parser);
++	}
++
++      specs.safe_push (s);
++
++      if (c_parser_next_token_is (parser, CPP_COMMA))
++	{
++	  c_parser_consume_token (parser);
++	  continue;
++	}
++      want_more = false;
++    }
++
++  if (!c_validate_availability_specs (start_loc, specs))
++    {
++      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
++      expr.value = error_mark_node;
++      return expr;
++    }
++
++  location_t close_loc = c_parser_peek_token (parser)->location;
++  if (!parens.require_close (parser))
++    {
++      expr.value = error_mark_node;
++      return expr;
++    }
++
++  expr.value = c_build_builtin_available (start_loc, close_loc, specs);
++  set_c_expr_source_range (&expr, start_loc, close_loc);
++  return expr;
++}
++
+ /* Helper function for c_parser_postfix_expression.  Parse predefined
+    identifiers.  */
+ 
+@@ -11951,6 +12160,13 @@ c_parser_postfix_expression (c_parser *parser)
+     case CPP_KEYWORD:
+       switch (c_parser_peek_token (parser)->keyword)
+ 	{
++	case RID_BUILTIN_AVAILABLE:
++	  {
++	    location_t start_loc = c_parser_peek_token (parser)->location;
++	    c_parser_consume_token (parser);
++	    expr = c_parser_builtin_available (parser, start_loc);
++	  }
++	  break;
+ 	case RID_FUNCTION_NAME:
+ 	case RID_PRETTY_FUNCTION_NAME:
+ 	case RID_C99_FUNCTION_NAME:
+diff --git a/gcc/c/config-lang.in b/gcc/c/config-lang.in
+index 64f77ab43e7..86b72e892a4 100644
+--- a/gcc/c/config-lang.in
++++ b/gcc/c/config-lang.in
+@@ -29,4 +29,4 @@ compilers="cc1\$(exeext)"
+ 
+ target_libs=
+ 
+-gtfiles="\$(srcdir)/c/c-lang.cc \$(srcdir)/c/c-tree.h \$(srcdir)/c/c-decl.cc \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-common.h \$(srcdir)/c-family/c-objc.h \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.h \$(srcdir)/c-family/c-pragma.cc \$(srcdir)/c-family/c-format.cc \$(srcdir)/c/c-objc-common.cc \$(srcdir)/c/c-parser.h \$(srcdir)/c/c-parser.cc \$(srcdir)/c/c-lang.h"
++gtfiles="\$(srcdir)/c/c-lang.cc \$(srcdir)/c/c-tree.h \$(srcdir)/c/c-decl.cc \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-common.h \$(srcdir)/c-family/c-objc.h \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.h \$(srcdir)/c-family/c-pragma.cc \$(srcdir)/c-family/c-format.cc \$(srcdir)/c-family/c-availability.cc \$(srcdir)/c/c-objc-common.cc \$(srcdir)/c/c-parser.h \$(srcdir)/c/c-parser.cc \$(srcdir)/c/c-lang.h"
+diff --git a/gcc/config/darwin-protos.h b/gcc/config/darwin-protos.h
+index 59f4020334e..452873fa825 100644
+--- a/gcc/config/darwin-protos.h
++++ b/gcc/config/darwin-protos.h
+@@ -129,6 +129,11 @@ extern void darwin_patch_builtins (void);
+ extern void darwin_rename_builtins (void);
+ extern bool darwin_libc_has_function (enum function_class fn_class, tree);
+ 
++/* __builtin_available support.  */
++extern const char *darwin_availability_platform_name (void);
++extern bool darwin_availability_min_version (unsigned *, unsigned *, unsigned *);
++extern int darwin_availability_platform_id (void);
++
+ /* For this port, there are several possible sources for external toolchain
+    components (e.g. as, ld, dsymutil) and we have to alter the allowable
+    output in response to which version and source is in use.  */
+diff --git a/gcc/config/darwin.cc b/gcc/config/darwin.cc
+index 6008ee7304e..1a7fb642c5c 100644
+--- a/gcc/config/darwin.cc
++++ b/gcc/config/darwin.cc
+@@ -3698,6 +3698,58 @@ darwin_rename_builtins (void)
+ {
+ }
+ 
++/* Implementations of the TARGET_AVAILABILITY_* hooks for __builtin_available.
++
++   On Darwin we currently only know about macOS (the only platform whose
++   deployment target GCC is wired to handle via -mmacosx-version-min).  Mach-O
++   platform IDs come from ld64; values 0..6 are reserved here as the actual
++   platform IDs are needed only when emitting a Darwin runtime call to
++   __isPlatformVersionAtLeast and the IDs match the MachO::PlatformType used
++   by Clang's getBaseMachOPlatformID in CGObjC.cpp.  */
++
++#define DARWIN_PLATFORM_MACOS 1
++#define DARWIN_PLATFORM_IOS 2
++#define DARWIN_PLATFORM_TVOS 3
++#define DARWIN_PLATFORM_WATCHOS 4
++#define DARWIN_PLATFORM_XROS 5
++#define DARWIN_PLATFORM_DRIVERKIT 6
++
++const char *
++darwin_availability_platform_name (void)
++{
++  /* We currently know only macOS.  iOS-style targets aren't separately
++     handled by GCC's Darwin port.  */
++  return "macos";
++}
++
++bool
++darwin_availability_min_version (unsigned *major_p,
++				 unsigned *minor_p,
++				 unsigned *subminor_p)
++{
++  if (!darwin_macosx_version_min)
++    return false;
++  unsigned maj = 0, min = 0, tiny = 0;
++  int count = sscanf (darwin_macosx_version_min, "%u.%u.%u",
++		      &maj, &min, &tiny);
++  if (count <= 0)
++    return false;
++  if (count < 3)
++    tiny = 0;
++  if (count < 2)
++    min = 0;
++  *major_p = maj;
++  *minor_p = min;
++  *subminor_p = tiny;
++  return true;
++}
++
++int
++darwin_availability_platform_id (void)
++{
++  return DARWIN_PLATFORM_MACOS;
++}
++
+ /* Implementation for the TARGET_LIBC_HAS_FUNCTION hook.  */
+ 
+ bool
+diff --git a/gcc/config/darwin.h b/gcc/config/darwin.h
+index 53a7b5980e6..a0f89973d92 100644
+--- a/gcc/config/darwin.h
++++ b/gcc/config/darwin.h
+@@ -1259,6 +1259,16 @@ void add_framework_path (char *);
+ #define TARGET_N_FORMAT_TYPES 1
+ #define TARGET_FORMAT_TYPES darwin_additional_format_types
+ 
++/* Hooks providing the current target's runtime platform and the
++   compile-time known minimum deployment version, used by the
++   __builtin_available expression.  See c-availability.cc.  */
++#undef TARGET_C_AVAILABILITY_PLATFORM_NAME
++#define TARGET_C_AVAILABILITY_PLATFORM_NAME darwin_availability_platform_name
++#undef TARGET_C_AVAILABILITY_MIN_VERSION
++#define TARGET_C_AVAILABILITY_MIN_VERSION darwin_availability_min_version
++#undef TARGET_C_AVAILABILITY_PLATFORM_ID
++#define TARGET_C_AVAILABILITY_PLATFORM_ID darwin_availability_platform_id
++
+ #ifndef USED_FOR_TARGET
+ extern void darwin_driver_init (unsigned int *,struct cl_decoded_option **);
+ #define GCC_DRIVER_HOST_INITIALIZATION \
+diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
+index 26a9fe15904..137198f40f9 100644
+--- a/gcc/config/linux-android.h
++++ b/gcc/config/linux-android.h
+@@ -119,3 +119,21 @@ extern void android_override_options(void);
+ 
+ #define ANDROID_ENDFILE_SPEC \
+   "%{shared: crtend_so%O%s;: crtend_android%O%s}"
++
++/* __builtin_available hooks for the Linux/Android target.  These
++   overrides are in scope whenever linux-android.h is included in
++   tm_file (i.e. all *-*-linux*-android* triples), and they consult the
++   -mandroid-version-min option recorded in `android_version_min` by
++   gcc/config/linux-android.opt.  See gcc/c-family/c-availability.cc for
++   the consumer and clang/lib/Basic/Targets/OSTargets.h:364-374 (which
++   sets Clang's PlatformName to "android") for the Clang analog.  */
++#undef TARGET_C_AVAILABILITY_PLATFORM_NAME
++#define TARGET_C_AVAILABILITY_PLATFORM_NAME android_availability_platform_name
++#undef TARGET_C_AVAILABILITY_MIN_VERSION
++#define TARGET_C_AVAILABILITY_MIN_VERSION android_availability_min_version
++
++/* Intentionally do NOT override TARGET_C_AVAILABILITY_PLATFORM_ID: Android
++   uses the non-Darwin runtime helper __isOSVersionAtLeast (major, minor,
++   sub) rather than __isPlatformVersionAtLeast (platform_id, ...), so the
++   default hook returning 0 gives the correct behavior in
++   c_build_builtin_available.  */
+diff --git a/gcc/config/linux-protos.h b/gcc/config/linux-protos.h
+index 9d393276166..1a446115bb2 100644
+--- a/gcc/config/linux-protos.h
++++ b/gcc/config/linux-protos.h
+@@ -23,3 +23,10 @@ extern bool linux_libc_has_function (enum function_class fn_class, tree);
+ 
+ extern unsigned linux_libm_function_max_error (unsigned, machine_mode, bool);
+ extern unsigned linux_fortify_source_default_level ();
++
++/* TARGET_C_AVAILABILITY_* hooks for Android.  Defined in
++   gcc/config/android.cc and only meaningful for Android triples.
++   See gcc/c-family/c-availability.cc for the consumer.  */
++extern const char *android_availability_platform_name (void);
++extern bool android_availability_min_version (unsigned *, unsigned *, unsigned *);
++extern int android_availability_platform_id (void);
+diff --git a/gcc/config/linux.cc b/gcc/config/linux.cc
+index a8e975fcae5..1745ce51464 100644
+--- a/gcc/config/linux.cc
++++ b/gcc/config/linux.cc
+@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
+ #include "linux-protos.h"
+ #include "target.h"
+ #include "targhooks.h"
++#include "opts.h"
+ 
+ bool
+ linux_libc_has_function (enum function_class fn_class,
+@@ -58,3 +59,54 @@ linux_fortify_source_default_level ()
+ 
+   return 2;
+ }
++
++/* TARGET_C_AVAILABILITY_* hooks for Android.  These enable
++   __builtin_available (android N, *) to fold to a constant when the
++   requested API level is no greater than the compile-time known
++   -mandroid-version-min value, and to emit a call to the runtime helper
++   __isOSVersionAtLeast (N, 0, 0) otherwise.
++
++   Android uses the non-Darwin variant of the availability runtime, so
++   availability_platform_id () returns 0 (matching the default hook); see
++   c_build_builtin_available in gcc/c-family/c-availability.cc.  The
++   runtime hook is provided by libandroid_support in the NDK, which wraps
++   android_get_device_api_level().  See
++   https://developer.android.com/ndk/guides/using-newer-apis for the
++   user-facing contract.
++
++   The hooks are also compiled into non-Android Linux targets (where
++   TARGET_ANDROID is 0 and android_version_min is 0), in which case they
++   fall through to the default behaviour (nullptr platform name, no known
++   min version), matching the non-Apple, non-Android baseline.  */
++
++const char *
++android_availability_platform_name (void)
++{
++  if (!TARGET_ANDROID)
++    return nullptr;
++  return "android";
++}
++
++bool
++android_availability_min_version (unsigned *major_p,
++				   unsigned *minor_p,
++				   unsigned *subminor_p)
++{
++  if (!TARGET_ANDROID || android_version_min == 0)
++    return false;
++
++  *major_p = (unsigned) android_version_min;
++  *minor_p = 0;
++  *subminor_p = 0;
++  return true;
++}
++
++int
++android_availability_platform_id (void)
++{
++  /* Android uses __isOSVersionAtLeast rather than the Darwin-specific
++     __isPlatformVersionAtLeast (platform_id, ...).  Returning 0 selects
++     the non-Darwin runtime in c_build_builtin_available.  */
++  return 0;
++}
++
+diff --git a/gcc/cp/config-lang.in b/gcc/cp/config-lang.in
+index 845430f35a4..e295c359f24 100644
+--- a/gcc/cp/config-lang.in
++++ b/gcc/cp/config-lang.in
+@@ -38,6 +38,7 @@ gtfiles="\
+ \$(srcdir)/cp/parser.h \
+ \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-format.cc \
+ \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.cc \
++\$(srcdir)/c-family/c-availability.cc \
+ \$(srcdir)/cp/call.cc \$(srcdir)/cp/class.cc \$(srcdir)/cp/constexpr.cc \
+ \$(srcdir)/cp/contracts.cc \
+ \$(srcdir)/cp/constraint.cc \$(srcdir)/cp/coroutines.cc \
+diff --git a/gcc/cp/cp-objcp-common.h b/gcc/cp/cp-objcp-common.h
+index 2999b36a5dd..e79cedd932a 100644
+--- a/gcc/cp/cp-objcp-common.h
++++ b/gcc/cp/cp-objcp-common.h
+@@ -110,6 +110,9 @@ extern tree cxx_simulate_record_decl (location_t, const char *,
+ #undef  LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL
+ #define LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL \
+   cxx_simulate_builtin_function_decl
++#undef  LANG_HOOKS_MAKE_RUNTIME_FUNCTION_DECL
++#define LANG_HOOKS_MAKE_RUNTIME_FUNCTION_DECL \
++  cxx_make_runtime_function_decl
+ #undef	LANG_HOOKS_TYPE_HASH_EQ
+ #define LANG_HOOKS_TYPE_HASH_EQ	cxx_type_hash_eq
+ #undef	LANG_HOOKS_COPY_LANG_QUALIFIERS
+diff --git a/gcc/cp/cp-tree.h b/gcc/cp/cp-tree.h
+index fb096587266..0658f6017ea 100644
+--- a/gcc/cp/cp-tree.h
++++ b/gcc/cp/cp-tree.h
+@@ -7679,6 +7679,7 @@ extern tmpl_spec_kind current_tmpl_spec_kind	(int);
+ extern tree cxx_builtin_function		(tree decl);
+ extern tree cxx_builtin_function_ext_scope	(tree decl);
+ extern tree cxx_simulate_builtin_function_decl	(tree);
++extern tree cxx_make_runtime_function_decl	(const char *name, tree type);
+ extern tree check_elaborated_type_specifier	(enum tag_types, tree, bool);
+ extern void warn_extern_redeclared_static	(tree, tree);
+ extern tree cxx_comdat_group			(tree);
+diff --git a/gcc/cp/decl.cc b/gcc/cp/decl.cc
+index 9b10899f5c2..e785cc8fc7e 100644
+--- a/gcc/cp/decl.cc
++++ b/gcc/cp/decl.cc
+@@ -6036,6 +6036,18 @@ cxx_simulate_builtin_function_decl (tree decl)
+   return pushdecl (decl);
+ }
+ 
++/* Build a runtime library FUNCTION_DECL with C linkage for use by
++   c-family's `__builtin_available' machinery.  The resulting decl is
++   named NAME, has the supplied TYPE, and lives in the global C namespace
++   so that calls to it are emitted with their plain, unmangled name.
++   See c-availability.cc / lang_hooks.make_runtime_function_decl.  */
++
++tree
++cxx_make_runtime_function_decl (const char *name, tree type)
++{
++  return build_library_fn_ptr (name, type, ECF_NOTHROW);
++}
++
+ /* Generate a FUNCTION_DECL with the typical flags for a runtime library
+    function.  Not called directly.  */
+ 
+diff --git a/gcc/cp/parser.cc b/gcc/cp/parser.cc
+index d52f5c97039..fb2aa93ca76 100644
+--- a/gcc/cp/parser.cc
++++ b/gcc/cp/parser.cc
+@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
+ #include "intl.h"
+ #include "decl.h"
+ #include "c-family/c-objc.h"
++#include "c-family/c-availability.h"
+ #include "plugin.h"
+ #include "tree-pretty-print.h"
+ #include "parser.h"
+@@ -43,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
+ #include "c-family/c-indentation.h"
+ #include "context.h"
+ #include "gcc-rich-location.h"
++#include "diagnostics/file-cache.h"
+ #include "tree-iterator.h"
+ #include "cp-name-hint.h"
+ #include "memmodel.h"
+@@ -8415,6 +8417,181 @@ literal_integer_zerop (const_tree expr)
+ 
+    Returns a representation of the expression.  */
+ 
++/* Parse a __builtin_available availability-check expression.
++
++   Pre-condition: the BOOT token has already been consumed by the caller,
++   so the lexer is positioned at the '(' of the call.  The two-argument
++   form mirrors c_parser_builtin_available in the C front end.  */
++
++static cp_expr
++cp_parser_builtin_available (cp_parser *parser, location_t start_loc)
++{
++  matching_parens parens;
++  if (!parens.require_open (parser))
++    return error_mark_node;
++
++  auto_vec<availability_spec, 4> specs;
++
++  /* Empty list is rejected by the validator.  */
++  bool want_more = true;
++  if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN))
++    want_more = false;
++
++  while (want_more)
++    {
++      availability_spec s;
++
++      /* The '*' wildcard.  */
++      if (cp_lexer_next_token_is (parser->lexer, CPP_MULT))
++	{
++	  cp_token *tok = cp_lexer_peek_token (parser->lexer);
++	  s.is_wildcard = true;
++	  s.begin_loc = tok->location;
++	  s.end_loc = tok->location;
++	  cp_lexer_consume_token (parser->lexer);
++	}
++      else
++	{
++	  /* platform-name version-tuple.  */
++	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_NAME))
++	    {
++	      cp_parser_error (parser, "expected a platform name");
++	      cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
++	      return error_mark_node;
++	    }
++	  cp_token *name_tok = cp_lexer_peek_token (parser->lexer);
++	  const char *name = IDENTIFIER_POINTER (name_tok->u.value);
++	  s.begin_loc = name_tok->location;
++	  s.platform = c_lookup_availability_platform (name);
++	  cp_lexer_consume_token (parser->lexer);
++
++	  if (s.platform == nullptr)
++	    {
++	      error_at (name_tok->location,
++			"unrecognized platform name %qs", name);
++	      cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
++	      return error_mark_node;
++	    }
++
++	  /* Now expect a version-tuple: N(.N)?(.N)? or N(_N)?(_N)?.  */
++	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_NUMBER))
++	    {
++	      cp_parser_error (parser, "expected a version");
++	      cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
++	      return error_mark_node;
++	    }
++	  cp_token *ver_tok = cp_lexer_peek_token (parser->lexer);
++	  s.end_loc = ver_tok->location;
++
++	  /* Extract the source text of the version literal.  Same approach
++	     as in the C front-end version of this routine.  */
++	  source_range ver_range = get_range_from_loc (line_table,
++						  ver_tok->location);
++	  char *ver_text = nullptr;
++	  if (ver_range.m_start != UNKNOWN_LOCATION
++	      && ver_range.m_finish != UNKNOWN_LOCATION)
++	    {
++	      expanded_location start = expand_location (ver_range.m_start);
++	      expanded_location finish = expand_location (ver_range.m_finish);
++	      diagnostics::char_span line_span
++		= global_dc->get_file_cache ().get_source_line
++		    (start.file, start.line);
++	      if (line_span
++		  && start.line == finish.line
++		  && start.column >= 1
++		  && (size_t) start.column <= line_span.length ()
++		  && (size_t) finish.column <= line_span.length ()
++		  && start.column <= finish.column)
++		{
++		  diagnostics::char_span sub
++		    = line_span.subspan (start.column - 1,
++					 finish.column - start.column + 1);
++		  if (sub)
++		    ver_text = sub.xstrdup ();
++		}
++	    }
++
++	  if (!ver_text)
++	    {
++	      s.ver_major = 0;
++	      s.ver_minor = 0;
++	      s.ver_subminor = 0;
++	    }
++	  else
++	    {
++	      unsigned maj = 0, min = 0, sub = 0, *cur = &maj;
++	      bool any = false;
++	      for (const char *p = ver_text; *p; ++p)
++		{
++		  if (*p == '.' || *p == '_')
++		    {
++		      if (cur == &maj)
++			cur = &min;
++		      else if (cur == &min)
++			cur = &sub;
++		      else
++			{
++			  error_at (ver_tok->location,
++				     "invalid version %qs in "
++				     "availability check", ver_text);
++			  free (ver_text);
++			  cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
++			  return error_mark_node;
++			}
++		      continue;
++		    }
++		  if (*p < '0' || *p > '9')
++		    {
++		      error_at (ver_tok->location,
++				 "invalid version %qs in "
++				 "availability check", ver_text);
++		      free (ver_text);
++		      cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
++		      return error_mark_node;
++		    }
++		  *cur = *cur * 10u + (unsigned) (*p - '0');
++		  any = true;
++		}
++	      if (!any)
++		{
++		  error_at (ver_tok->location, "expected a version");
++		  free (ver_text);
++		  cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
++		  return error_mark_node;
++		}
++	      s.ver_major = maj;
++	      s.ver_minor = min;
++	      s.ver_subminor = sub;
++	      free (ver_text);
++	    }
++
++	  cp_lexer_consume_token (parser->lexer);
++	}
++
++      specs.safe_push (s);
++
++      if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
++	{
++	  cp_lexer_consume_token (parser->lexer);
++	  continue;
++	}
++      want_more = false;
++    }
++
++  if (!c_validate_availability_specs (start_loc, specs))
++    {
++      cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
++      return error_mark_node;
++    }
++
++  location_t close_loc = cp_lexer_peek_token (parser->lexer)->location;
++  if (!parens.require_close (parser))
++    return error_mark_node;
++
++  tree value = c_build_builtin_available (start_loc, close_loc, specs);
++  return cp_expr (value, start_loc);
++}
++
+ static cp_expr
+ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
+                               bool member_access_only_p, bool decltype_p,
+@@ -8798,6 +8975,16 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
+ 	break;
+       }
+ 
++    case RID_BUILTIN_AVAILABLE:
++      {
++	location_t start_loc = token->location;
++	/* Consume the `__builtin_available' token.  */
++	cp_lexer_consume_token (parser->lexer);
++	postfix_expression
++	  = cp_parser_builtin_available (parser, start_loc);
++	break;
++      }
++
+     default:
+     default_:
+       {
+diff --git a/gcc/doc/tm.texi b/gcc/doc/tm.texi
+index 5edddd7f36e..a5724f7bfc7 100644
+--- a/gcc/doc/tm.texi
++++ b/gcc/doc/tm.texi
+@@ -1073,10 +1073,41 @@ are zero or sign extended depending on if it is
+ 
+ @deftypefn {Target Hook} machine_mode TARGET_C_MODE_FOR_FLOATING_TYPE (enum tree_index @var{ti})
+ Return machine mode for a C floating point type which is indicated by
+- a given @code{enum tree_index} @var{ti}, @var{ti} should be
+- @code{TI_FLOAT_TYPE}, @code{TI_DOUBLE_TYPE} or @code{TI_LONG_DOUBLE_TYPE}.
+- The default implementation returns @code{SFmode} for @code{TI_FLOAT_TYPE},
+- and @code{DFmode} for @code{TI_DOUBLE_TYPE} or @code{TI_LONG_DOUBLE_TYPE}.
++  a given @code{enum tree_index} @var{ti}, @var{ti} should be
++  @code{TI_FLOAT_TYPE}, @code{TI_DOUBLE_TYPE} or @code{TI_LONG_DOUBLE_TYPE}.
++  The default implementation returns @code{SFmode} for @code{TI_FLOAT_TYPE},
++  and @code{DFmode} for @code{TI_DOUBLE_TYPE} or @code{TI_LONG_DOUBLE_TYPE}.
++@end deftypefn
++
++@deftypefn {Target Hook} {const char *} TARGET_C_AVAILABILITY_PLATFORM_NAME (void)
++Return the canonical, lowercase name of the @code{__builtin_available}
++runtime platform, or @code{NULL} if the target has no notion of a runtime
++platform that the expression can usefully check (this is the case for, e.g.,
++bare-metal or non-Apple targets).  The returned string is permanently owned
++by the target and must not be freed by the caller.  On Darwin, this returns
++the platform spelling implied by, e.g., @option{-mmacosx-version-min}.
++The default implementation returns @code{NULL}.
++@end deftypefn
++
++@deftypefn {Target Hook} bool TARGET_C_AVAILABILITY_MIN_VERSION (unsigned *@var{major_p}, unsigned *@var{minor_p}, unsigned *@var{subminor_p})
++If the target platform recognized by
++@code{TARGET_AVAILABILITY_PLATFORM_NAME} has a minimum version known at
++compile time (from, e.g., @option{-mmacosx-version-min}), write the major,
++minor, and subminor components into *@var{major_p}, *@var{minor_p}, and
++*@var{subminor_p} respectively, in the canonical convention used by
++@code{__builtin_available}, and return true.  If the target does not have a
++compile-time minimum version known, return false.  The default
++implementation returns false.  The behaviour is undefined if
++@code{TARGET_AVAILABILITY_PLATFORM_NAME} returns @code{NULL}.
++@end deftypefn
++
++@deftypefn {Target Hook} int TARGET_C_AVAILABILITY_PLATFORM_ID (void)
++If the target platform recognized by
++@code{TARGET_AVAILABILITY_PROGRAM_NAME} uses the Darwin-style runtime check
++@code{__isPlatformVersionAtLeast (platform_id, major, minor, subminor)},
++return the integer platform ID that the runtime function expects for the
++current target.  This is consulted only for Darwin-family targets and is
++otherwise ignored.  The default implementation returns 0.
+ @end deftypefn
+ 
+ @deftypefn {Target Hook} machine_mode TARGET_PROMOTE_FUNCTION_MODE (const_tree @var{type}, machine_mode @var{mode}, int *@var{punsignedp}, const_tree @var{funtype}, int @var{for_return})
+diff --git a/gcc/doc/tm.texi.in b/gcc/doc/tm.texi.in
+index 274bb899d0c..2aea1b0b9f4 100644
+--- a/gcc/doc/tm.texi.in
++++ b/gcc/doc/tm.texi.in
+@@ -976,6 +976,12 @@ applied.
+ 
+ @hook TARGET_C_MODE_FOR_FLOATING_TYPE
+ 
++@hook TARGET_C_AVAILABILITY_PLATFORM_NAME
++
++@hook TARGET_C_AVAILABILITY_MIN_VERSION
++
++@hook TARGET_C_AVAILABILITY_PLATFORM_ID
++
+ @hook TARGET_PROMOTE_FUNCTION_MODE
+ 
+ @defmac PARM_BOUNDARY
+diff --git a/gcc/langhooks-def.h b/gcc/langhooks-def.h
+index fc409ec08b9..a4bca11b6ac 100644
+--- a/gcc/langhooks-def.h
++++ b/gcc/langhooks-def.h
+@@ -68,6 +68,7 @@ extern size_t lhd_tree_size (enum tree_code);
+ extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
+ extern tree lhd_expr_to_decl (tree, bool *, bool *);
+ extern tree lhd_builtin_function (tree);
++extern tree lhd_make_runtime_function_decl (const char *name, tree type);
+ extern tree lhd_enum_underlying_base_type (const_tree);
+ 
+ /* Declarations of default tree inlining hooks.  */
+@@ -144,6 +145,7 @@ extern const char *lhd_get_sarif_source_language (const char *);
+ #define LANG_HOOKS_BUILTIN_FUNCTION	lhd_builtin_function
+ #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE	LANG_HOOKS_BUILTIN_FUNCTION
+ #define LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL LANG_HOOKS_BUILTIN_FUNCTION
++#define LANG_HOOKS_MAKE_RUNTIME_FUNCTION_DECL lhd_make_runtime_function_decl
+ #define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
+ #define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
+ #define LANG_HOOKS_INIT_TS		lhd_do_nothing
+@@ -400,6 +402,7 @@ extern void lhd_end_section (void);
+   LANG_HOOKS_BUILTIN_FUNCTION, \
+   LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE, \
+   LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL, \
++  LANG_HOOKS_MAKE_RUNTIME_FUNCTION_DECL, \
+   LANG_HOOKS_INIT_TS,          \
+   LANG_HOOKS_EXPR_TO_DECL, \
+   LANG_HOOKS_EH_PERSONALITY, \
+diff --git a/gcc/langhooks.cc b/gcc/langhooks.cc
+index e2c7735596e..97bde052b7c 100644
+--- a/gcc/langhooks.cc
++++ b/gcc/langhooks.cc
+@@ -846,6 +846,18 @@ lhd_builtin_function (tree decl)
+   return decl;
+ }
+ 
++/* Default implementation of make_runtime_function_decl: build a plain
++   FUNCTION_DECL with C linkage at UNKNOWN_LOCATION.  The C front end is
++   fine with this since it does not interpret DECL_LANG_SPECIFIC.  */
++
++tree
++lhd_make_runtime_function_decl (const char *name, tree type)
++{
++  return build_decl (UNKNOWN_LOCATION, FUNCTION_DECL,
++		     get_identifier (name), type);
++}
++
++
+ /* Create a builtin type.  */
+ 
+ tree
+diff --git a/gcc/langhooks.h b/gcc/langhooks.h
+index 6eb5c1602f8..dd215cb2b33 100644
+--- a/gcc/langhooks.h
++++ b/gcc/langhooks.h
+@@ -614,6 +614,18 @@ struct lang_hooks
+      to a pragma) rather than providing them in the source language itself.  */
+   tree (*simulate_builtin_function_decl) (tree decl);
+ 
++  /* Build a FUNCTION_DECL for an external runtime library function with
++     C (not C++) linkage called NAME whose type is TYPE.  This is used by
++     the shared c-family `__builtin_available' implementation to declare
++     the runtime helpers __isOSVersionAtLeast (Android/Bionic/Linux) and
++     __isPlatformVersionAtLeast (Darwin) which both the C and C++ front
++     ends must call without language-level name mangling.  The front end
++     is responsible for fitting the resulting decl into its namespace and
++     any front-end-specific bookkeeping (e.g. allocating DECL_LANG_SPECIFIC
++     in C++); the caller takes care of the rest of the runtime-function
++     flags (DECL_EXTERNAL, TREE_PUBLIC, etc.).  */
++  tree (*make_runtime_function_decl) (const char *name, tree type);
++
+   /* Used to set up the tree_contains_structure array for a frontend. */
+   void (*init_ts) (void);
+ 
+diff --git a/gcc/objc/config-lang.in b/gcc/objc/config-lang.in
+index 0ee34484a4a..9eb91acce8f 100644
+--- a/gcc/objc/config-lang.in
++++ b/gcc/objc/config-lang.in
+@@ -35,4 +35,4 @@ lang_requires="c"
+ # Order is important.  If you change this list, make sure you test
+ # building without C++ as well; that is, remove the gcc/cp directory,
+ # and build with --enable-languages=c,objc.
+-gtfiles="\$(srcdir)/objc/objc-map.h \$(srcdir)/c-family/c-objc.h \$(srcdir)/objc/objc-act.h \$(srcdir)/objc/objc-act.cc \$(srcdir)/objc/objc-runtime-shared-support.cc \$(srcdir)/objc/objc-gnu-runtime-abi-01.cc \$(srcdir)/objc/objc-next-runtime-abi-01.cc \$(srcdir)/objc/objc-next-runtime-abi-02.cc \$(srcdir)/c/c-parser.h \$(srcdir)/c/c-parser.cc \$(srcdir)/c/c-tree.h \$(srcdir)/c/c-decl.cc \$(srcdir)/c/c-lang.h \$(srcdir)/c/c-objc-common.cc \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-common.h \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.h \$(srcdir)/c-family/c-pragma.cc \$(srcdir)/c-family/c-format.cc"
++gtfiles="\$(srcdir)/objc/objc-map.h \$(srcdir)/c-family/c-objc.h \$(srcdir)/objc/objc-act.h \$(srcdir)/objc/objc-act.cc \$(srcdir)/objc/objc-runtime-shared-support.cc \$(srcdir)/objc/objc-gnu-runtime-abi-01.cc \$(srcdir)/objc/objc-next-runtime-abi-01.cc \$(srcdir)/objc/objc-next-runtime-abi-02.cc \$(srcdir)/c/c-parser.h \$(srcdir)/c/c-parser.cc \$(srcdir)/c/c-tree.h \$(srcdir)/c/c-decl.cc \$(srcdir)/c/c-lang.h \$(srcdir)/c/c-objc-common.cc \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-common.h \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.h \$(srcdir)/c-family/c-pragma.cc \$(srcdir)/c-family/c-format.cc \$(srcdir)/c-family/c-availability.cc"
+diff --git a/gcc/target.def b/gcc/target.def
+index a9fcce7850f..df76deb5811 100644
+--- a/gcc/target.def
++++ b/gcc/target.def
+@@ -6604,13 +6604,53 @@ are zero or sign extended depending on if it is\n\
+ 
+ DEFHOOK
+ (mode_for_floating_type,
+-"Return machine mode for a C floating point type which is indicated by\n\
+- a given @code{enum tree_index} @var{ti}, @var{ti} should be\n\
+- @code{TI_FLOAT_TYPE}, @code{TI_DOUBLE_TYPE} or @code{TI_LONG_DOUBLE_TYPE}.\n\
+- The default implementation returns @code{SFmode} for @code{TI_FLOAT_TYPE},\n\
+- and @code{DFmode} for @code{TI_DOUBLE_TYPE} or @code{TI_LONG_DOUBLE_TYPE}.",
++ "Return machine mode for a C floating point type which is indicated by\n\
++  a given @code{enum tree_index} @var{ti}, @var{ti} should be\n\
++  @code{TI_FLOAT_TYPE}, @code{TI_DOUBLE_TYPE} or @code{TI_LONG_DOUBLE_TYPE}.\n\
++  The default implementation returns @code{SFmode} for @code{TI_FLOAT_TYPE},\n\
++  and @code{DFmode} for @code{TI_DOUBLE_TYPE} or @code{TI_LONG_DOUBLE_TYPE}.",
+  machine_mode, (enum tree_index ti), default_mode_for_floating_type)
+ 
++/* The remainder of this group of hooks supports the @code{__builtin_available}\n\
++   expression shared by the C and C++ front ends.\n\
++   See @file{c-availability.cc}.  */
++
++DEFHOOK
++(availability_platform_name,
++ "Return the canonical, lowercase name of the @code{__builtin_available}\n\
++runtime platform, or @code{NULL} if the target has no notion of a runtime\n\
++platform that the expression can usefully check (this is the case for, e.g.,\nbare-metal or non-Apple targets).  The returned string is permanently owned\n\
++by the target and must not be freed by the caller.  On Darwin, this returns\n\
++the platform spelling implied by, e.g., @option{-mmacosx-version-min}.\n\
++The default implementation returns @code{NULL}.",
++ const char *, (void),
++ default_availability_platform_name)
++
++DEFHOOK
++(availability_min_version,
++ "If the target platform recognized by\n\
++@code{TARGET_AVAILABILITY_PLATFORM_NAME} has a minimum version known at\n\
++compile time (from, e.g., @option{-mmacosx-version-min}), write the major,\n\
++minor, and subminor components into *@var{major_p}, *@var{minor_p}, and\n\
++*@var{subminor_p} respectively, in the canonical convention used by\n\
++@code{__builtin_available}, and return true.  If the target does not have a\n\
++compile-time minimum version known, return false.  The default\n\
++implementation returns false.  The behaviour is undefined if\n\
++@code{TARGET_AVAILABILITY_PLATFORM_NAME} returns @code{NULL}.",
++ bool, (unsigned *major_p, unsigned *minor_p, unsigned *subminor_p),
++ default_availability_min_version)
++
++DEFHOOK
++(availability_platform_id,
++ "If the target platform recognized by\n\
++@code{TARGET_AVAILABILITY_PROGRAM_NAME} uses the Darwin-style runtime check\n\
++@code{__isPlatformVersionAtLeast (platform_id, major, minor, subminor)},\n\
++return the integer platform ID that the runtime function expects for the\n\
++current target.  This is consulted only for Darwin-family targets and is\n\
++otherwise ignored.  The default implementation returns 0.",
++ int, (void),
++ default_availability_platform_id)
++
+ HOOK_VECTOR_END (c)
+ 
+ /* Functions specific to the C++ frontend.  */
+diff --git a/gcc/targhooks.cc b/gcc/targhooks.cc
+index 5f1eac75122..7c781f53a76 100644
+--- a/gcc/targhooks.cc
++++ b/gcc/targhooks.cc
+@@ -328,6 +328,33 @@ default_mode_for_floating_type (enum tree_index ti)
+   return DFmode;
+ }
+ 
++/* Default TARGET_AVAILABILITY_* hooks: emit no platform/version info so
++   that __builtin_available is diagnosed as always returning false on
++   targets that haven't set up the support.  */
++
++const char *
++default_availability_platform_name (void)
++{
++  return nullptr;
++}
++
++bool
++default_availability_min_version (unsigned *major_p,
++				  unsigned *minor_p,
++				  unsigned *subminor_p)
++{
++  (void) major_p;
++  (void) minor_p;
++  (void) subminor_p;
++  return false;
++}
++
++int
++default_availability_platform_id (void)
++{
++  return 0;
++}
++
+ /* The generic C++ ABI specifies this is a 64-bit value.  */
+ tree
+ default_cxx_guard_type (void)
+diff --git a/gcc/targhooks.h b/gcc/targhooks.h
+index 9582233e69f..7d854e1f355 100644
+--- a/gcc/targhooks.h
++++ b/gcc/targhooks.h
+@@ -321,4 +321,9 @@ extern rtx default_memtag_set_tag (rtx, rtx, rtx);
+ extern rtx default_memtag_extract_tag (rtx, rtx);
+ extern rtx default_memtag_untagged_pointer (rtx, rtx);
+ 
++/* Default TARGET_AVAILABILITY_* hooks for __builtin_available.  */
++extern const char *default_availability_platform_name (void);
++extern bool default_availability_min_version (unsigned *, unsigned *, unsigned *);
++extern int default_availability_platform_id (void);
++
+ #endif /* GCC_TARGHOOKS_H */
+diff --git a/gcc/testsuite/g++.dg/builtin-available-1.C b/gcc/testsuite/g++.dg/builtin-available-1.C
+new file mode 100644
+index 00000000000..b48b38a0604
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/builtin-available-1.C
+@@ -0,0 +1,41 @@
++/* Test that __builtin_available also works in C++.  */
++
++/* { dg-do compile } */
++/* { dg-options "" } */
++
++int
++main ()
++{
++  if (__builtin_available (macos 10.10, *))
++    return 1;
++  if (__builtin_available (macos 14.0, ios 17.0, *))
++    return 2;
++  if (__builtin_available (*))
++    return 3;
++
++  return 0;
++}
++
++int
++test_dup ()
++{
++  return __builtin_available (macos 10.10, macos 11.0, *); /* { dg-error "version for 'macos' already specified" } */
++}
++
++int
++test_no_wild ()
++{
++  return __builtin_available (macos 10.10); /* { dg-error "must handle potential future platforms" } */
++}
++
++int
++test_unknown ()
++{
++  return __builtin_available (nosuchos 1.0, *); /* { dg-error "unrecognized platform name" } */
++}
++
++int
++test_dup_wild ()
++{
++  return __builtin_available (*, *); /* { dg-error "already been specified" } */
++}
+diff --git a/gcc/testsuite/g++.dg/builtin-available-android-1.C b/gcc/testsuite/g++.dg/builtin-available-android-1.C
+new file mode 100644
+index 00000000000..2be6985fc02
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/builtin-available-android-1.C
+@@ -0,0 +1,47 @@
++/* Test __builtin_available (android N, *) codegen in C++ on Android
++   Linux.  Mirrors builtin-available-android-1.c but exercises the C++
++   front-end so we confirm that the runtime library function is emitted
++   with C linkage -- the symbol must NOT be name-mangled.
++
++   Before the lang_hook make_runtime_function_decl wired C++ through
++   build_library_fn_ptr, the C++ front-end produced
++   _Z20__isOSVersionAtLeastiii; Clang- and NDK-compatible codegen
++   requires the plain __isOSVersionAtLeast symbol.  */
++
++/* { dg-do compile } */
++/* { dg-options "-mandroid -mandroid-version-min=21 -O2" } */
++/* { dg-final { scan-assembler-times "__isOSVersionAtLeast" 2 } } */
++/* { dg-final { scan-assembler-not "_Z20__isOSVersionAtLeastiii" } } */
++/* { dg-final { scan-assembler-not "__isPlatformVersionAtLeast" } } */
++
++int
++f_newer (void)
++{
++  if (__builtin_available (android 31, *))
++    return 1;
++  return 0;
++}
++
++int
++f_mixed (void)
++{
++  if (__builtin_available (android 31, ios 13, macos 10.15, *))
++    return 1;
++  return 0;
++}
++
++int
++f_at_deployment (void)
++{
++  if (__builtin_available (android 21, *))
++    return 1;
++  return 0;
++}
++
++int
++f_below_deployment (void)
++{
++  if (__builtin_available (android 5, *))
++    return 1;
++  return 0;
++}
+diff --git a/gcc/testsuite/gcc.dg/builtin-available-1.c b/gcc/testsuite/gcc.dg/builtin-available-1.c
+new file mode 100644
+index 00000000000..0566598009f
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/builtin-available-1.c
+@@ -0,0 +1,85 @@
++/* Test that __builtin_available parses, accepts valid syntax,
++   folds to false on a non-Apple target, and emits correct diagnostics
++   for malformed invocations.  */
++
++/* { dg-do compile } */
++/* { dg-options "" } */
++
++int
++main (void)
++{
++  /* Legal syntax: parses, folds to 0 (false) on a non-Apple target.  */
++  if (__builtin_available (macos 10.10, *))
++    return 1;
++  if (__builtin_available (macos 14.0, ios 17.0, *))
++    return 2;
++  /* The wildcard * alone is allowed and matches any platform; on a
++     non-Apple target with no runtime hookups, no platform actually
++     matches and the validator only requires that the wildcard be
++     present, which it is here.  */
++  if (__builtin_available (*))
++    return 3;
++
++  return 0;
++}
++
++/* Duplicate platform must be diagnosed.  */
++int
++test_dup (void)
++{
++  return __builtin_available (macos 10.10, macos 11.0, *); /* { dg-error "version for 'macos' already specified" } */
++}
++
++/* Missing wildcard must be diagnosed.  */
++int
++test_no_wild (void)
++{
++  return __builtin_available (macos 10.10); /* { dg-error "must handle potential future platforms" } */
++}
++
++/* Unknown platform must be diagnosed.  */
++int
++test_unknown (void)
++{
++  return __builtin_available (nosuchos 1.0, *); /* { dg-error "unrecognized platform name 'nosuchos'" } */
++}
++
++/* Duplicate wildcard must be diagnosed.  */
++int
++test_dup_wild (void)
++{
++  return __builtin_available (*, *); /* { dg-error "query has already been specified" } */
++}
++
++/* Platform name lookup is case-insensitive: macOS/iOS/MacOS/ios all
++   canonicalize to the same canonical (lowercase) name.  Aliases like
++   "macosx", "osx" and "darwin" canonicalize to "macos".  */
++int
++test_case_insensitive (void)
++{
++  if (__builtin_available (macOS 10.15, iOS 13, *)) return 1;
++  if (__builtin_available (MACOSX 10.10, *)) return 2;
++  if (__builtin_available (watchOS 6, *)) return 3;
++  if (__builtin_available (TvOS 14, *)) return 4;
++  return 0;
++}
++
++int
++test_alias_dup (void)
++{
++  /* "macosx" and "macOS" both canonicalize to "macos" -- this should be
++     diagnosed as a duplicate use of the same platform.  */
++  return __builtin_available (macosx 10.10, macOS 11.0, *); /* { dg-error "version for 'macos' already specified" } */
++}
++
++/* Android NDK exposes __builtin_available (android N, *) for guarding
++   calls to APIs newer than the app's minSdkVersion.  See
++   https://developer.android.com/ndk/guides/using-newer-apis.  */
++int
++test_android (void)
++{
++  if (__builtin_available (android 31, *)) return 1;
++  if (__builtin_available (android 30, ios 13, macos 10.15, *)) return 2;
++  /* Duplicate android is diagnosed the same way as any other platform.  */
++  return __builtin_available (android 31, android 32, *); /* { dg-error "version for 'android' already specified" } */
++}
+diff --git a/gcc/testsuite/gcc.dg/builtin-available-android-1.c b/gcc/testsuite/gcc.dg/builtin-available-android-1.c
+new file mode 100644
+index 00000000000..b9acf602ce7
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/builtin-available-android-1.c
+@@ -0,0 +1,48 @@
++/* Test __builtin_available (android N, *) codegen on Android Linux with
++   -mandroid -mandroid-version-min=21 set.  We verify:
++
++     - android N > 21 (the deployment floor): a runtime call to
++       __isOSVersionAtLeast(N, 0, 0) is emitted.
++     - android N <= 21: folds to a constant (no runtime call).
++     - android N mixed with non-matching platforms: realises only the
++       android spec; macos/ios do not emit a runtime call to the
++       Darwin-specific __isPlatformVersionAtLeast helper.
++   All Clang-compatible: see clang/test/CodeGen/availability-check-anyappleos.c.
++*/
++
++/* { dg-do compile } */
++/* { dg-options "-mandroid -mandroid-version-min=21 -O2" } */
++/* { dg-final { scan-assembler-times "__isOSVersionAtLeast" 2 } } */
++/* { dg-final { scan-assembler-not "__isPlatformVersionAtLeast" } } */
++
++int
++f_newer (void)
++{
++  if (__builtin_available (android 31, *))
++    return 1;
++  return 0;
++}
++
++int
++f_mixed (void)
++{
++  if (__builtin_available (android 31, ios 13, macos 10.15, *))
++    return 1;
++  return 0;
++}
++
++int
++f_at_deployment (void)
++{
++  if (__builtin_available (android 21, *))
++    return 1;
++  return 0;
++}
++
++int
++f_below_deployment (void)
++{
++  if (__builtin_available (android 5, *))
++    return 1;
++  return 0;
++}
+diff --git a/gcc/testsuite/gcc.dg/builtin-available-has-builtin.c b/gcc/testsuite/gcc.dg/builtin-available-has-builtin.c
+new file mode 100644
+index 00000000000..02490e87d9a
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/builtin-available-has-builtin.c
+@@ -0,0 +1,9 @@
++/* Test that __builtin_available is recognized by __has_builtin.  */
++
++/* { dg-do compile } */
++
++#if !__has_builtin (__builtin_available)
++# error __builtin_available not recognized
++#endif
++
++int x;
+diff --git a/gcc/testsuite/obj-c++.dg/builtin-available-1.mm b/gcc/testsuite/obj-c++.dg/builtin-available-1.mm
+new file mode 100644
+index 00000000000..a7f684832de
+--- /dev/null
++++ b/gcc/testsuite/obj-c++.dg/builtin-available-1.mm
+@@ -0,0 +1,13 @@
++/* Test __builtin_available in Objective-C++ source.  */
++
++/* { dg-do compile } */
++
++#include <objc/objc.h>
++
++int
++main (void)
++{
++  if (__builtin_available (macos 10.10, ios 13.0, *))
++    return 1;
++  return __builtin_available (macos 14.0, macos 15.0, *); /* { dg-error "version for 'macos' already specified" } */
++}
+diff --git a/gcc/testsuite/objc.dg/builtin-available-1.m b/gcc/testsuite/objc.dg/builtin-available-1.m
+new file mode 100644
+index 00000000000..47b79b7b7e1
+--- /dev/null
++++ b/gcc/testsuite/objc.dg/builtin-available-1.m
+@@ -0,0 +1,13 @@
++/* Test __builtin_available in Objective-C source.  */
++
++/* { dg-do compile } */
++
++#include <objc/objc.h>
++
++int
++main (void)
++{
++  if (__builtin_available (macos 10.10, ios 13.0, *))
++    return 1;
++  return __builtin_available (macos 14.0, macos 15.0, *); /* { dg-error "version for 'macos' already specified" } */
++}
+-- 
+2.54.0
+

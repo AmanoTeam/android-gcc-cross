@@ -579,6 +579,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 	fi
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-support-for-the-Android-operating-system.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-c-family-Add-__builtin_available-support-inspired-by-Clang.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-version-guards-for-some-libstdc-header-definitions.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Force-disable-TLS-support-in-libstdc.patch"
 	
