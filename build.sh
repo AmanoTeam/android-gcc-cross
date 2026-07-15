@@ -1220,6 +1220,30 @@ for triplet in "${targets[@]}"; do
 	echo 'INPUT (libgcc.a libgcc_eh.a)' > './libunwind.a'
 	echo 'INPUT (libegcc.so libgcc_eh.a)' > './libunwind.so'
 	
+	echo 'INPUT (libgomp.a)' > './libomp.a'
+	echo 'INPUT (libgomp.so)' > './libomp.so'
+	
+	directory="${toolchain_directory}/lib/gcc/lib/linux"
+	
+	if [[ "${triplet}" = 'arm'* ]]; then
+		directory+='/arm'
+	elif [[ "${triplet}" = 'aarch64'* ]]; then
+		directory+='/aarch64'
+	elif [[ "${triplet}" = 'i'*'86'* ]]; then
+		directory+='/i386'
+	elif [[ "${triplet}" = 'x86_64'* ]]; then
+		directory+='/x86_64'
+	fi
+	
+	mkdir --parent "${directory}"
+	
+	ln \
+		--symbolic \
+		--relative \
+		--force \
+		"${PWD}/"lib{unwind,omp,atomic}.{a,so} \
+		"${directory}"
+	
 	declare url="https://github.com/AmanoTeam/libsanitizer/releases/download/gcc-${gcc_major}/${triplet}.tar.xz"
 	
 	echo "- Fetching data from '${url}'"
