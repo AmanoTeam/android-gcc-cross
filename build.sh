@@ -1077,6 +1077,12 @@ for triplet in "${targets[@]}"; do
 	specs+=' %{!Wno-psabi: %{!Wpsabi: -Wno-psabi}}'
 	specs+=' %{!Qy: -Qn}'
 	
+	if [ "${triplet}" = 'i686-unknown-linux-android' ]; then
+		specs+=' -msse3'
+	elif [ "${triplet}" = 'x86_64-unknown-linux-android' ]; then
+		specs+=' -msse4.2'
+	fi
+	
 	specs="$(xargs <<< "${specs}")"
 	
 	if ! (( native )); then
