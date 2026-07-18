@@ -745,7 +745,7 @@ cd "${yasm_directory}/build"
 	CXXFLAGS="${ccflags}" \
 	LDFLAGS="${linkflags}"
 
-make all --jobs
+make all --jobs='1'
 make install
 
 [ -d "${zstd_directory}/.build" ] || mkdir "${zstd_directory}/.build"
