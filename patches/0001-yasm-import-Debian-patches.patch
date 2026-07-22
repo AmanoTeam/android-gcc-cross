@@ -1,31 +1,13 @@
-From 66b069d994036e007bd87e9b458a67beefee6321 Mon Sep 17 00:00:00 2001
+From f5e49c97eed8f5bffb9e51bdb46b2169ad1808d9 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
-Date: Sat, 27 Jun 2026 11:43:33 -0300
+Date: Wed, 22 Jul 2026 18:22:39 -0300
 Subject: [PATCH] yasm: import Debian patches
 
 ---
- libyasm/bitvect.h               | 6 +++++-
  modules/arch/x86/x86arch.c      | 5 +++--
  modules/preprocs/nasm/nasm-pp.c | 6 +++++-
- 3 files changed, 13 insertions(+), 4 deletions(-)
+ 2 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/libyasm/bitvect.h b/libyasm/bitvect.h
-index 3aee3a53..a13470ad 100644
---- a/libyasm/bitvect.h
-+++ b/libyasm/bitvect.h
-@@ -83,7 +83,11 @@ typedef  Z_longword         *Z_longwordptr;
-     #ifdef MACOS_TRADITIONAL
-         #define boolean Boolean
-     #else
--        typedef enum boolean { false = FALSE, true = TRUE } boolean;
-+        #if __STDC_VERSION__ < 202311L
-+             typedef enum boolean { false = FALSE, true = TRUE } boolean;
-+        #else
-+             typedef bool boolean;
-+        #endif
-     #endif
- #endif
- 
 diff --git a/modules/arch/x86/x86arch.c b/modules/arch/x86/x86arch.c
 index bac11774..58327958 100644
 --- a/modules/arch/x86/x86arch.c
@@ -67,5 +49,5 @@ index 512f02c3..473d98c1 100644
          }
          /* need to expand */
 -- 
-2.54.0
+2.55.0
 
