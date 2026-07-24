@@ -1230,6 +1230,9 @@ for triplet in "${targets[@]}"; do
 	echo 'INPUT (libgomp.so)' > './libomp.so'
 	
 	directory="${toolchain_directory}/lib/gcc/lib/linux"
+	mkdir --parent "${directory}"
+	
+	echo 'INPUT(-lgcc)' | tee "${directory}/libclang_rt.builtins-"{arm,aarch64,i386,x86_64}'-android.a'
 	
 	if [[ "${triplet}" = 'arm'* ]]; then
 		directory+='/arm'
