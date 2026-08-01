@@ -1,0 +1,1570 @@
+From 15e84f2604106d07696f510d5bfc6479565ee913 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Sat, 1 Aug 2026 21:14:59 +0000
+Subject: [PATCH] ld: Add --pack-dyn-relocs=android[+relr] support
+
+Add a new --pack-dyn-relocs=STYLE option that stores the dynamic
+relocations of an ELF output file in the Android packed relocation
+format (APS2 -- SHT_ANDROID_REL/SHT_ANDROID_RELA sections with
+DT_ANDROID_REL{A,SZ} dynamic tags), understood by Android's dynamic
+linker.  Supported styles are:
+
+  none       plain .rel.dyn/.rela.dyn (default).
+  relr       equivalent to -z pack-relative-relocs.
+  android    pack all .rel.dyn/.rela.dyn relocations in APS2.
+  android+relr  additionally divert R_*_RELATIVE relocations to a
+              .relr.dyn section on targets that support it, leaving
+              only the rest (e.g. GLOB_DAT, IRELATIVE) in APS2.
+
+PLT relocations referenced by DT_JMPREL are always left in plain
+format.  When the packed section ends up empty (all relocations
+diverted to .relr.dyn), the DT_ANDROID_* entries are removed instead
+of pointing at an invalid blob, matching what the bionic loader
+expects.
+
+The encoder follows the same APS2 layout as bionic and LLD: the
+.rela.dyn section keeps its allocated size so other section file
+offsets are unaffected, then at final-link the blob is written over
+the plain relocations (zero-padded) and this_hdr.sh_size is shrunk
+to the blob size.  Output binaries have been verified to decode
+identically to plain links with both a custom Python decoder and
+llvm-readelf (LLD's decoder), on x86_64-linux, x86_64-android,
+i386-linux and aarch64-android, including the bundled-android
+android-gcc-cross toolchain and an NDK-clang cross build of Nouzen
+(curl+nghttp2+bearssl+zstd+libarchive+...) targeting x86_64-android
+(216 vs 180 dynamic relocations per compiler, both decodable).
+
+The full ld and binutils testsuites continue to pass (3311 ld, 351
+binutils cases on x86_64, plus the four new pack-dyn-relocs tests on
+x86_64 and aarch64 cross builds).
+
+include/
+	* bfdlink.h (struct bfd_link_info) <pack_dyn_relocs_android>: New.
+	* elf/common.h (DT_ANDROID_REL, DT_ANDROID_RELSZ, DT_ANDROID_RELA,
+	DT_ANDROID_RELASZ): New dynamic tags.
+	(RELOCATION_GROUPED_BY_INFO_FLAG,
+	RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG,
+	RELOCATION_GROUPED_BY_ADDEND_FLAG,
+	RELOCATION_GROUP_HAS_ADDEND_FLAG): New.
+
+bfd/
+	* elf-bfd.h (struct elf_link_hash_table) <android_rela_sec>,
+	<android_rela_contents>: New fields.
+	* elf.c (assign_section_numbers) [SHT_ANDROID_REL/A]: Fix up
+	sh_link to .dynsym when unset.
+	(_bfd_elf_copy_private_section_data): Preserve SHT_ANDROID_REL/A
+	across objcopy and relocatable link.
+	* elflink.c (_bfd_elf_add_dynamic_entry): Treat DT_ANDROID_RELA and
+	DT_ANDROID_REL as marking dynamic_relocs.
+	(elf_android_sleb128, elf_android_reloc, elf_android_reloc_cmp,
+	elf_android_encode_relocs, elf_link_android_pack_relocs): New.
+	(_bfd_elf_add_dynamic_tags): Emit DT_ANDROID_REL{A,SZ} instead of
+	DT_REL{A,SZ,[A]ENT} when pack_dyn_relocs_android is set.
+	(_bfd_elf_final_link): Retype the unique .rel.dyn/.rela.dyn section
+	to SHT_ANDROID_REL(A) and pack its relocations into APS2; remove
+	empty-section DT_ANDROID_* entries; write the blob after dynobj.
+
+binutils/
+	* readelf.c (get_dynamic_type) <DT_ANDROID_REL>, <DT_ANDROID_RELSZ>,
+	<DT_ANDROID_RELA>, <DT_ANDROID_RELASZ>: Print readable names.
+
+ld/
+	* ld.texi, ldlex.h, lexsup.c, emultempl/elf.em, NEWS: Plumb the
+	--pack-dyn-relocs option through.
+	* testsuite/ld-elf/pack-dyn-relocs{.d,-relr.d,.exp,.s,-1.c,
+	-check.py}: New tests.
+---
+ bfd/ChangeLog                                |  24 +
+ bfd/elf-bfd.h                                |   7 +
+ bfd/elf.c                                    |  20 +-
+ bfd/elflink.c                                | 481 ++++++++++++++++++-
+ binutils/ChangeLog                           |   5 +
+ binutils/readelf.c                           |   4 +
+ include/ChangeLog                            |  12 +
+ include/bfdlink.h                            |   4 +
+ include/elf/common.h                         |  12 +
+ ld/ChangeLog                                 |  19 +
+ ld/NEWS                                      |   6 +
+ ld/emultempl/elf.em                          |  26 +
+ ld/ld.texi                                   |  19 +
+ ld/ldlex.h                                   |   1 +
+ ld/lexsup.c                                  |   3 +
+ ld/testsuite/ld-elf/pack-dyn-relocs-1.c      |  29 ++
+ ld/testsuite/ld-elf/pack-dyn-relocs-check.py | 368 ++++++++++++++
+ ld/testsuite/ld-elf/pack-dyn-relocs-relr.d   |  16 +
+ ld/testsuite/ld-elf/pack-dyn-relocs.d        |  12 +
+ ld/testsuite/ld-elf/pack-dyn-relocs.exp      | 104 ++++
+ ld/testsuite/ld-elf/pack-dyn-relocs.s        |  35 ++
+ 21 files changed, 1202 insertions(+), 5 deletions(-)
+ create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-1.c
+ create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-check.py
+ create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-relr.d
+ create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs.d
+ create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs.exp
+ create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs.s
+
+diff --git a/bfd/ChangeLog b/bfd/ChangeLog
+index 6046f658..db211043 100644
+--- a/bfd/ChangeLog
++++ b/bfd/ChangeLog
+@@ -1,3 +1,27 @@
++2026-08-01  Kartatz  <105828205+Kartatz@users.noreply.github.com>
++
++	* elf-bfd.h (struct elf_link_hash_table) <android_rela_sec>,
++	<android_rela_contents>: New fields.
++	* elf.c (assign_section_numbers) <SHT_ANDROID_REL, SHT_ANDROID_RELA>:
++	Set sh_link to .dynsym when unset.
++	(_bfd_elf_copy_private_section_data): Preserve SHT_ANDROID_REL and
++	SHT_ANDROID_RELA section types across objcopy and relocatable link.
++	* elflink.c (_bfd_elf_add_dynamic_entry): Mark dynamic_relocs for
++	DT_ANDROID_RELA and DT_ANDROID_REL too.
++	(elf_android_sleb128, elf_android_reloc, elf_android_reloc_cmp,
++	elf_android_encode_relocs, elf_link_android_pack_relocs): New
++	functions to encode dynamic relocations into the Android APS2
++	packed format.
++	(_bfd_elf_add_dynamic_tags): Emit DT_ANDROID_REL/RELSZ or
++	DT_ANDROID_RELA/RELASZ (and skip DT_RELA/REL, RELAENT/RELENT) when
++	pack_dyn_relocs_android is set.
++	(_bfd_elf_final_link): After final layout, retype the unique
++	.rel.dyn/.rela.dyn output section to SHT_ANDROID_REL(A) and call
++	elf_link_android_pack_relocs to write the APS2 blob in place of
++	the plain relocations.  Remove any leftover DT_ANDROID_* entries
++	when the packed section ends up empty (e.g. all relatives diverted
++	to .relr.dyn by --pack-dyn-relocs=android+relr).
++
+ 2025-09-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+ 
+ 	* config.bfd <powerpc-*-solaris2*>: Remove.
+diff --git a/bfd/elf-bfd.h b/bfd/elf-bfd.h
+index 88d35925..69bf8707 100644
+--- a/bfd/elf-bfd.h
++++ b/bfd/elf-bfd.h
+@@ -785,6 +785,13 @@ struct elf_link_hash_table
+   asection *srelrdyn;
+   asection *dynamic;
+   asection *interp;
++
++  /* Output section whose dynamic relocations are stored in the Android
++     packed relocation format (--pack-dyn-relocs=android), and a buffer
++     holding the packed (plus zero-padded) contents written out after
++     the other dynamic link sections.  NULL when not packing.  */
++  asection *android_rela_sec;
++  bfd_byte *android_rela_contents;
+ };
+ 
+ /* Returns TRUE if the hash table is a struct elf_link_hash_table.  */
+diff --git a/bfd/elf.c b/bfd/elf.c
+index ea127919..7eff0c5f 100644
+--- a/bfd/elf.c
++++ b/bfd/elf.c
+@@ -4338,6 +4338,19 @@ assign_section_numbers (bfd *abfd, struct bfd_link_info *link_info)
+ 
+       switch (d->this_hdr.sh_type)
+ 	{
++	case SHT_ANDROID_REL:
++	case SHT_ANDROID_RELA:
++	  /* Android packed relocation sections share the semantics of
++	     sh_link with normal reloc sections, but have no single
++	     section sh_info could point to.  */
++	  if (d->this_hdr.sh_link == 0)
++	    {
++	      s = bfd_get_section_by_name (abfd, ".dynsym");
++	      if (s != NULL)
++		d->this_hdr.sh_link = elf_section_data (s)->this_idx;
++	    }
++	  break;
++
+ 	case SHT_REL:
+ 	case SHT_RELA:
+ 	  /* sh_link is the section index of the symbol table.
+@@ -8461,7 +8474,12 @@ _bfd_elf_copy_private_section_data (bfd *ibfd,
+      SHF_MASKOS and SHF_MASKPROC.  */
+   if (elf_section_type (osec) == SHT_PROGBITS
+       || elf_section_type (osec) == SHT_NOTE
+-      || elf_section_type (osec) == SHT_NOBITS)
++      || elf_section_type (osec) == SHT_NOBITS
++      /* Always copy the type of Android packed relocation sections.
++	 OSEC would otherwise keep the type implied by its name
++	 (SHT_REL/SHT_RELA).  */
++      || elf_section_type (isec) == SHT_ANDROID_REL
++      || elf_section_type (isec) == SHT_ANDROID_RELA)
+     elf_section_type (osec) = SHT_NULL;
+ 
+   /* For objcopy and relocatable link, copy the ELF section type from
+diff --git a/bfd/elflink.c b/bfd/elflink.c
+index 0af9837a..9ef9bda2 100644
+--- a/bfd/elflink.c
++++ b/bfd/elflink.c
+@@ -3805,7 +3805,8 @@ _bfd_elf_add_dynamic_entry (struct bfd_link_info *info,
+   if (! is_elf_hash_table (&hash_table->root))
+     return false;
+ 
+-  if (tag == DT_RELA || tag == DT_REL)
++  if (tag == DT_RELA || tag == DT_REL
++      || tag == DT_ANDROID_RELA || tag == DT_ANDROID_REL)
+     hash_table->dynamic_relocs = true;
+ 
+   obed = get_elf_backend_data (hash_table->dynobj);
+@@ -12598,6 +12599,326 @@ elf_final_link_free (bfd *obfd, struct elf_final_link_info *flinfo)
+     }
+ }
+ 
++/* A dynamic relocation to be stored in the Android packed relocation
++   format.  */
++
++struct elf_android_reloc
++{
++  bfd_vma r_offset;
++  bfd_vma r_info;
++  bfd_vma r_sym;
++  bfd_vma r_type;
++  bfd_signed_vma r_addend;
++};
++
++/* Write VAL, SLEB128 encoded, to P, never writing more than END
++   bytes.  Returns the updated pointer, or NULL on overflow.  */
++
++static bfd_byte *
++elf_android_sleb128 (bfd_byte *p, bfd_byte *end, bfd_signed_vma val)
++{
++  bfd_byte byte;
++
++  do
++    {
++      byte = val & 0x7f;
++      val >>= 7;
++      if (p >= end)
++	return NULL;
++      if ((val == 0 && (byte & 0x40) == 0)
++	  || (val == (bfd_signed_vma) -1 && (byte & 0x40) != 0))
++	{
++	  *p++ = byte;
++	  break;
++	}
++      *p++ = byte | 0x80;
++    }
++  while (1);
++
++  return p;
++}
++
++/* Compare Android packed relocations by r_type, then r_sym, then
++   r_offset.  This sorts relocations of the same type (typically
++   R_*_RELATIVE, the vast majority) so that all of them end up in
++   consecutive runs with equal r_info and equal offset deltas, which
++   the Android packed relocation format can encode most compactly.  */
++
++static int
++elf_android_reloc_cmp (const void *ap, const void *bp)
++{
++  const struct elf_android_reloc *a = ap;
++  const struct elf_android_reloc *b = bp;
++
++  if (a->r_type != b->r_type)
++    return a->r_type < b->r_type ? -1 : 1;
++  if (a->r_sym != b->r_sym)
++    return a->r_sym < b->r_sym ? -1 : 1;
++  if (a->r_offset != b->r_offset)
++    return a->r_offset < b->r_offset ? -1 : 1;
++  if (a->r_addend != b->r_addend)
++    return a->r_addend < b->r_addend ? -1 : 1;
++  return 0;
++}
++
++/* Encode the COUNT dynamic relocations in RELS using the Android
++   packed relocation format, for either REL or RELA input as selected
++   by RELA_P.  The encoding consists of the magic bytes "APS2"
++   followed by SLEB128-encoded fields.  Relocations are emitted in
++   groups; within a group, common offset deltas and r_info values are
++   factored out so that each relocation in the group only needs its
++   addend recorded.  See bionic's linker/linker_relocs.cpp for the
++   reference decoder.
++
++   The output is written to BUF, which is END bytes long.  Returns the
++   number of bytes written, or 0 on overflow.  */
++
++static bfd_size_type
++elf_android_encode_relocs (bfd_byte *buf, bfd_byte *end,
++			   const struct elf_android_reloc *rels,
++			   bfd_size_type count, bool rela_p)
++{
++  bfd_byte *p;
++  bfd_signed_vma prev_offset, prev_addend;
++  bfd_size_type i;
++
++  if (end - buf < 4)
++    return 0;
++
++  p = buf;
++  memcpy (p, "APS2", 4);
++  p += 4;
++
++  /* The total number of relocations, and the initial r_offset (we
++     start at zero; the first group performs the initial
++     adjustment).  */
++  p = elf_android_sleb128 (p, end, (bfd_signed_vma) count);
++  p = elf_android_sleb128 (p, end, 0);
++  if (p == NULL)
++    return 0;
++
++  prev_offset = 0;
++  prev_addend = 0;
++  i = 0;
++  while (i < count)
++    {
++      bfd_signed_vma offset_delta, addend;
++      bfd_vma r_info;
++      bfd_size_type j, size;
++      bfd_signed_vma flags;
++
++      offset_delta = (bfd_signed_vma) (rels[i].r_offset - prev_offset);
++      r_info = rels[i].r_info;
++
++      /* Greedily extend the group while consecutive relocations
++	 share the same r_info and offset delta.  */
++      j = i + 1;
++      while (j < count
++	     && rels[j].r_info == r_info
++	     && rels[j].r_offset - rels[j - 1].r_offset
++		== (bfd_vma) offset_delta)
++	j++;
++
++      size = j - i;
++      flags = 0;
++      if (size > 1)
++	flags = (RELOCATION_GROUPED_BY_INFO_FLAG
++		 | RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG);
++      if (rela_p)
++	flags |= RELOCATION_GROUP_HAS_ADDEND_FLAG;
++
++      p = elf_android_sleb128 (p, end, (bfd_signed_vma) size);
++      p = elf_android_sleb128 (p, end, flags);
++      p = elf_android_sleb128 (p, end, offset_delta);
++      p = elf_android_sleb128 (p, end, (bfd_signed_vma) r_info);
++      if (p == NULL)
++	return 0;
++
++      if (rela_p)
++	for (; i < j; i++)
++	  {
++	    addend = rels[i].r_addend - prev_addend;
++	    p = elf_android_sleb128 (p, end, addend);
++	    if (p == NULL)
++	      return 0;
++	    prev_addend = rels[i].r_addend;
++	  }
++      else
++	i = j;
++
++      prev_offset = rels[j - 1].r_offset;
++    }
++
++  return p - buf;
++}
++
++/* Collect the dynamic relocations contained in the .rela.dyn or
++   .rel.dyn output section, encode them in the Android packed
++   relocation format, and arrange for the encoded data to be written
++   to the output section after all other sections created by
++   bfd_elf_link_create_dynamic_sections.  Returns false on error.  */
++
++static bool
++elf_link_android_pack_relocs (bfd *obfd, struct bfd_link_info *info)
++{
++  elf_backend_data *obed;
++  struct elf_link_hash_table *htab = elf_hash_table (info);
++  asection *outsec;
++  struct bfd_link_order *lo;
++  bfd *dynobj = htab->dynobj;
++  bfd_byte *contents;
++  struct elf_android_reloc *rels;
++  struct elf_android_reloc *rel;
++  bfd_size_type ext_size, count, i2e;
++  bfd_size_type used;
++  void (*swap_in) (bfd *, const bfd_byte *, Elf_Internal_Rela *);
++  bool use_rela;
++
++  outsec = htab->android_rela_sec;
++  if (outsec == NULL || outsec->size == 0)
++    /* Nothing to pack.  Any DT_ANDROID_* entries are removed below.  */
++    return true;
++
++  obed = get_elf_backend_data (obfd);
++  use_rela = (elf_section_data (outsec)->this_hdr.sh_type
++	      == SHT_ANDROID_RELA);
++
++  if (use_rela)
++    {
++      ext_size = obed->s->sizeof_rela;
++      swap_in = obed->s->swap_reloca_in;
++    }
++  else
++    {
++      ext_size = obed->s->sizeof_rel;
++      swap_in = obed->s->swap_reloc_in;
++    }
++  i2e = obed->s->int_rels_per_ext_rel;
++
++  /* Gather the relocations from all of the input sections.  The
++     section contents were finalized when the input sections were
++     relocated above.  */
++  count = 0;
++  for (lo = outsec->map_head.link_order; lo != NULL; lo = lo->next)
++    {
++      asection *o;
++
++      if (lo->type != bfd_indirect_link_order)
++	continue;
++
++      o = lo->u.indirect.section;
++      if (o->owner != dynobj
++	  || (o->flags & SEC_LINKER_CREATED) == 0
++	  || (o->contents == NULL && o->size != 0))
++	{
++	  /* Not a dynamic relocation section created by the linker,
++	     e.g. one created for --emit-relocs.  We can't combine
++	     relocations in this case.  */
++	  _bfd_error_handler
++	    /* xgettext:c-format */
++	    (_("%pB: unable to pack relocations from section `%pA'"),
++	     obfd, o);
++	  bfd_set_error (bfd_error_invalid_operation);
++	  return false;
++	}
++      if (o->size % ext_size)
++	{
++	  _bfd_error_handler
++	    /* xgettext:c-format */
++	    (_("%pB: unable to pack relocations from section `%pA' - "
++	       "its size is not a multiple of the relocation size"),
++	     obfd, o);
++	  bfd_set_error (bfd_error_invalid_operation);
++	  return false;
++	}
++      count += o->size / ext_size * i2e;
++    }
++
++  rels = bfd_malloc (count * sizeof (*rels));
++  if (rels == NULL)
++    return false;
++
++  rel = rels;
++  for (lo = outsec->map_head.link_order; lo != NULL; lo = lo->next)
++    {
++      asection *o;
++      bfd_byte *erel, *erelend;
++
++      if (lo->type != bfd_indirect_link_order)
++	continue;
++
++      o = lo->u.indirect.section;
++      erel = o->contents;
++      erelend = o->contents + o->size;
++      while (erel < erelend)
++	{
++	  Elf_Internal_Rela irel[MAX_INT_RELS_PER_EXT_REL];
++	  size_t i;
++
++	  (*swap_in) (obfd, erel, irel);
++	  erel += ext_size;
++
++	  for (i = 0; i < i2e; i++)
++	    {
++	      rel->r_offset = irel[i].r_offset;
++	      rel->r_info = irel[i].r_info;
++	      rel->r_addend = irel[i].r_addend;
++	      if (obed->s->arch_size == 32)
++		{
++		  rel->r_sym = irel[i].r_info >> 8;
++		  rel->r_type = irel[i].r_info & 0xff;
++		}
++	      else
++		{
++		  rel->r_sym = irel[i].r_info >> 32;
++		  rel->r_type = irel[i].r_info & 0xffffffff;
++		}
++	      rel++;
++	    }
++	}
++    }
++  /* We counted correctly.  */
++  BFD_ASSERT (rel == rels + count);
++
++  /* Sort the relocations so that the groups are as large as
++     possible.  */
++  qsort (rels, count, sizeof (*rels), elf_android_reloc_cmp);
++
++  contents = bfd_zmalloc (outsec->size);
++  if (contents == NULL)
++    {
++      free (rels);
++      return false;
++    }
++
++  used = elf_android_encode_relocs (contents, contents + outsec->size,
++				    rels, count, use_rela);
++  free (rels);
++  if (used == 0)
++    {
++      _bfd_error_handler
++	/* xgettext:c-format */
++	(_("%pB: unable to pack relocations - encoded size exceeds "
++	   "allocated section `%pA' size"), obfd, outsec);
++      bfd_set_error (bfd_error_invalid_operation);
++      free (contents);
++      return false;
++    }
++
++  /* Set the real size of the packed data; the rest of the section
++     stays zero-filled.  Shrink the section size so that
++     DT_ANDROID_RELASZ/RELSZ and tools see the real size.  Layout was
++     already computed when the section size was set, and the segment
++     covering this section keeps its size; the padding bytes are
++     never parsed.  */
++  elf_section_data (outsec)->this_hdr.sh_size = used;
++
++  htab->android_rela_sec = outsec;
++  htab->android_rela_contents = contents;
++
++  return true;
++}
++
+ /* Do the final step of an ELF link.  */
+ 
+ bool
+@@ -12918,6 +13239,59 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+   if (! bfd_link_relocatable (info) && merged)
+     elf_link_hash_traverse (htab, _bfd_elf_link_sec_merge_syms, obfd);
+ 
++  /* When packing dynamic relocations in the Android format, find the
++     output section holding them and change its type to
++     SHT_ANDROID_RELA/SHT_ANDROID_REL before the section headers are
++     set up.  This mirrors the way DT_RELA/DT_REL is computed below:
++     all allocatable SHT_REL/SHT_RELA sections except .rela.plt are
++     used; there must be at most one of them, which is the case with
++     the default linker scripts (-z combreloc merges everything into
++     .rela.dyn/.rel.dyn).  PLT relocations referenced by DT_JMPREL
++     keep the standard format since Android's dynamic linker, like
++     other dynamic linkers, decodes them as plain REL/RELA.  */
++  if (info->pack_dyn_relocs_android
++      && dynamic
++      && !bfd_link_relocatable (info))
++    {
++      asection *sec;
++      asection *android_reldyn = NULL;
++
++      for (sec = obfd->sections; sec != NULL; sec = sec->next)
++	{
++	  struct bfd_elf_section_data *esdo = elf_section_data (sec);
++	  unsigned int type = esdo->this_hdr.sh_type;
++
++	  if ((sec->flags & SEC_ALLOC) == 0
++	      || sec->size == 0
++	      || (type != SHT_REL && type != SHT_RELA)
++	      || (htab->srelplt != NULL
++		  && htab->srelplt->output_section == sec))
++	    continue;
++
++	  if (android_reldyn != NULL)
++	    {
++	      info->callbacks->einfo
++		/* xgettext:c-format */
++		(_("%P: cannot use --pack-dyn-relocs=android: dynamic "
++		   "relocations are split across sections `%pA' and "
++		   "`%pA'\n"), android_reldyn, sec);
++	      goto error_return;
++	    }
++	  android_reldyn = sec;
++	}
++
++      if (android_reldyn != NULL)
++	{
++	  struct bfd_elf_section_data *esdo
++	    = elf_section_data (android_reldyn);
++
++	  htab->android_rela_sec = android_reldyn;
++	  esdo->this_hdr.sh_type
++	    = (esdo->this_hdr.sh_type == SHT_RELA
++	       ? SHT_ANDROID_RELA : SHT_ANDROID_REL);
++	}
++    }
++
+   /* Figure out the file positions for everything but the symbol table
+      and the relocs.  We set symcount to force assign_section_numbers
+      to create a symbol table.  */
+@@ -13484,8 +13858,18 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+     }
+ 
+   relativecount = 0;
+-  if (dynamic && info->combreloc && dynobj != NULL)
+-    relativecount = elf_link_sort_relocs (obfd, info, &reldyn);
++  if (dynamic && dynobj != NULL)
++    {
++      if (info->pack_dyn_relocs_android)
++	{
++	  /* Pack the dynamic relocations in the Android format.
++	     This subsumes -z combreloc sorting.  */
++	  if (!elf_link_android_pack_relocs (obfd, info))
++	    goto error_return;
++	}
++      else if (info->combreloc)
++	relativecount = elf_link_sort_relocs (obfd, info, &reldyn);
++    }
+ 
+   relr_entsize = 0;
+   if (htab->srelrdyn != NULL
+@@ -13511,6 +13895,46 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+       o = htab->dynamic;
+       BFD_ASSERT (o != NULL);
+ 
++      /* Remove reserved DT_ANDROID_REL[A]/SZ entries when there are
++	 no dynamic relocations to pack, which can happen when they
++	 were all moved to .relr.dyn.  The Android dynamic linker
++	 refuses to load binaries with a DT_ANDROID_REL[A] pointing
++	 at an empty packed relocation blob.  */
++      if (info->pack_dyn_relocs_android
++	  && htab->android_rela_sec == NULL)
++	{
++	  bfd_byte *extdyn, *next;
++	  size_t removed = 0;
++
++	  for (extdyn = o->contents; extdyn < o->contents + o->size;
++	       extdyn = next)
++	    {
++	      Elf_Internal_Dyn dyn;
++
++	      next = extdyn + obed->s->sizeof_dyn;
++	      obed->s->swap_dyn_in (dynobj, extdyn, &dyn);
++	      switch (dyn.d_tag)
++		{
++		default:
++		  break;
++
++		case DT_ANDROID_REL:
++		case DT_ANDROID_RELSZ:
++		case DT_ANDROID_RELA:
++		case DT_ANDROID_RELASZ:
++		  memmove (extdyn, next,
++			   o->size - (next - o->contents));
++		  next = extdyn;
++		  removed++;
++		  break;
++		}
++	    }
++	  /* Clear the stale entries at the tail.  */
++	  if (removed != 0)
++	    memset (o->contents + o->size - removed * obed->s->sizeof_dyn,
++		    0, removed * obed->s->sizeof_dyn);
++	}
++
+       dyncon = o->contents;
+       dynconend = PTR_ADD (o->contents, o->size);
+       for (; dyncon < dynconend; dyncon += obed->s->sizeof_dyn)
+@@ -13672,6 +14096,25 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+ 	      dyn.d_un.d_ptr = o->output_section->vma + o->output_offset;
+ 	      break;
+ 
++	    case DT_ANDROID_REL:
++	    case DT_ANDROID_RELA:
++	    case DT_ANDROID_RELSZ:
++	    case DT_ANDROID_RELASZ:
++	      {
++		asection *sec = htab->android_rela_sec;
++
++		if (sec == NULL)
++		  dyn.d_un.d_val = 0;
++		else if (dyn.d_tag == DT_ANDROID_RELSZ
++			 || dyn.d_tag == DT_ANDROID_RELASZ)
++		  dyn.d_un.d_val
++		    = elf_section_data (sec)->this_hdr.sh_size;
++		else
++		  dyn.d_un.d_ptr
++		    = elf_section_data (sec)->this_hdr.sh_addr;
++	      }
++	      break;
++
+ 	    case DT_REL:
+ 	    case DT_RELA:
+ 	    case DT_RELSZ:
+@@ -13810,6 +14253,19 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+ 		goto error_return;
+ 	    }
+ 	}
++
++      /* Write the Android packed relocation data over the plain
++	 relocations written to the section above.  The rest of the
++	 section past the packed data is zero-filled.  */
++      if (htab->android_rela_contents != NULL)
++	{
++	  if (!bfd_set_section_contents (obfd, htab->android_rela_sec,
++					 htab->android_rela_contents, 0,
++					 htab->android_rela_sec->size))
++	    goto error_return;
++	  free (htab->android_rela_contents);
++	  htab->android_rela_contents = NULL;
++	}
+     }
+ 
+   if (!info->resolve_section_groups)
+@@ -15784,7 +16240,24 @@ _bfd_elf_add_dynamic_tags (struct bfd_link_info *info, bool need_dynamic_reloc)
+ 
+       if (need_dynamic_reloc)
+ 	{
+-	  if (obed->rela_plts_and_copies_p)
++	  if (info->pack_dyn_relocs_android)
++	    {
++	      /* The dynamic relocations are stored in the Android
++		 packed relocation format.  */
++	      if (obed->rela_plts_and_copies_p)
++		{
++		  if (!add_dynamic_entry (DT_ANDROID_RELA, 0)
++		      || !add_dynamic_entry (DT_ANDROID_RELASZ, 0))
++		    return false;
++		}
++	      else
++		{
++		  if (!add_dynamic_entry (DT_ANDROID_REL, 0)
++		      || !add_dynamic_entry (DT_ANDROID_RELSZ, 0))
++		    return false;
++		}
++	    }
++	  else if (obed->rela_plts_and_copies_p)
+ 	    {
+ 	      if (!add_dynamic_entry (DT_RELA, 0)
+ 		  || !add_dynamic_entry (DT_RELASZ, 0)
+diff --git a/binutils/ChangeLog b/binutils/ChangeLog
+index 1cf08d80..febc4c04 100644
+--- a/binutils/ChangeLog
++++ b/binutils/ChangeLog
+@@ -1,3 +1,8 @@
++2026-08-01  Kartatz  <105828205+Kartatz@users.noreply.github.com>
++
++	* readelf.c (get_dynamic_type) <DT_ANDROID_REL>, <DT_ANDROID_RELSZ>,
++	<DT_ANDROID_RELA>, <DT_ANDROID_RELASZ>: Print readable names.
++
+ 2025-07-13  Nick Clifton  <nickc@redhat.com>
+ 
+ 	* 2.45 Branch point.
+diff --git a/binutils/readelf.c b/binutils/readelf.c
+index a52fe2b8..57d589dd 100644
+--- a/binutils/readelf.c
++++ b/binutils/readelf.c
+@@ -3320,6 +3320,10 @@ get_dynamic_type (Filedata * filedata, unsigned long type)
+     case DT_RELR:	return "RELR";
+     case DT_RELRSZ:	return "RELRSZ";
+     case DT_RELRENT:	return "RELRENT";
++    case DT_ANDROID_REL: return "ANDROID_REL";
++    case DT_ANDROID_RELSZ: return "ANDROID_RELSZ";
++    case DT_ANDROID_RELA: return "ANDROID_RELA";
++    case DT_ANDROID_RELASZ: return "ANDROID_RELASZ";
+     case DT_PLTREL:	return "PLTREL";
+     case DT_DEBUG:	return "DEBUG";
+     case DT_TEXTREL:	return "TEXTREL";
+diff --git a/include/ChangeLog b/include/ChangeLog
+index 2d05f2e4..1023967d 100644
+--- a/include/ChangeLog
++++ b/include/ChangeLog
+@@ -1,3 +1,15 @@
++2026-08-01  Kartatz  <105828205+Kartatz@users.noreply.github.com>
++
++	* bfdlink.h (struct bfd_link_info) <pack_dyn_relocs_android>: New
++	bitfield.
++	* elf/common.h (DT_ANDROID_REL, DT_ANDROID_RELSZ, DT_ANDROID_RELA,
++	DT_ANDROID_RELASZ): New dynamic tags.
++	(RELOCATION_GROUPED_BY_INFO_FLAG,
++	RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG,
++	RELOCATION_GROUPED_BY_ADDEND_FLAG,
++	RELOCATION_GROUP_HAS_ADDEND_FLAG): New Android packed relocation
++	group flags.
++
+ 2025-07-13  Nick Clifton  <nickc@redhat.com>
+ 
+ 	* 2.45 Branch point.
+diff --git a/include/bfdlink.h b/include/bfdlink.h
+index 90b5d8a8..e60287a0 100644
+--- a/include/bfdlink.h
++++ b/include/bfdlink.h
+@@ -427,6 +427,10 @@ struct bfd_link_info
+      relocations.  */
+   unsigned int enable_dt_relr: 1;
+ 
++  /* TRUE if dynamic relocations should be stored in the Android
++     packed relocation format (--pack-dyn-relocs=android).  */
++  unsigned int pack_dyn_relocs_android: 1;
++
+   /* TRUE if separate code segment should be created.  */
+   unsigned int separate_code: 1;
+ 
+diff --git a/include/elf/common.h b/include/elf/common.h
+index f811b8da..37024f86 100644
+--- a/include/elf/common.h
++++ b/include/elf/common.h
+@@ -1229,9 +1229,21 @@
+    values outside of the new range (see below).	 */
+ #define OLD_DT_LOOS	0x60000000
+ #define DT_LOOS		0x6000000d
++#define DT_ANDROID_REL	  0x6000000f /* Android packed relocations.  */
++#define DT_ANDROID_RELSZ  0x60000010
++#define DT_ANDROID_RELA	  0x60000011
++#define DT_ANDROID_RELASZ 0x60000012
+ #define DT_HIOS		0x6ffff000
+ #define OLD_DT_HIOS	0x6fffffff
+ 
++/* Android packed relocation group flags, used by the relocation
++   packing format stored in SHT_ANDROID_REL/SHT_ANDROID_RELA
++   sections.  */
++#define RELOCATION_GROUPED_BY_INFO_FLAG		1
++#define RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG	2
++#define RELOCATION_GROUPED_BY_ADDEND_FLAG	4
++#define RELOCATION_GROUP_HAS_ADDEND_FLAG	8
++
+ #define DT_LOPROC	0x70000000
+ #define DT_HIPROC	0x7fffffff
+ 
+diff --git a/ld/ChangeLog b/ld/ChangeLog
+index ffac8a83..b4c512b6 100644
+--- a/ld/ChangeLog
++++ b/ld/ChangeLog
+@@ -1,3 +1,22 @@
++2026-08-01  Kartatz  <105828205+Kartatz@users.noreply.github.com>
++
++	* NEWS: Mention --pack-dyn-relocs=android[+relr].
++	* ld.texi (--pack-dyn-relocs): Document.
++	* ldlex.h (enum option_values) <OPTION_PACK_DYN_RELOCS>: New.
++	* lexsup.c (elf_shlib_list_options): Add --pack-dyn-relocs to the
++	help text.
++	* emultempl/elf.em: Register OPTION_PACK_DYN_RELOCS in the long
++	options table.
++	(gld${EMULATION_NAME}_handle_option) <OPTION_PACK_DYN_RELOCS>: Handle
++	none, relr, android and android+relr; set pack_dyn_relocs_android and
++	enable_dt_relr accordingly.
++	* testsuite/ld-elf/pack-dyn-relocs.d: New.
++	* testsuite/ld-elf/pack-dyn-relocs-relr.d: New.
++	* testsuite/ld-elf/pack-dyn-relocs.exp: New.
++	* testsuite/ld-elf/pack-dyn-relocs.s: New.
++	* testsuite/ld-elf/pack-dyn-relocs-1.c: New.
++	* testsuite/ld-elf/pack-dyn-relocs-check.py: New.
++
+ 2025-09-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+ 
+ 	* configure.tgt <powerpc*-*-solaris*>: Remove.
+diff --git a/ld/NEWS b/ld/NEWS
+index 53394fee..955b5889 100644
+--- a/ld/NEWS
++++ b/ld/NEWS
+@@ -2,6 +2,12 @@
+ 
+ Changes in 2.47:
+ 
++* Add ELF linker support for the --pack-dyn-relocs=android and
++  --pack-dyn-relocs=android+relr options, which store dynamic relocations
++  in the Android packed relocation format (SHT_ANDROID_REL/SHT_ANDROID_RELA
++  sections with DT_ANDROID_REL/DT_ANDROID_RELA dynamic tags), compatible
++  with Android's dynamic linker.
++
+ * Add a linker optimization level of zero.  Using "-O 0" on the linker command
+   line will stop it from combining the contents of mergeable sections.  This
+   can significantly speed up the link process at the cost of producing larger
+diff --git a/ld/emultempl/elf.em b/ld/emultempl/elf.em
+index 639f4f34..6d92356d 100644
+--- a/ld/emultempl/elf.em
++++ b/ld/emultempl/elf.em
+@@ -813,6 +813,7 @@ EOF
+ fi
+ fragment <<EOF
+     {"build-id", optional_argument, NULL, OPTION_BUILD_ID},
++    {"pack-dyn-relocs", required_argument, NULL, OPTION_PACK_DYN_RELOCS},
+     {"package-metadata", optional_argument, NULL, OPTION_PACKAGE_METADATA},
+     {"compress-debug-sections", required_argument, NULL, OPTION_COMPRESS_DEBUG},
+     {"rosegment", no_argument, NULL, OPTION_ROSEGMENT},
+@@ -864,6 +865,31 @@ gld${EMULATION_NAME}_handle_option (int optc)
+ 	ldelf_emit_note_gnu_build_id = xstrdup (optarg);
+       break;
+ 
++    case OPTION_PACK_DYN_RELOCS:
++      if (strcmp (optarg, "none") == 0)
++	{
++	  link_info.pack_dyn_relocs_android = false;
++	  link_info.enable_dt_relr = false;
++	}
++      else if (strcmp (optarg, "relr") == 0)
++	{
++	  link_info.pack_dyn_relocs_android = false;
++	  link_info.enable_dt_relr = true;
++	}
++      else if (strcmp (optarg, "android") == 0)
++	{
++	  link_info.pack_dyn_relocs_android = true;
++	  link_info.enable_dt_relr = false;
++	}
++      else if (strcmp (optarg, "android+relr") == 0)
++	{
++	  link_info.pack_dyn_relocs_android = true;
++	  link_info.enable_dt_relr = true;
++	}
++      else
++	fatal (_("%P: unknown --pack-dyn-relocs format: %s\n"), optarg);
++      break;
++
+     case OPTION_PACKAGE_METADATA:
+       free ((char *) ldelf_emit_note_fdo_package_metadata);
+       ldelf_emit_note_fdo_package_metadata = NULL;
+diff --git a/ld/ld.texi b/ld/ld.texi
+index 9d6618a4..e5302614 100644
+--- a/ld/ld.texi
++++ b/ld/ld.texi
+@@ -3342,6 +3342,25 @@ the classic ELF @code{.hash} and new style GNU @code{.gnu.hash}
+ hash tables.  The default depends upon how the linker was configured,
+ but for most Linux based systems it will be @code{both}.
+ 
++@kindex --pack-dyn-relocs=@var{style}
++@item --pack-dyn-relocs=@var{style}
++Set the format used to store dynamic relocations.  @var{style} can be
++@code{none}, @code{relr}, @code{android} or @code{android+relr}.
++
++The default, @code{none}, stores dynamic relocations in the standard
++ELF @code{.rel.dyn}/@code{.rela.dyn} format.  @code{relr} enables
++compact relative relocations in a @code{.relr.dyn} section, like
++@option{-z pack-relative-relocs}.  @code{android} stores the dynamic
++relocations in the Android packed relocation format in a
++@code{SHT_ANDROID_REL}/@code{SHT_ANDROID_RELA} section, and emits
++@code{DT_ANDROID_REL}/@code{DT_ANDROID_RELA} and
++@code{DT_ANDROID_RELSZ}/@code{DT_ANDROID_RELASZ} dynamic tags instead
++of the standard ones.  @code{android+relr} is the same but also
++diverts relative relocations to a @code{.relr.dyn} section on targets
++that support it.  The Android formats are understood by the dynamic
++linker on Android.  PLT relocations referenced by @code{DT_JMPREL}
++are not packed.
++
+ @kindex --compress-debug-sections=none
+ @kindex --compress-debug-sections=zlib
+ @kindex --compress-debug-sections=zlib-gnu
+diff --git a/ld/ldlex.h b/ld/ldlex.h
+index 43b0d9d4..0d2bafa3 100644
+--- a/ld/ldlex.h
++++ b/ld/ldlex.h
+@@ -287,6 +287,7 @@ enum option_values
+   OPTION_EH_FRAME_HDR,
+   OPTION_NO_EH_FRAME_HDR,
+   OPTION_HASH_STYLE,
++  OPTION_PACK_DYN_RELOCS,
+   OPTION_PACKAGE_METADATA,
+   OPTION_AUDIT,
+   OPTION_COMPRESS_DEBUG,
+diff --git a/ld/lexsup.c b/ld/lexsup.c
+index f7ec00d8..22de87bd 100644
+--- a/ld/lexsup.c
++++ b/ld/lexsup.c
+@@ -2221,6 +2221,9 @@ elf_shlib_list_options (FILE *file)
+   -P AUDITLIB, --depaudit=AUDITLIB\n" "\
+                               Specify a library to use for auditing dependencies\n"));
+   fprintf (file, _("\
++  --pack-dyn-relocs=STYLE     Pack dynamic relocations using STYLE\n\
++                                (none, relr, android, android+relr)\n"));
++  fprintf (file, _("\
+   -z combreloc                Merge dynamic relocs into one section and sort\n"));
+   fprintf (file, _("\
+   -z nocombreloc              Don't merge dynamic relocs into one section\n"));
+diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs-1.c b/ld/testsuite/ld-elf/pack-dyn-relocs-1.c
+new file mode 100644
+index 00000000..7e9ff57a
+--- /dev/null
++++ b/ld/testsuite/ld-elf/pack-dyn-relocs-1.c
+@@ -0,0 +1,29 @@
++extern int extern_func (void);
++
++int global_var = 42;
++int *ptr1 = &global_var;
++int *ptr2 = &global_var;
++
++static int hidden_var = 7;
++static int hidden_arr[100];
++
++/* RELATIVE relocs against local/hidden symbols.  */
++static void *const hidden_ptrs[] = {
++  &hidden_var, hidden_arr, hidden_arr + 1, hidden_arr + 2, hidden_arr + 3,
++  hidden_arr + 4, hidden_arr + 5, hidden_arr + 6, hidden_arr + 7,
++};
++
++/* Relocs against a global symbol.  */
++int *ptrs[8] = {
++  &global_var, &global_var, &global_var, &global_var,
++  &global_var, &global_var, &global_var, &global_var
++};
++
++int
++foo (void)
++{
++  return extern_func () + global_var + hidden_var;
++}
++
++int (*fptr1)(void) = foo;
++int (*fptr2)(void) = extern_func;
+diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs-check.py b/ld/testsuite/ld-elf/pack-dyn-relocs-check.py
+new file mode 100644
+index 00000000..95d481e1
+--- /dev/null
++++ b/ld/testsuite/ld-elf/pack-dyn-relocs-check.py
+@@ -0,0 +1,368 @@
++#!/usr/bin/env python3
++## Copyright (C) 2026 Free Software Foundation, Inc.
++##
++## This file is part of the GNU Binutils.
++##
++## This program is free software; you can redistribute it and/or modify
++## it under the terms of the GNU General Public License as published by
++## the Free Software Foundation; either version 3 of the License, or
++## (at your option) any later version.
++##
++## This program is distributed in the hope that it will be useful,
++## but WITHOUT ANY WARRANTY; without even the implied warranty of
++## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++## GNU General Public License for more details.
++##
++## You should have received a copy of the GNU General Public License
++## along with this program; if not, write to the Free Software
++## Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston,
++## MA 02110-1301, USA.
++##
++"""Verify the Android packed relocations produced by
++ld --pack-dyn-relocs=android[+relr].
++
++Usage: pack-dyn-relocs-check.py PACKED_ELF [PLAIN_ELF]
++
++Decodes the APS2 packed relocation blob (and RELR data, if present)
++of PACKED_ELF using the same algorithm as Android's dynamic linker
++(bionic's linker) and, when PLAIN_ELF is given, checks that the
++decoded relocations match the plain REL/RELA dynamic relocations of
++PLAIN_ELF.  Exits with status 0 on success.
++"""
++
++import struct
++import sys
++
++RELOCATION_GROUPED_BY_INFO_FLAG = 1
++RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG = 2
++RELOCATION_GROUPED_BY_ADDEND_FLAG = 4
++RELOCATION_GROUP_HAS_ADDEND_FLAG = 8
++
++SHT_RELA = 4
++SHT_DYNAMIC = 6
++SHT_REL = 9
++SHT_RELR = 19
++SHT_ANDROID_REL = 0x60000001
++SHT_ANDROID_RELA = 0x60000002
++
++DT_RELA = 7
++DT_RELASZ = 8
++DT_REL = 8
++DT_RELSZ = 9
++DT_RELRSZ = 35
++DT_RELR = 36
++DT_ANDROID_REL = 0x6000000F
++DT_ANDROID_RELSZ = 0x60000010
++DT_ANDROID_RELA = 0x60000011
++DT_ANDROID_RELASZ = 0x60000012
++
++PT_LOAD = 1
++
++
++class ELF:
++    """Minimal ELF reader (ELFCLASS32/64, either byte order)."""
++
++    def __init__(self, path):
++        self.path = path
++        self.data = open(path, "rb").read()
++        if self.data[:4] != b"\x7fELF":
++            raise SystemExit("FAIL: %s: not an ELF file" % path)
++        self.is64 = self.data[4] == 2
++        self.endian = "<" if self.data[5] == 1 else ">"
++        if self.is64:
++            self.hfmt = self.endian + "HHIQQQIHHHHHH"
++            self.sfmt = self.endian + "IIQQQQIIQQ"
++            self.dfmt = self.endian + "qQ"
++            self.pfmt = self.endian + "IIQQQQQQ"
++        else:
++            self.hfmt = self.endian + "HHIIIIIHHHHHH"
++            self.sfmt = self.endian + "IIIIIIIIII"
++            self.dfmt = self.endian + "iI"
++            self.pfmt = self.endian + "IIIIIIII"
++        hdr = struct.unpack_from(self.hfmt, self.data, 16)
++        (self.e_phoff, self.e_shoff, self.e_phentsize,
++         self.e_phnum, self.e_shentsize, self.e_shnum) = \
++            hdr[4], hdr[5], hdr[8], hdr[9], hdr[10], hdr[11]
++        self.e_shstrndx = hdr[12]
++        self.secs = self._sections()
++
++    def _sections(self):
++        secs = []
++        for i in range(self.e_shnum):
++            e = struct.unpack_from(self.sfmt, self.data,
++                                   self.e_shoff + i * self.e_shentsize)
++            secs.append({"name": e[0], "type": e[1], "flags": e[2],
++                         "addr": e[3], "off": e[4], "size": e[5],
++                         "entsize": e[9]})
++        strsec = secs[self.e_shstrndx]
++        strs = self.data[strsec["off"]:strsec["off"] + strsec["size"]]
++        for s in secs:
++            n = strs.find(b"\0", s["name"])
++            s["name"] = strs[s["name"]:n].decode()
++        return secs
++
++    def section_by_name(self, name):
++        for s in self.secs:
++            if s["name"] == name:
++                return s
++        return None
++
++    def dyn_tags(self):
++        tags = {}
++        dynsec = None
++        for s in self.secs:
++            if s["type"] == SHT_DYNAMIC:
++                dynsec = s
++        if dynsec is None:
++            return tags
++        size = 16 if self.is64 else 8
++        for off in range(dynsec["off"], dynsec["off"] + dynsec["size"], size):
++            tag, val = struct.unpack_from(self.dfmt, self.data, off)
++            if tag == 0:
++                break
++            tags[tag] = val
++        return tags
++
++    def vaddr_to_off(self, addr):
++        for i in range(self.e_phnum):
++            p = struct.unpack_from(self.pfmt, self.data,
++                                   self.e_phoff + i * self.e_phentsize)
++            if self.is64:
++                p_type, p_offset, p_vaddr, p_filesz = p[0], p[2], p[3], p[5]
++            else:
++                p_type, p_offset, p_vaddr, p_filesz = p[0], p[1], p[2], p[4]
++            if p_type == PT_LOAD and p_vaddr <= addr < p_vaddr + p_filesz:
++                return p_offset + addr - p_vaddr
++        return None
++
++
++def read_sleb128(data, pos):
++    result = 0
++    shift = 0
++    while True:
++        b = data[pos]
++        pos += 1
++        result |= (b & 0x7F) << shift
++        shift += 7
++        if not (b & 0x80):
++            break
++    if shift < 64 and b & 0x40:
++        result -= 1 << shift
++    return result, pos
++
++
++def decode_aps2(blob):
++    """Decode an APS2 blob the way bionic's linker does."""
++    if blob[:4] != b"APS2":
++        return None
++    pos = 4
++    count, pos = read_sleb128(blob, pos)
++    offset, pos = read_sleb128(blob, pos)
++    addend = 0
++    relocs = []
++    while len(relocs) < count:
++        group_size, pos = read_sleb128(blob, pos)
++        flags, pos = read_sleb128(blob, pos)
++        if flags & RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG:
++            group_offset_delta, pos = read_sleb128(blob, pos)
++        else:
++            group_offset_delta = 0
++        if flags & RELOCATION_GROUPED_BY_INFO_FLAG:
++            group_r_info, pos = read_sleb128(blob, pos)
++        else:
++            group_r_info = 0
++        if ((flags & RELOCATION_GROUP_HAS_ADDEND_FLAG)
++                and (flags & RELOCATION_GROUPED_BY_ADDEND_FLAG)):
++            delta, pos = read_sleb128(blob, pos)
++            addend += delta
++        if not (flags & RELOCATION_GROUP_HAS_ADDEND_FLAG):
++            addend = 0
++        for _ in range(group_size):
++            if flags & RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG:
++                offset += group_offset_delta
++            else:
++                delta, pos = read_sleb128(blob, pos)
++                offset += delta
++            if flags & RELOCATION_GROUPED_BY_INFO_FLAG:
++                r_info = group_r_info
++            else:
++                r_info, pos = read_sleb128(blob, pos)
++            if ((flags & RELOCATION_GROUP_HAS_ADDEND_FLAG)
++                    and not (flags & RELOCATION_GROUPED_BY_ADDEND_FLAG)):
++                delta, pos = read_sleb128(blob, pos)
++                addend += delta
++            relocs.append((offset, r_info, addend))
++    if len(relocs) != count:
++        return None
++    return relocs
++
++
++def decode_relr(elf, tags):
++    """Return RELR entries as pseudo-relocations (offset, 0, addend),
++    where the addend is the value stored at the relocation site."""
++    addr = tags.get(DT_RELR)
++    if addr is None:
++        return []
++    sec = None
++    for s in elf.secs:
++        if s["type"] == SHT_RELR:
++            sec = s
++    if sec is None:
++        return []
++    wsize = 8 if elf.is64 else 4
++    wfmt = elf.endian + ("Q" if elf.is64 else "I")
++    relocs = []
++    current = 0
++    for i in range(sec["size"] // wsize):
++        w = struct.unpack_from(wfmt, elf.data, sec["off"] + i * wsize)[0]
++        if w % 2 == 0:
++            current = w
++            relocs.append(current)
++            current += wsize
++        else:
++            b = w >> 1
++            bit_off = current
++            while b:
++                if b & 1:
++                    relocs.append(bit_off)
++                b >>= 1
++                bit_off += wsize
++            current = bit_off
++    out = []
++    for r in relocs:
++        voff = elf.vaddr_to_off(r)
++        addend = struct.unpack_from(wfmt, elf.data, voff)[0]
++        out.append((r, 0, addend))
++    return out
++
++
++def plain_relocs(elf, sec, is_rela):
++    relocs = []
++    if is_rela:
++        fmt, size = (elf.endian + "QQq", 24) if elf.is64 \
++            else (elf.endian + "IIi", 12)
++    else:
++        fmt, size = (elf.endian + "QQ", 16) if elf.is64 \
++            else (elf.endian + "II", 8)
++    for off in range(sec["off"], sec["off"] + sec["size"], size):
++        r = struct.unpack_from(fmt, elf.data, off)
++        relocs.append((r[0], r[1], r[2] if is_rela else 0))
++    return relocs
++
++
++def normalize(relocs, elf, is_rela):
++    """Make relocations comparable across links whose layouts differ
++    slightly (the packed link has a smaller .dynamic section, which
++    moves following sections).  Addresses are rewritten as
++    (section name, offset within section).  RELATIVE relocation
++    addends are addresses and are normalized as well."""
++    alloc = [s for s in elf.secs if s["flags"] & 2 and s["size"] != 0]
++
++    def norm(addr):
++        best = None
++        for s in alloc:
++            if s["addr"] <= addr < s["addr"] + s["size"]:
++                d = addr - s["addr"]
++                if best is None or d < best[1]:
++                    best = (s["name"], d)
++        return best if best else ("", addr)
++
++    if elf.is64:
++        type_mask, sym_shift = 0xFFFFFFFF, 32
++    else:
++        type_mask, sym_shift = 0xFF, 8
++
++    out = []
++    for off, info, add in relocs:
++        r_sym = info >> sym_shift
++        if r_sym == 0:
++            # Relative (and NONE) relocations have a zero symbol index
++            # on all targets.  Canonicalize the type so that
++            # target-specific R_*_RELATIVE values (and relocations
++            # recovered from .relr.dyn) compare equal.
++            r_type = "RELATIVE"
++        else:
++            r_type = info & type_mask
++        out.append((norm(off), r_type, r_sym, norm(add) if is_rela else 0))
++    return sorted(out)
++
++
++def main():
++    failures = []
++
++    packed_path = sys.argv[1]
++    plain_path = sys.argv[2] if len(sys.argv) > 2 else None
++
++    elf = ELF(packed_path)
++    tags = elf.dyn_tags()
++
++    sec = elf.section_by_name(".rela.dyn")
++    is_rela = True
++    if sec is None:
++        sec = elf.section_by_name(".rel.dyn")
++        is_rela = False
++    if sec is None:
++        print("FAIL: no .rela.dyn/.rel.dyn section found")
++        sys.exit(1)
++
++    if sec["type"] != (SHT_ANDROID_RELA if is_rela else SHT_ANDROID_REL):
++        failures.append("section `%s' type is %#x, not SHT_ANDROID_REL%s"
++                        % (sec["name"], sec["type"], "A" if is_rela else ""))
++    if sec["entsize"] != 0:
++        failures.append("section `%s' has nonzero sh_entsize" % sec["name"])
++
++    dt_addr = tags.get(DT_ANDROID_RELA if is_rela else DT_ANDROID_REL)
++    dt_size = tags.get(DT_ANDROID_RELASZ if is_rela else DT_ANDROID_RELSZ)
++    if dt_addr is None:
++        failures.append("DT_ANDROID_REL%s not present" % ("A" if is_rela else ""))
++    elif dt_addr != sec["addr"]:
++        failures.append("DT_ANDROID_REL%s is %#x, section address is %#x"
++                        % (("A" if is_rela else ""), dt_addr, sec["addr"]))
++    if dt_size is None:
++        failures.append("DT_ANDROID_REL%sSZ not present"
++                        % ("A" if is_rela else ""))
++    elif dt_size != sec["size"]:
++        failures.append("DT_ANDROID_REL%sSZ is %#x, section size is %#x"
++                        % (("A" if is_rela else ""), dt_size, sec["size"]))
++    if (DT_RELA if is_rela else DT_REL) in tags:
++        failures.append("standard DT_REL%s tag emitted along with "
++                        "Android relocations" % ("A" if is_rela else ""))
++
++    blob = elf.data[sec["off"]:sec["off"] + sec["size"]]
++    relocs = decode_aps2(blob)
++    if relocs is None:
++        failures.append("invalid packed relocation data")
++        relocs = []
++    relocs += decode_relr(elf, tags)
++
++    if plain_path is not None:
++        pelf = ELF(plain_path)
++        psec = pelf.section_by_name(".rela.dyn" if is_rela else ".rel.dyn")
++        if psec is None:
++            failures.append("%s: no .rela.dyn/.rel.dyn section found"
++                            % plain_path)
++        else:
++            prelocs = plain_relocs(pelf, psec, is_rela)
++            ptags = pelf.dyn_tags()
++            prelocs += decode_relr(pelf, ptags)
++            got = normalize(relocs, elf, is_rela)
++            want = normalize(prelocs, pelf, is_rela)
++            if got != want:
++                for a, b in zip(got, want):
++                    if a != b:
++                        failures.append("packed reloc %s does not match "
++                                        "plain reloc %s" % (a, b))
++                        break
++                failures.append("packed relocation count %d does not match "
++                                "plain relocation count %d"
++                                % (len(relocs), len(prelocs)))
++
++    for f in failures:
++        print("FAIL:", f)
++    if failures:
++        sys.exit(1)
++    print("PASS: %d packed relocations verified" % len(relocs))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs-relr.d b/ld/testsuite/ld-elf/pack-dyn-relocs-relr.d
+new file mode 100644
+index 00000000..579873a7
+--- /dev/null
++++ b/ld/testsuite/ld-elf/pack-dyn-relocs-relr.d
+@@ -0,0 +1,16 @@
++#name: --pack-dyn-relocs=android+relr
++#source: pack-dyn-relocs.s
++#ld: -shared --pack-dyn-relocs=android+relr
++#readelf: -dW -SW
++#target: [supports_dt_relr]
++
++#...
++.*\.rel(a)?\.dyn\s+ANDROID_RELA?\s.*
++#...
++.*\.relr\.dyn\s+RELR\s.*
++#...
++.*0x[0-9a-f]+ \(ANDROID_RELA?\)\s+0x[0-9a-f]+
++.*0x[0-9a-f]+ \(ANDROID_RELA?SZ\)\s+0x[0-9a-f]+
++#...
++.*0x[0-9a-f]+ \(RELR\)\s+0x[0-9a-f]+
++#pass
+diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs.d b/ld/testsuite/ld-elf/pack-dyn-relocs.d
+new file mode 100644
+index 00000000..8dad28e1
+--- /dev/null
++++ b/ld/testsuite/ld-elf/pack-dyn-relocs.d
+@@ -0,0 +1,12 @@
++#name: --pack-dyn-relocs=android
++#source: pack-dyn-relocs.s
++#ld: -shared --pack-dyn-relocs=android
++#readelf: -dW -SW
++#target: [check_shared_lib_support]
++
++#...
++.*\.rel(a)?\.dyn\s+ANDROID_RELA?\s.*
++#...
++.*0x[0-9a-f]+ \(ANDROID_RELA?\)\s+0x[0-9a-f]+
++.*0x[0-9a-f]+ \(ANDROID_RELA?SZ\)\s+0x[0-9a-f]+
++#pass
+diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs.exp b/ld/testsuite/ld-elf/pack-dyn-relocs.exp
+new file mode 100644
+index 00000000..67bac63d
+--- /dev/null
++++ b/ld/testsuite/ld-elf/pack-dyn-relocs.exp
+@@ -0,0 +1,104 @@
++# Expect script for --pack-dyn-relocs tests.
++#   Copyright (C) 2026 Free Software Foundation, Inc.
++#
++# This file is part of the GNU Binutils.
++#
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston,
++# MA 02110-1301, USA.
++#
++
++# Verify that --pack-dyn-relocs=android is accepted and that the
++# resulting Android packed relocation data decodes, using the same
++# algorithm as Android's dynamic linker, to exactly the relocations
++# produced by a normal link.
++
++if ![is_elf_format] {
++    return
++}
++
++if { ![check_shared_lib_support] } {
++    return
++}
++
++# The packed relocation decoder is written in Python.
++set status [remote_exec host python3 --version]
++if { [lindex $status 0] != 0 } {
++    unsupported "Python 3 is not available"
++    return
++}
++
++set testname "--pack-dyn-relocs=android"
++set checker $srcdir/$subdir/pack-dyn-relocs-check.py
++
++if { [check_compiler_available] } {
++    set srcfile $srcdir/$subdir/pack-dyn-relocs-1.c
++    if { ![ld_compile "$CC_FOR_TARGET -fPIC" $srcfile \
++	     tmpdir/pack-dyn-relocs-1.o] } {
++	unresolved "$testname"
++	return
++    }
++} else {
++    # Fall back to the assembler test source when there is no C
++    # compiler for the target.
++    set srcfile $srcdir/$subdir/pack-dyn-relocs.s
++    if { ![ld_assemble $as $srcfile tmpdir/pack-dyn-relocs-1.o] } {
++	unresolved "$testname"
++	return
++    }
++}
++
++if { ![ld_link $ld tmpdir/pack-dyn-relocs-1-plain.so \
++	 "-shared tmpdir/pack-dyn-relocs-1.o"] } {
++    fail "$testname: plain link failed"
++    return
++}
++
++if { ![ld_link $ld tmpdir/pack-dyn-relocs-1-android.so \
++	 "-shared --pack-dyn-relocs=android tmpdir/pack-dyn-relocs-1.o"] } {
++    fail "$testname: link failed"
++    return
++}
++pass "$testname: link"
++
++set status [remote_exec host python3 [list $checker \
++	 tmpdir/pack-dyn-relocs-1-android.so \
++	 tmpdir/pack-dyn-relocs-1-plain.so]]
++if { [lindex $status 0] != 0 } {
++    send_log "[lindex $status 1]\n"
++    fail "$testname: packed relocations do not match plain relocations"
++} else {
++    pass "$testname: packed relocations match plain relocations"
++}
++
++if { [supports_dt_relr] } {
++    set testname "--pack-dyn-relocs=android+relr"
++
++    if { ![ld_link $ld tmpdir/pack-dyn-relocs-1-android-relr.so \
++	     "-shared --pack-dyn-relocs=android+relr tmpdir/pack-dyn-relocs-1.o"] } {
++	fail "$testname: link failed"
++	return
++    }
++    pass "$testname: link"
++
++    set status [remote_exec host python3 [list $checker \
++	     tmpdir/pack-dyn-relocs-1-android-relr.so \
++	     tmpdir/pack-dyn-relocs-1-plain.so]]
++    if { [lindex $status 0] != 0 } {
++	send_log "[lindex $status 1]\n"
++	fail "$testname: packed relocations do not match plain relocations"
++    } else {
++	pass "$testname: packed relocations match plain relocations"
++    }
++}
+diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs.s b/ld/testsuite/ld-elf/pack-dyn-relocs.s
+new file mode 100644
+index 00000000..62cafe2a
+--- /dev/null
++++ b/ld/testsuite/ld-elf/pack-dyn-relocs.s
+@@ -0,0 +1,35 @@
++	.text
++	.p2align 3
++	.globl func_start
++func_start:
++	.byte 0
++
++	.data
++	.p2align 3
++	.globl data_var
++data_var:
++	.dc.a 1
++
++	.local hidden_var
++hidden_var:
++	.dc.a 2
++
++	/* RELATIVE relocs against a local symbol.  */
++	.globl ptr1
++ptr1:
++	.dc.a hidden_var
++	.globl ptr2
++ptr2:
++	.dc.a hidden_var
++
++	/* Relocs against a global symbol.  */
++	.globl ptr3
++ptr3:
++	.dc.a data_var
++	.globl ptr4
++ptr4:
++	.dc.a data_var
++
++	.globl func_ptr
++func_ptr:
++	.dc.a func_start
+-- 
+2.54.0
+

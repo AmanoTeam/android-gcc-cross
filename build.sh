@@ -388,6 +388,7 @@ if ! [ -f "${binutils_tarball}" ]; then
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Don-t-warn-about-local-symbols-within-the-globals.patch"
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-ARM-Accept-unified-syntax-conditional-suffix-form-in-divided-syntax.patch"
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-ELF-Accept-.rodata-.tdata-and-.tbss-section-directives-like-LLVM.patch"
+	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/patches/0001-ld-Add-pack-dyn-relocs-android-relr-support.patch"
 fi
 
 if ! [ -f "${gold_tarball}" ]; then
