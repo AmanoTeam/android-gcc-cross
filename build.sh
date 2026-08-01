@@ -1002,11 +1002,21 @@ for triplet in "${targets[@]}"; do
 	fi
 	
 	if [ "${triplet}" = 'armv7-unknown-linux-androideabi' ]; then
-		extra_configure_flags+=' --with-arch=armv7-a --with-float=softfp --with-fpu=vfpv3-d16 --with-mode=thumb'
+		extra_configure_flags+=' --with-arch=armv7-a --with-float=softfp --with-mode=thumb'
+		
+		if (( native )); then
+			extra_configure_flags+=' --with-fpu=vfpv3-d16'
+		else
+			extra_configure_flags+=' --with-fpu=neon'
+		fi
 	elif [ "${triplet}" = 'armv5-unknown-linux-androideabi' ]; then
 		extra_configure_flags+=' --with-arch=armv5te --with-tune=xscale --with-float=soft --with-fpu=vfpv2 --with-mode=thumb'
 	elif [ "${triplet}" = 'aarch64-unknown-linux-android' ]; then
-		extra_configure_flags+='--with-arch=armv8-a --with-abi=lp64 --enable-fix-cortex-a53-835769 --enable-fix-cortex-a53-843419'
+		extra_configure_flags+=' --with-arch=armv8-a --with-abi=lp64'
+		
+		if (( native )); then
+			extra_configure_flags+=' --enable-fix-cortex-a53-835769 --enable-fix-cortex-a53-843419'
+		fi
 	elif [ "${triplet}" = 'i686-unknown-linux-android' ]; then
 		extra_configure_flags+=' --with-arch=i686 --with-tune=intel --with-fpmath=sse'
 	elif [ "${triplet}" = 'x86_64-unknown-linux-android' ]; then
