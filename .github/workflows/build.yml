@@ -148,7 +148,7 @@ jobs:
         source './tools/setup_toolchain.sh'
         
         if [[ '${{ matrix.target }}' = *'-linux-musl'* ]]; then
-            declare -r RAIDEN_TAG='gcc-15'
+            declare -r RAIDEN_TAG='gcc-16'
             declare -r RAIDEN_TARBALL='/tmp/toolchain.tar.xz'
             declare -r RAIDEN_URL="https://github.com/AmanoTeam/musl-gcc-cross/releases/download/${RAIDEN_TAG}/x86_64-unknown-linux-gnu.tar.xz"
             
@@ -186,7 +186,7 @@ jobs:
             
             source "${LOKI_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-netbsd'* ]]; then
-            declare -r DAKINI_TAG='gcc-15'
+            declare -r DAKINI_TAG='gcc-16'
             declare -r DAKINI_TARBALL='/tmp/toolchain.tar.xz'
             declare -r DAKINI_URL="https://github.com/AmanoTeam/netbsd-gcc-cross/releases/download/${DAKINI_TAG}/x86_64-unknown-linux-gnu.tar.xz"
             
@@ -234,7 +234,7 @@ jobs:
             
             source "${DARWIN_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-android'* ]]; then
-            # declare -r PINO_TAG='gcc-15'
+            # declare -r PINO_TAG='gcc-16'
             # declare -r PINO_TARBALL='/tmp/toolchain.tar.xz'
             # declare -r PINO_URL="https://github.com/AmanoTeam/Pino/releases/download/${PINO_TAG}/x86_64-unknown-linux-gnu.tar.xz"
             
