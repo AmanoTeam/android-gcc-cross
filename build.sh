@@ -103,10 +103,10 @@ declare -ra targets=(
 	# 'mipsel-unknown-linux-android'
 	# 'mips64el-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
-	'armv7-unknown-linux-androideabi'
 	'x86_64-unknown-linux-android'
 	'i686-unknown-linux-android'
 	'aarch64-unknown-linux-android'
+	'armv7-unknown-linux-androideabi'
 	# 'riscv64-unknown-linux-android'
 )
 
@@ -138,6 +138,7 @@ declare -ra versions=(
 	'34'
 	'35'
 	'36'
+	'37'
 )
 
 if [[ "${host}" = *'-mingw32' ]]; then

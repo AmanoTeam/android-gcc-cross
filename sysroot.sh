@@ -42,10 +42,11 @@ declare -r versions=(
 	'34'
 	'35'
 	'36'
+	'37'
 )
 
 declare -r ndk_archive='/tmp/ndk.zip'
-declare -r ndk_directory='/tmp/android-ndk-r30-beta2'
+declare -r ndk_directory='/tmp/android-ndk-r30-beta3'
 declare -r unsupported_ndk_directory='/tmp/android-ndk-r16b'
 
 declare -r include_dir="${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
@@ -102,7 +103,7 @@ function remove_symbols() {
 
 if ! [ -f "${ndk_archive}" ]; then
 	curl \
-		--url 'https://dl.google.com/android/repository/android-ndk-r30-beta2-linux.zip' \
+		--url 'https://dl.google.com/android/repository/android-ndk-r30-beta3-linux.zip' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
