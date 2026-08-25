@@ -1013,7 +1013,7 @@ for triplet in "${targets[@]}"; do
 	elif [ "${triplet}" = 'armv5-unknown-linux-androideabi' ]; then
 		extra_configure_flags+=' --with-arch=armv5te --with-tune=xscale --with-float=soft --with-fpu=vfpv2 --with-mode=thumb'
 	elif [ "${triplet}" = 'aarch64-unknown-linux-android' ]; then
-		extra_configure_flags+=' --with-arch=armv8-a --with-abi=lp64'
+		extra_configure_flags+=' --enable-standard-branch-protection --with-arch=armv8-a --with-abi=lp64'
 		
 		if (( native )); then
 			extra_configure_flags+=' --enable-fix-cortex-a53-835769 --enable-fix-cortex-a53-843419'
