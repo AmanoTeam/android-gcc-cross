@@ -1188,7 +1188,7 @@ for triplet in "${targets[@]}"; do
 		args+="${environment}"
 	fi
 	
-	declare target_cflags="-O2"
+	declare target_cflags="-O2 -D_FORTIFY_SOURCE=3"
 	declare target_cxxflags="${target_cflags} -D_ABIN32=2"
 	
 	env ${args} make \
