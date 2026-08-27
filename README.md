@@ -240,7 +240,7 @@ Additionally, it supports cross-compiling software for architectures whose suppo
 
 The toolchain includes support for the C and C++ frontends.
 
-The toolchain supports targeting Android versions from 4.0.1 (API level 14) up to Android 16 (API level 36).
+The toolchain supports targeting Android versions from 4.0.1 (API level 14) up to Android 17 (API level 37).
 
 ## License
 
