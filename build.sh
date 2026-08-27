@@ -104,10 +104,10 @@ declare -ra targets=(
 	# 'mips64el-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
 	
-	# 'x86_64-unknown-linux-android'
-	# 'i686-unknown-linux-android'
+	'x86_64-unknown-linux-android'
+	'i686-unknown-linux-android'
 	'aarch64-unknown-linux-android'
-	# 'armv7-unknown-linux-androideabi'
+	'armv7-unknown-linux-androideabi'
 	
 	# 'riscv64-unknown-linux-android'
 )
@@ -392,6 +392,10 @@ if ! [ -f "${binutils_tarball}" ]; then
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-ARM-Accept-unified-syntax-conditional-suffix-form-in-divided-syntax.patch"
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-ELF-Accept-.rodata-.tdata-and-.tbss-section-directives-like-LLVM.patch"
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/patches/0001-ld-Add-pack-dyn-relocs-android-relr-support.patch"
+	
+	if [[ "${host}" = *'android' ]] then
+		patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/patches/0001-gas-decrease-input-buffer-size.patch"
+	fi
 fi
 
 if ! [ -f "${gold_tarball}" ]; then

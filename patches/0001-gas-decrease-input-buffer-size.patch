@@ -1,0 +1,38 @@
+From 334948542bdc6859dd30851e0f11250a9a616ffc Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Thu, 27 Aug 2026 14:18:26 -0300
+Subject: [PATCH] gas: decrease input buffer size
+---
+ gas/app.c        | 2 +-
+ gas/input-file.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/gas/app.c b/gas/app.c
+index e5b65bc0..4e52bc9e 100644
+--- a/gas/app.c
++++ b/gas/app.c
+@@ -277,7 +277,7 @@ static char out_buf[20];
+ static int add_newlines;
+ static char *saved_input;
+ static size_t saved_input_len;
+-static char input_buffer[32 * 1024];
++static char input_buffer[4 * 1024];
+ 
+ /* Data structure for saving the state of app across #include's.  Note that
+    app is called asynchronously to the parsing of the .include's, so our
+diff --git a/gas/input-file.c b/gas/input-file.c
+index eb8499f5..1e2c29a7 100644
+--- a/gas/input-file.c
++++ b/gas/input-file.c
+@@ -37,7 +37,7 @@ int preprocess = 0;
+    The caller only asks once what BUFFER_SIZE is, and asks before
+    the nature of the input files (if any) is known.  */
+ 
+-#define BUFFER_SIZE (32 * 1024)
++#define BUFFER_SIZE (4 * 1024)
+ 
+ /* We use static data: the data area is not sharable.  */
+ 
+-- 
+2.55.0
+
