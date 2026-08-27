@@ -1,18 +1,19 @@
-From ef40525114faa2157cba52ba4b050f711767f885 Mon Sep 17 00:00:00 2001
+From ccab0f702bf63a2e9a3e94e6bc17ce6884c5111f Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sun, 7 Jun 2026 23:44:22 -0300
 Subject: [PATCH] Add version guards for some libstdc++ header definitions
 
 ---
- libstdc++-v3/include/bits/basic_string.h      | 4 ++++
- libstdc++-v3/include/c_compatibility/stdlib.h | 6 ++++++
- libstdc++-v3/include/c_global/clocale         | 2 ++
- libstdc++-v3/include/c_global/cstdio          | 4 +++-
- libstdc++-v3/include/c_global/cstdlib         | 6 ++++++
- libstdc++-v3/include/c_global/cwchar          | 6 ++++--
- libstdc++-v3/include/c_global/cwctype         | 4 +++-
- libstdc++-v3/include/c_std/cwchar             | 2 +-
- 8 files changed, 29 insertions(+), 5 deletions(-)
+ libstdc++-v3/include/bits/basic_string.h      |  4 ++++
+ libstdc++-v3/include/c_compatibility/stdlib.h |  6 ++++++
+ libstdc++-v3/include/c_global/clocale         |  2 ++
+ libstdc++-v3/include/c_global/cstdio          |  4 +++-
+ libstdc++-v3/include/c_global/cstdlib         |  6 ++++++
+ libstdc++-v3/include/c_global/cwchar          |  6 ++++--
+ libstdc++-v3/include/c_global/cwctype         |  4 +++-
+ libstdc++-v3/include/c_std/cwchar             |  2 +-
+ libstdc++-v3/src/c++23/std-clib.cc.in         | 16 ++++++++++++++++
+ 9 files changed, 45 insertions(+), 5 deletions(-)
 
 diff --git a/libstdc++-v3/include/bits/basic_string.h b/libstdc++-v3/include/bits/basic_string.h
 index af4e5d948..057fddfd7 100644
@@ -202,6 +203,80 @@ index 7c3a2a4e2..47431bee5 100644
    using ::wcstof;
  #endif
    using ::wcstok;
+diff --git a/libstdc++-v3/src/c++23/std-clib.cc.in b/libstdc++-v3/src/c++23/std-clib.cc.in
+index 10fc03e7c..e42805806 100644
+--- a/libstdc++-v3/src/c++23/std-clib.cc.in
++++ b/libstdc++-v3/src/c++23/std-clib.cc.in
+@@ -82,7 +82,9 @@ export C_LIB_NAMESPACE
+ export C_LIB_NAMESPACE
+ {
+   using std::lconv;
++#if defined(__ANDROID__) && __ANDROID_API__ >= 21
+   using std::localeconv;
++#endif
+   using std::setlocale;
+   // LC_* macros not exported
+ }
+@@ -438,7 +440,9 @@ export C_LIB_NAMESPACE
+   using std::ferror;
+   using std::fflush;
+   using std::fgetc;
++#if defined(__ANDROID__) && __ANDROID_API__ >= 24
+   using std::fgetpos;
++#endif
+   using std::fgets;
+   using std::FILE;
+   using std::fopen;
+@@ -450,7 +454,9 @@ export C_LIB_NAMESPACE
+   using std::freopen;
+   using std::fscanf;
+   using std::fseek;
++#if defined(__ANDROID__) && __ANDROID_API__ >= 24
+   using std::fsetpos;
++#endif
+   using std::ftell;
+   using std::fwrite;
+   using std::getc;
+@@ -516,9 +522,13 @@ export C_LIB_NAMESPACE
+   using std::lldiv_t;
+   using std::malloc;
+ #ifdef _GLIBCXX_HAVE_MBSTATE_T
++#if defined(__ANDROID__) && __ANDROID_API__ >= 26
+   using std::mblen;
++#endif
+   using std::mbstowcs;
++#if defined(__ANDROID__) && __ANDROID_API__ >= 21
+   using std::mbtowc;
++#endif
+ #endif
+   using std::qsort;
+ #ifdef _GLIBCXX_HAVE_QUICK_EXIT
+@@ -538,8 +548,10 @@ export C_LIB_NAMESPACE
+   using std::system;
+ #ifdef _GLIBCXX_USE_WCHAR_T
+   using std::wcstombs;
++#if defined(__ANDROID__) && __ANDROID_API__ >= 21
+   using std::wctomb;
+ #endif
++#endif
+ }
+ 
+ // 23.5.3 <cstring>
+@@ -710,10 +722,14 @@ export C_LIB_NAMESPACE
+   using std::iswspace;
+   using std::iswupper;
+   using std::iswxdigit;
++#if defined(__ANDROID__) && __ANDROID_API__ >= 26
+   using std::towctrans;
++#endif
+   using std::towlower;
+   using std::towupper;
++#if defined(__ANDROID__) && __ANDROID_API__ >= 26
+   using std::wctrans;
++#endif
+   using std::wctrans_t;
+   using std::wctype;
+   using std::wctype_t;
 -- 
-2.54.0
+2.55.0
 
