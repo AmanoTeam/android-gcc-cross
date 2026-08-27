@@ -24,7 +24,6 @@ cat << text
 #!/data/data/com.termux/files/usr/bin/bash
 
 export PINO_RUNTIME_RPATH='true'
-export PINO_NEON='true'
 
 export PINO_SYSTEM_PREFIX=\"\$(dirname \"\${PREFIX}\")\"
 export PINO_SYSTEM_LIBRARIES='true'
