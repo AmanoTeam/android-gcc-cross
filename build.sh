@@ -1304,7 +1304,6 @@ for triplet in "${targets[@]}"; do
 		[ -d "${sysroot_directory}" ] || continue
 		
 		cd "${sysroot_directory}/lib"
-		mkdir "${sysroot_directory}/lib/"{gcc,static}
 		
 		rm --force "${toolchain_directory}/${triplet}${version}/lib/"lib{c,dl,m,z}.a
 		
@@ -1317,6 +1316,16 @@ for triplet in "${targets[@]}"; do
 			--force \
 			"${toolchain_directory}/${triplet}/lib/"lib{c,dl,m,z}.a \
 			"${toolchain_directory}/${triplet}${version}/lib"
+		
+		if [[ "${triplet}" = *'64'* ]]; then
+			ln \
+				--symbolic \
+				--relative \
+				"${sysroot_directory}/lib" \
+				"${sysroot_directory}/lib64"
+		fi
+		
+		mkdir "${sysroot_directory}/lib/"{gcc,static}
 		
 		ln \
 			--symbolic \
