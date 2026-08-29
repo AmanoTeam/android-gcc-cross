@@ -1,6 +1,8 @@
 # android-gcc-cross
 
-This version of GCC uses the patchset from the [TUR](https://github.com/termux-user-repository/tur/tree/master/tur/gcc-15) port of GCC for Android, with additional patches to improve cross-compilation support and enable its usage in Gradle projects as a replacement for Clang.
+This is a GCC compiler targeting Android. It can be used as a cross-compiler on Windows, Linux, and macOS to compile C/C++ programs for Android, and it can also be installed on Termux and used as a native compiler.
+
+The project originally started as an adaptation of the [TUR](https://github.com/termux-user-repository/tur/tree/master/tur/gcc-15) port of GCC, but most of the patches have since been rewritten from scratch, and the project is now maintained independently of TUR.
 
 ## Installation
 
@@ -76,6 +78,9 @@ Essentially, it overrides the locally installed NDK’s `clang`/`clang++` comman
 #### Building the project
 
 After patching the NDK, you are almost ready to go and compile the project. Just run `./gradlew clean` before compiling it to make sure compiled objects from previous builds (Clang) don't interfere with the new build.
+
+> [!NOTE]
+> We aim to be a drop-in replacement, but having consistent behavior between the two compilers in all aspects is simply not realistic. Projects that don't rely on Clang-specific features or quirks (sometimes you do this without intending to) will likely compile without requiring any additional changes. In other cases, you might need to make changes to your build system (which is the most common case) or the code itself.
 
 ### CMake
 
