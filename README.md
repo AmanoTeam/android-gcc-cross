@@ -169,9 +169,6 @@ Essentially, these scripts handle the setup of `CC`, `CXX`, `LD`, and other envi
 
 The toolchain allows you to change its behavior in certain scenarios through the use of environment variables. Below are all the switches it supports and their intended purposes:
 
-- `PINO_RUNTIME_RPATH`  
-  - Automatically appends the path to the directory containing GCC libraries (e.g., libsanitizer (AddressSanitizer), libatomic, and libstdc++) to your executables’ RPATH. This is only useful when running inside Termux.
-
 - `PINO_STATIC_RUNTIME`  
   - Tells the cross-compiler to prefer linking with the static versions of the GCC runtime libraries rather than the dynamic ones. See [Static vs dynamic linking](#static-vs-dynamic-linking).
 
