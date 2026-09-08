@@ -45,8 +45,10 @@ declare -r versions=(
 	'37'
 )
 
+declare -r ANDROID_NDK_VERSION='r30'
+
 declare -r ndk_archive='/tmp/ndk.zip'
-declare -r ndk_directory='/tmp/android-ndk-r30-beta3'
+declare -r ndk_directory="/tmp/android-ndk-${ANDROID_NDK_VERSION}"
 declare -r unsupported_ndk_directory='/tmp/android-ndk-r16b'
 
 declare -r include_dir="${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
@@ -99,11 +101,13 @@ function remove_symbols() {
 		--strip-symbol '__stack_chk_fail_local' \
 		"${2}" || true
 	
+	"${1}-objcopy" --remove-section='.comment' "${2}"
+	
 }
 
 if ! [ -f "${ndk_archive}" ]; then
 	curl \
-		--url 'https://dl.google.com/android/repository/android-ndk-r30-beta3-linux.zip' \
+		--url "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip" \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
