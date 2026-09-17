@@ -1,6 +1,6 @@
-From 7ba4b7745afcaa381de3dc26f6063b1c9a6ee7a7 Mon Sep 17 00:00:00 2001
+From a58f73184409e6c1374f5c50966cd8e67eb5b5c7 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
-Date: Thu, 28 May 2026 17:28:10 -0300
+Date: Thu, 17 Sep 2026 07:36:48 +0000
 Subject: [PATCH] Enable automatic linking of libandroid-stb
 
 ---
@@ -8,11 +8,11 @@ Subject: [PATCH] Enable automatic linking of libandroid-stb
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index bb72eb549..88927658d 100644
+index 01061acbd..cbb455ff6 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
-@@ -132,7 +132,7 @@ extern void android_override_options(void);
-   "--noexecstack"
+@@ -111,7 +111,7 @@ extern void android_override_options(void);
+   "%{mandroid-weak-symbols: -D __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__} "
  
  #define ANDROID_LIB_SPEC \
 -  "%{!static: -ldl}"
@@ -21,5 +21,5 @@ index bb72eb549..88927658d 100644
  #define ANDROID_STARTFILE_SPEC						\
    "%{shared: crtbegin_so%O%s;:"						\
 -- 
-2.54.0
+2.55.0
 

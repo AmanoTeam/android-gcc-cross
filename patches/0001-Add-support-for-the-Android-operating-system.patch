@@ -1,4 +1,4 @@
-From 5a2bf0f3cd4cfb2ad97328f901f0c99199eafdb9 Mon Sep 17 00:00:00 2001
+From 7c65c5277c44cc6e9e7c325484ffd335da74adf7 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sun, 7 Jun 2026 23:45:02 -0300
 Subject: [PATCH] Add support for the Android operating system
@@ -15,7 +15,7 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/config/arm/linux-eabi.h                |   3 -
  gcc/config/i386/gnu-user64.h               |   2 +
  gcc/config/i386/i386.cc                    |   6 +
- gcc/config/linux-android.h                 |  84 +++++++++++--
+ gcc/config/linux-android.h                 |  86 +++++++++++--
  gcc/config/linux-android.opt               |   8 ++
  gcc/config/linux.h                         |   5 +
  gcc/config/mips/android-elf.h              |  23 ++++
@@ -25,7 +25,7 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/varasm.cc                              |   4 +-
  libgcc/config/i386/cpuinfo.c               |   2 +-
  libstdc++-v3/config/os/bionic/ctype_base.h |  27 ++--
- 21 files changed, 454 insertions(+), 44 deletions(-)
+ 21 files changed, 455 insertions(+), 45 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/arm/android-elf.h
@@ -33,10 +33,10 @@ Subject: [PATCH] Add support for the Android operating system
  create mode 100644 gcc/config/t-android
 
 diff --git a/configure b/configure
-index 083e8823d..4339cd709 100755
+index a43c1779b..d1e11196c 100755
 --- a/configure
 +++ b/configure
-@@ -11909,6 +11909,14 @@ if test -d ${srcdir}/gcc; then
+@@ -11924,6 +11924,14 @@ if test -d ${srcdir}/gcc; then
  
    # Search for pre-installed headers if nothing else fits.
    FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -isystem $(build_tooldir)/include -isystem $(build_tooldir)/sys-include'
@@ -52,10 +52,10 @@ index 083e8823d..4339cd709 100755
  
  if test "x${use_gnu_ld}" = x &&
 diff --git a/configure.ac b/configure.ac
-index c5de225b0..0f189c942 100644
+index 5f4dd0377..4745651d6 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -3978,6 +3978,14 @@ if test -d ${srcdir}/gcc; then
+@@ -3989,6 +3989,14 @@ if test -d ${srcdir}/gcc; then
  
    # Search for pre-installed headers if nothing else fits.
    FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -isystem $(build_tooldir)/include -isystem $(build_tooldir)/sys-include'
@@ -482,7 +482,7 @@ index bf2a3bdfb..13ec06f8c 100644
  	 ? default_external_stack_protect_fail ()
  	 : default_hidden_stack_protect_fail ();
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index f68acecb8..26a9fe159 100644
+index f68acecb8..01061acbd 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
 @@ -19,10 +19,32 @@
@@ -592,7 +592,8 @@ index f68acecb8..26a9fe159 100644
 +  "  %{static|static-pie: crtbegin_static%O%s;: crtbegin_dynamic%O%s}}"
  
  #define ANDROID_ENDFILE_SPEC \
-   "%{shared: crtend_so%O%s;: crtend_android%O%s}"
+-  "%{shared: crtend_so%O%s;: crtend_android%O%s}"
++  "%{shared: crtend_so%O%s;: crtend_android%O%s} crt_pad_segment%O%s"
 diff --git a/gcc/config/linux-android.opt b/gcc/config/linux-android.opt
 index bd8b96e0a..bd5566302 100644
 --- a/gcc/config/linux-android.opt
