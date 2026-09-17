@@ -1069,7 +1069,7 @@ index 26a9fe15904..137198f40f9 100644
 @@ -119,3 +119,21 @@ extern void android_override_options(void);
  
  #define ANDROID_ENDFILE_SPEC \
-   "%{shared: crtend_so%O%s;: crtend_android%O%s}"
+   "%{shared: crtend_so%O%s;: crtend_android%O%s} crt_pad_segment%O%s"
 +
 +/* __builtin_available hooks for the Linux/Android target.  These
 +   overrides are in scope whenever linux-android.h is included in

@@ -49,6 +49,7 @@ declare -r ANDROID_NDK_VERSION='r30'
 
 declare -r ndk_archive='/tmp/ndk.zip'
 declare -r ndk_directory="/tmp/android-ndk-${ANDROID_NDK_VERSION}"
+declare -r bionic_directory='/tmp/bionic'
 declare -r unsupported_ndk_directory='/tmp/android-ndk-r16b'
 
 declare -r include_dir="${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
@@ -93,16 +94,6 @@ function get_arch() {
 		echo 'mips64'
 	fi
 
-}
-
-function remove_symbols() {
-	
-	"${1}-objcopy" \
-		--strip-symbol '__stack_chk_fail_local' \
-		"${2}" || true
-	
-	"${1}-objcopy" --remove-section='.comment' "${2}"
-	
 }
 
 if ! [ -f "${ndk_archive}" ]; then
@@ -212,6 +203,10 @@ if ! [ -f "${ndk_archive}" ]; then
 		--symbolic \
 		"${unsupported_ndk_directory}/platforms/android-19" \
 		"${unsupported_ndk_directory}/platforms/android-20"
+fi
+
+if ! [ -d "${bionic_directory}" ]; then
+	git clone --depth '1' 'https://android.googlesource.com/platform/bionic' "${bionic_directory}"
 fi
 
 if ! [ -f "${debian_sysroot_tarball}" ]; then
@@ -351,29 +346,27 @@ for target in "${targets[@]}"; do
 		
 		if (( unsupported_ndk )); then
 			cp \
-				"${library_directory}/"* \
-				"${library_directory2}/"* \
+				"${library_directory}/"*.so \
+				"${library_directory2}/"*.so \
 				"${sysroot_directory}/lib" 2>/dev/null || true
 			
 			cp "${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${triplet}/"lib{c,dl,m,z}.a "${sysroot_directory}/lib" || true
-			cp "${ndk_directory}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${triplet}/"*'.o' "${sysroot_directory}/lib" || true
 		else
 			cp \
-				"${library_directory}/"* \
-				"${library_directory2}/"*.{a,o,so} \
+				"${library_directory}/"*.a \
+				"${library_directory}/"*.so \
+				"${library_directory2}/"*.{a,so} \
 				"${sysroot_directory}/lib" 2>/dev/null || true
-		fi
-		
-		if (( unsupported_ndk )); then
-			remove_symbols "${target}" "${sysroot_directory}/lib/crtbegin_dynamic.o"
-			remove_symbols "${target}" "${sysroot_directory}/lib/crtbegin_so.o"
-			remove_symbols "${target}" "${sysroot_directory}/lib/crtbegin_static.o"
 		fi
 		
 		rm "${sysroot_directory}/lib/lib"{compiler,stdc++,c++}* 2>/dev/null || true
 		# rm "${sysroot_directory}/lib/lib"*'.a'
 	done
 done
+
+# Build the CRT objects with our own GCC drivers instead of reusing the NDK's
+# clang-built ones, for every sysroot directory staged above.
+make -C "${workdir}/tools/crt" BIONIC_DIR="${bionic_directory}" OUT='/tmp/bionic-libraries'
 
 declare tarball_filename='/tmp/lib.tar.xz'
 
@@ -437,3 +430,4 @@ tar \
 sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
 
 unlink "${debian_sysroot_tarball}"
+
