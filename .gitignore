@@ -1,3 +1,7 @@
 *.diff
 *.orig
 *.rej
+*.a
+*.pyc
+
+tools/ndk-stubs/maps/

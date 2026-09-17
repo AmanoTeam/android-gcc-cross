@@ -368,6 +368,62 @@ done
 # clang-built ones, for every sysroot directory staged above.
 make -C "${workdir}/tools/crt" BIONIC_DIR="${bionic_directory}" OUT='/tmp/bionic-libraries'
 
+# Download the stub libraries' symbol files (the bionic ones come from the
+# checkout; the rest live in their upstream repositories).
+declare -r ndk_stub_maps="${workdir}/tools/ndk-stubs/maps"
+
+declare -rA ndk_stub_symbol_files=(
+	['libEGL']='platform/frameworks/native/+/refs/heads/main/opengl/libs/libEGL.map.txt'
+	['libGLESv1_CM']='platform/frameworks/native/+/refs/heads/main/opengl/libs/libGLESv1_CM.map.txt'
+	['libGLESv2']='platform/frameworks/native/+/refs/heads/main/opengl/libs/libGLESv2.map.txt'
+	['libGLESv3']='platform/frameworks/native/+/refs/heads/main/opengl/libs/libGLESv3.map.txt'
+	['libandroid']='platform/frameworks/base/+/refs/heads/main/native/android/libandroid.map.txt'
+	['libz']='platform/external/zlib/+/refs/heads/main/libz.map.txt'
+	['liblog']='platform/system/logging/+/refs/heads/main/liblog/liblog.map.txt'
+	['libjnigraphics']='platform/frameworks/base/+/refs/heads/main/native/graphics/jni/libjnigraphics.map.txt'
+	['libmediandk']='platform/frameworks/av/+/refs/heads/main/media/ndk/libmediandk.map.txt'
+	['libOpenSLES']='platform/frameworks/wilhelm/+/refs/heads/main/src/libOpenSLES.map.txt'
+	['libOpenMAXAL']='platform/frameworks/wilhelm/+/refs/heads/main/src/libOpenMAXAL.map.txt'
+	['libcamera2ndk']='platform/frameworks/av/+/refs/heads/main/camera/ndk/libcamera2ndk.map.txt'
+	['libvulkan']='platform/frameworks/native/+/refs/heads/main/vulkan/libvulkan/libvulkan.map.txt'
+	['libaaudio']='platform/frameworks/av/+/refs/heads/main/media/libaaudio/src/libaaudio.map.txt'
+	['libnativewindow']='platform/frameworks/native/+/refs/heads/main/libs/nativewindow/libnativewindow.map.txt'
+	['libsync']='platform/system/core/+/refs/heads/main/libsync/libsync.map.txt'
+	['libamidi']='platform/frameworks/base/+/refs/heads/main/media/native/midi/libamidi.map.txt'
+	['libbinder_ndk']='platform/frameworks/native/+/refs/heads/main/libs/binder/ndk/libbinder_ndk.map.txt'
+	['libneuralnetworks']='platform/packages/modules/NeuralNetworks/+/refs/heads/main/runtime/libneuralnetworks.map.txt'
+	['libicu']='platform/external/icu/+/refs/heads/main/libicu/libicu.map.txt'
+	['libnativehelper']='platform/libnativehelper/+/refs/heads/main/libnativehelper.map.txt'
+)
+
+mkdir --parents "${ndk_stub_maps}"
+
+for library in "${!ndk_stub_symbol_files[@]}"; do
+	if ! [ -s "${ndk_stub_maps}/${library}.map.txt" ]; then
+		curl \
+			--url "https://android.googlesource.com/${ndk_stub_symbol_files[${library}]}?format=TEXT" \
+			--retry '30' \
+			--retry-all-errors \
+			--retry-delay '0' \
+			--retry-max-time '0' \
+			--location \
+			--silent \
+			--show-error \
+			--fail \
+			--output "${ndk_stub_maps}/${library}.map.txt.b64"
+
+		base64 \
+			--decode \
+			"${ndk_stub_maps}/${library}.map.txt.b64" > "${ndk_stub_maps}/${library}.map.txt"
+
+		unlink "${ndk_stub_maps}/${library}.map.txt.b64"
+	fi
+done
+
+# Build the stub shared libraries the same way AOSP generates them for the NDK
+# (ndkstubgen + the libraries' map files), overwriting the NDK-copied ones.
+make -C "${workdir}/tools/ndk-stubs" BIONIC_DIR="${bionic_directory}" OUT='/tmp/bionic-libraries'
+
 declare tarball_filename='/tmp/lib.tar.xz'
 
 cd '/tmp/bionic-libraries'
