@@ -1,3 +1,1 @@
-long double log10l(long double __x) { 
-	return __builtin_log10l(__x);
-}
+../../../submodules/musl/src/math/log10l.c

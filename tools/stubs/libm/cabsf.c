@@ -1,3 +1,1 @@
-float cabsf(float complex __z) { 
-	return __builtin_cabsf(__z);
-}
+../../../submodules/musl/src/complex/cabsf.c

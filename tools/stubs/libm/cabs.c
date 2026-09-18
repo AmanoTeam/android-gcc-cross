@@ -1,3 +1,1 @@
-double cabs(double complex __z) { 
-	return __builtin_cabs(__z);
-}
+../../../submodules/musl/src/complex/cabs.c

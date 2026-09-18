@@ -1,3 +1,5 @@
-long double lgammal(long double __x) { 
-	return __builtin_lgammal(__x);
+/* Copyright (c) 2005-2020 The musl development team. MIT licensed (see submodules/musl/COPYING). */
+
+long double lgammal(long double __x) {
+	return lgamma(__x);
 }

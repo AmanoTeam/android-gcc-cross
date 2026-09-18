@@ -1,3 +1,1 @@
-long long llrintl(long double __x) { 
-	return __builtin_llrintl(__x);
-}
+../../../submodules/musl/src/math/llrintl.c

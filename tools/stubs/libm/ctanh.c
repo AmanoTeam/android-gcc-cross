@@ -1,3 +1,1 @@
-double complex ctanh(double complex __z) { 
-	return __builtin_ctanh(__z);
-}
+../../../submodules/musl/src/complex/ctanh.c

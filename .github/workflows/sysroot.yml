@@ -17,11 +17,13 @@ jobs:
         declare -r PINO_TAG='gcc-16'
         declare -r PINO_TARBALL='/tmp/toolchain.tar.xz'
         declare -r PINO_URL="https://github.com/AmanoTeam/android-gcc-cross/releases/download/${PINO_TAG}/x86_64-unknown-linux-gnu.tar.xz"
+        declare -r PINO_HOME='/tmp/android-gcc-cross'
             
         curl --connect-timeout '10' --retry '15' --retry-all-errors --fail --silent --location --url "${PINO_URL}" --output "${PINO_TARBALL}"
         tar --directory="$(dirname "${PINO_TARBALL}")" --extract --file="${PINO_TARBALL}"
         
-        echo '/tmp/android-gcc-cross/bin' >> "${GITHUB_PATH}"
+        echo "${PINO_HOME}/bin" >> "${GITHUB_PATH}"
+        echo "PINO_HOME=${PINO_HOME}" >> "${GITHUB_ENV}"
     - name: Generate sysroots
       run: bash -v './sysroot.sh'
     - name: Create release

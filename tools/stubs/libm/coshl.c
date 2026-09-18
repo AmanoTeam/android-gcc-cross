@@ -1,3 +1,1 @@
-long double coshl(long double __x) { 
-	return __builtin_coshl(__x);
-}
+../../../submodules/musl/src/math/coshl.c

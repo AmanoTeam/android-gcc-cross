@@ -1,3 +1,1 @@
-double complex ctan(double complex __z) { 
-	return __builtin_ctan(__z);
-}
+../../../submodules/musl/src/complex/ctan.c

@@ -1,3 +1,1 @@
-float complex csqrtf(float complex __z) { 
-	return __builtin_csqrtf(__z);
-}
+../../../submodules/musl/src/complex/csqrtf.c

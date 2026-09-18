@@ -1,3 +1,1 @@
-float log2f(float __x) { 
-	return __builtin_log2f(__x);
-}
+../../../submodules/musl/src/math/log2f.c

@@ -364,6 +364,9 @@ for target in "${targets[@]}"; do
 	done
 done
 
+rm --recursive --force "${PINO_HOME}/include"
+cp --recursive "${include_dir}" "${PINO_HOME}"
+
 # Build the CRT objects with our own GCC drivers instead of reusing the NDK's
 # clang-built ones, for every sysroot directory staged above.
 make -C "${workdir}/tools/crt" BIONIC_DIR="${bionic_directory}" OUT='/tmp/bionic-libraries'
@@ -400,6 +403,7 @@ mkdir --parents "${ndk_stub_maps}"
 
 for library in "${!ndk_stub_symbol_files[@]}"; do
 	if ! [ -s "${ndk_stub_maps}/${library}.map.txt" ]; then
+		echo "https://android.googlesource.com/${ndk_stub_symbol_files[${library}]}?format=TEXT"
 		curl \
 			--url "https://android.googlesource.com/${ndk_stub_symbol_files[${library}]}?format=TEXT" \
 			--retry '30' \
@@ -410,6 +414,7 @@ for library in "${!ndk_stub_symbol_files[@]}"; do
 			--silent \
 			--show-error \
 			--fail \
+			--user-agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0' \
 			--output "${ndk_stub_maps}/${library}.map.txt.b64"
 
 		base64 \

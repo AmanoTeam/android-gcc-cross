@@ -1,109 +1,113 @@
-From c7c0606b439bc8c3bfd54f8edb598ec2437833b7 Mon Sep 17 00:00:00 2001
+From 3bd4caf333b94e18f648a49a009226eb3bf4ae66 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Wed, 8 Jul 2026 23:12:57 -0300
 Subject: [PATCH] Android NDK headers
 
 ---
- SLES/OpenSLES_Platform.h            |   2 +-
- android/api-level.h                 |   6 +-
- android/configuration.h             |   2 +
- android/dlext.h                     |   4 +-
- android/legacy_fenv_inlines_arm.h   | 156 ++++++++++++++
- android/legacy_fenv_inlines_mips.h  | 170 +++++++++++++++
- android/legacy_signal_inlines.h     | 130 ++++++++++++
- android/legacy_sys_stat_inlines.h   |  48 +++++
- android/legacy_sys_wait_inlines.h   |  50 +++++
- android/legacy_termios_inlines.h    |   3 -
- android/legacy_threads_inlines.h    |   1 -
- android/native_window.h             |   2 +-
- android/set_abort_message.h         |   2 +-
- android/versioning.h                |  35 +--
- arpa/inet.h                         |  12 +-
- bits/bionic_multibyte_result.h      |  17 ++
- bits/fenv_mips.h                    |  98 +++++++++
- bits/fortify/fcntl.h                |   4 +-
- bits/fortify/socket.h               |  18 +-
- bits/fortify/stat.h                 |   4 +-
- bits/fortify/stdio.h                |  10 +-
- bits/fortify/string.h               |  39 ++--
- bits/fortify/strings.h              |  36 +++-
- bits/fortify/unistd.h               |   4 +-
- bits/get_device_api_level_inlines.h |  22 +-
- bits/glibc-syscalls.h               |   3 +
- bits/ioctl.h                        |  19 --
- bits/posix_limits.h                 |   8 +-
- bits/sigcontext_riscv64.h           |  27 +++
- bits/signal_types.h                 |  33 ++-
- bits/stdatomic.h                    | 245 ---------------------
- bits/swab.h                         |   6 +-
- bits/termios_inlines.h              |  32 ++-
- bits/termios_winsize_inlines.h      |   8 +-
- bits/threads_inlines.h              |  56 +++--
- bits/wctype.h                       |   6 +-
- complex.h                           | 317 ++++++----------------------
- ctype.h                             |  75 +++----
- dirent.h                            |  14 +-
- fcntl.h                             |  29 ++-
- fenv.h                              |  38 ++--
- fts.h                               |  12 +-
- ftw.h                               |  13 +-
- inttypes.h                          |  13 +-
- langinfo.h                          |   6 +-
- link.h                              |   4 +-
- locale.h                            |  16 +-
- malloc.h                            |  13 +-
- math.h                              |  11 +-
- mntent.h                            |   8 +-
- poll.h                              |   4 +-
- pthread.h                           |  21 +-
- sched.h                             |  16 +-
- search.h                            |  26 ++-
- setjmp.h                            |   8 +
- signal.h                            |  52 ++++-
- stdatomic.h                         | 135 ------------
- stdio.h                             |  17 +-
- stdlib.h                            |  56 +++--
- string.h                            |  40 +++-
- strings.h                           |  14 +-
- sys/auxv.h                          |   8 +-
- sys/cachectl.h                      |   3 +
- sys/cdefs.h                         | 308 ++++++++++++++++++++++++++-
- sys/endian.h                        |  22 +-
- sys/epoll.h                         |   8 +-
- sys/fsuid.h                         |   6 +-
- sys/inotify.h                       |   6 +-
- sys/mman.h                          |   6 +-
- sys/personality.h                   |   4 +-
- sys/resource.h                      |  17 +-
- sys/select.h                        |  14 +-
- sys/sendfile.h                      |   8 +-
- sys/signalfd.h                      |   4 +-
- sys/socket.h                        |  39 +++-
- sys/stat.h                          |  51 ++++-
- sys/statvfs.h                       |  12 +-
- sys/swap.h                          |   6 +-
- sys/system_properties.h             |   4 +-
- sys/timerfd.h                       |   8 +-
- sys/ucontext.h                      |  69 ++++++
- sys/user.h                          |  16 ++
- sys/vfs.h                           |  46 +++-
- sys/wait.h                          |   7 +-
- sys/xattr.h                         |  26 +--
- time.h                              |   6 +-
- uchar.h                             |  10 +-
- unistd.h                            |  56 ++++-
- wchar.h                             |  67 ++++--
- wctype.h                            |  36 ++--
- 90 files changed, 2067 insertions(+), 1082 deletions(-)
- create mode 100644 android/legacy_fenv_inlines_arm.h
- create mode 100644 android/legacy_fenv_inlines_mips.h
+ SLES/OpenSLES_Platform.h                      |   2 +-
+ android/api-level.h                           |  13 +-
+ android/configuration.h                       |   2 +
+ android/dlext.h                               |   4 +-
+ android/legacy_signal_inlines.h               | 130 +++++++
+ ...ds_inlines.h => legacy_sys_stat_inlines.h} |  22 +-
+ .../legacy_sys_wait_inlines.h                 |  29 +-
+ android/legacy_termios_inlines.h              |   9 -
+ android/native_window.h                       |   2 +-
+ android/set_abort_message.h                   |   2 +-
+ android/versioning.h                          |  35 +-
+ arpa/inet.h                                   |  12 +-
+ bits/bionic_multibyte_result.h                |  17 +
+ bits/fenv_mips.h                              |  98 ++++++
+ bits/fortify/fcntl.h                          |   4 +-
+ bits/fortify/socket.h                         |  18 +-
+ bits/fortify/stat.h                           |   4 +-
+ bits/fortify/stdio.h                          |  10 +-
+ bits/fortify/string.h                         |  39 ++-
+ bits/fortify/strings.h                        |  36 +-
+ bits/fortify/unistd.h                         |   4 +-
+ bits/get_device_api_level_inlines.h           |  50 ---
+ bits/getentropy.h                             |   4 +-
+ bits/glibc-syscalls.h                         |   3 +
+ bits/ioctl.h                                  |  19 --
+ bits/memset_explicit_impl.h                   |  34 --
+ bits/posix_limits.h                           |   8 +-
+ bits/sigcontext_riscv64.h                     |  27 ++
+ bits/signal_types.h                           |  33 +-
+ bits/stdatomic.h                              | 245 --------------
+ bits/swab.h                                   |   6 +-
+ bits/termios_inlines.h                        |  32 +-
+ bits/threads_inlines.h                        | 202 -----------
+ bits/wctype.h                                 |   6 +-
+ complex.h                                     | 317 ++++--------------
+ ctype.h                                       |  75 ++---
+ dirent.h                                      |  14 +-
+ fcntl.h                                       |  29 +-
+ features.h                                    |   4 +
+ fenv.h                                        |   2 +
+ fts.h                                         |  12 +-
+ ftw.h                                         |  13 +-
+ inttypes.h                                    |  13 +-
+ langinfo.h                                    |   6 +-
+ link.h                                        |   4 +-
+ locale.h                                      |  16 +-
+ malloc.h                                      |  13 +-
+ math.h                                        |  11 +-
+ mntent.h                                      |   8 +-
+ poll.h                                        |   4 +-
+ pthread.h                                     |  21 +-
+ sched.h                                       |  16 +-
+ search.h                                      |  26 +-
+ setjmp.h                                      |   8 +
+ signal.h                                      |  52 ++-
+ stdatomic.h                                   | 135 --------
+ stdio.h                                       |  17 +-
+ stdlib.h                                      |  52 ++-
+ string.h                                      |  48 ++-
+ strings.h                                     |  14 +-
+ sys/auxv.h                                    |   8 +-
+ sys/cachectl.h                                |   3 +
+ sys/cdefs.h                                   | 308 ++++++++++++++++-
+ sys/endian.h                                  |  22 +-
+ sys/epoll.h                                   |   8 +-
+ sys/fsuid.h                                   |   6 +-
+ sys/inotify.h                                 |   6 +-
+ sys/mman.h                                    |   6 +-
+ sys/personality.h                             |   4 +-
+ sys/resource.h                                |  17 +-
+ sys/select.h                                  |  14 +-
+ sys/sendfile.h                                |   8 +-
+ sys/signalfd.h                                |   4 +-
+ sys/socket.h                                  |  39 ++-
+ sys/stat.h                                    |  51 ++-
+ sys/statvfs.h                                 |  12 +-
+ sys/swap.h                                    |   6 +-
+ sys/system_properties.h                       |   4 +-
+ sys/timerfd.h                                 |   8 +-
+ sys/ucontext.h                                |  69 ++++
+ sys/user.h                                    |  16 +
+ sys/vfs.h                                     |  46 ++-
+ sys/wait.h                                    |   7 +-
+ sys/xattr.h                                   |  26 +-
+ termios.h                                     |   5 -
+ tgmath.h                                      | 293 ++++++++++++++++
+ threads.h                                     |  60 ++--
+ time.h                                        |  34 +-
+ uchar.h                                       |  10 +-
+ unistd.h                                      |  56 +++-
+ wchar.h                                       |  67 +++-
+ wctype.h                                      |  36 +-
+ 92 files changed, 1933 insertions(+), 1417 deletions(-)
  create mode 100644 android/legacy_signal_inlines.h
- create mode 100644 android/legacy_sys_stat_inlines.h
- create mode 100644 android/legacy_sys_wait_inlines.h
+ rename android/{legacy_threads_inlines.h => legacy_sys_stat_inlines.h} (75%)
+ rename bits/termios_winsize_inlines.h => android/legacy_sys_wait_inlines.h (71%)
  create mode 100644 bits/fenv_mips.h
+ delete mode 100644 bits/get_device_api_level_inlines.h
+ delete mode 100644 bits/memset_explicit_impl.h
  create mode 100644 bits/sigcontext_riscv64.h
  delete mode 100644 bits/stdatomic.h
+ delete mode 100644 bits/threads_inlines.h
  delete mode 100644 stdatomic.h
+ create mode 100644 tgmath.h
 
 diff --git a/SLES/OpenSLES_Platform.h b/SLES/OpenSLES_Platform.h
 index 5dc3006..3f51c2d 100644
@@ -119,24 +123,36 @@ index 5dc3006..3f51c2d 100644
  
  #endif /* _OPENSLES_PLATFORM_H_ */
 diff --git a/android/api-level.h b/android/api-level.h
-index 2965bb5..80c9856 100644
+index 2965bb5..ed1f584 100644
 --- a/android/api-level.h
 +++ b/android/api-level.h
-@@ -180,12 +180,10 @@ int android_get_application_target_sdk_version() __INTRODUCED_IN(24);
+@@ -179,15 +179,6 @@ __BEGIN_DECLS
+ int android_get_application_target_sdk_version() __INTRODUCED_IN(24);
  #endif
  
- #if __ANDROID_API__ < 29
+-#if __ANDROID_API__ < 29
 -
- /* android_get_device_api_level is a static inline before API level 29. */
+-/* android_get_device_api_level is a static inline before API level 29. */
 -#define __BIONIC_GET_DEVICE_API_LEVEL_INLINE static __inline
-+#define __GET_DEVICE_API_LEVEL_INLINE__
- #include <bits/get_device_api_level_inlines.h>
+-#include <bits/get_device_api_level_inlines.h>
 -#undef __BIONIC_GET_DEVICE_API_LEVEL_INLINE
 -
-+#undef __GET_DEVICE_API_LEVEL_INLINE__
- #else
- 
+-#else
+-
  /**
+  * Returns the API level of the device we're actually running on, or -1 on failure.
+  *
+@@ -198,9 +189,7 @@ int android_get_application_target_sdk_version() __INTRODUCED_IN(24);
+  *
+  * Available since API level 29.
+  */
+-int android_get_device_api_level() __INTRODUCED_IN(29);
+-
+-#endif
++int android_get_device_api_level();
+ 
+ #endif /* defined(__ASSEMBLER__) */
+ 
 diff --git a/android/configuration.h b/android/configuration.h
 index bb3bc4f..1611251 100644
 --- a/android/configuration.h
@@ -177,344 +193,6 @@ index d8d2752..d9357ec 100644
  
  __END_DECLS
  
-diff --git a/android/legacy_fenv_inlines_arm.h b/android/legacy_fenv_inlines_arm.h
-new file mode 100644
-index 0000000..43946d0
---- /dev/null
-+++ b/android/legacy_fenv_inlines_arm.h
-@@ -0,0 +1,156 @@
-+/*-
-+ * Copyright (c) 2004 David Schultz <das@FreeBSD.ORG>
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
-+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
-+ *
-+ * $FreeBSD: src/lib/msun/arm/fenv.c,v 1.1 2004/06/06 10:03:59 das Exp $
-+ */
-+
-+#ifndef ANDROID_LEGACY_FENV_INLINES_ARM_H
-+#define ANDROID_LEGACY_FENV_INLINES_ARM_H
-+
-+#include <sys/cdefs.h>
-+
-+#if __ANDROID_API__ < 21 && defined(__arm__)
-+
-+#include <fenv.h>
-+
-+__BEGIN_DECLS
-+
-+#define FPSCR_ENABLE_SHIFT 8
-+#define FPSCR_ENABLE_MASK  (FE_ALL_EXCEPT << FPSCR_ENABLE_SHIFT)
-+
-+#define FPSCR_RMODE_SHIFT 22
-+
-+__static_inline__ int fegetenv(fenv_t* __envp) {
-+  fenv_t _fpscr;
-+  __asm__ __volatile__("vmrs %0,fpscr" : "=r" (_fpscr));
-+  *__envp = _fpscr;
-+  return 0;
-+}
-+
-+__static_inline__ int fesetenv(const fenv_t* __envp) {
-+  fenv_t _fpscr = *__envp;
-+  __asm__ __volatile__("vmsr fpscr,%0" : :"ri" (_fpscr));
-+  return 0;
-+}
-+
-+__static_inline__ int feclearexcept(int __excepts) {
-+  fexcept_t __fpscr;
-+  fegetenv(&__fpscr);
-+  __fpscr &= ~__excepts;
-+  fesetenv(&__fpscr);
-+  return 0;
-+}
-+
-+__static_inline__ int fegetexceptflag(fexcept_t* __flagp, int __excepts) {
-+  fexcept_t __fpscr;
-+  fegetenv(&__fpscr);
-+  *__flagp = __fpscr & __excepts;
-+  return 0;
-+}
-+
-+__static_inline__ int fesetexceptflag(const fexcept_t* __flagp, int __excepts) {
-+  fexcept_t __fpscr;
-+  fegetenv(&__fpscr);
-+  __fpscr &= ~__excepts;
-+  __fpscr |= *__flagp & __excepts;
-+  fesetenv(&__fpscr);
-+  return 0;
-+}
-+
-+__static_inline__ int feraiseexcept(int __excepts) {
-+  fexcept_t __ex = __excepts;
-+  fesetexceptflag(&__ex, __excepts);
-+  return 0;
-+}
-+
-+__static_inline__ int fetestexcept(int __excepts) {
-+  fexcept_t __fpscr;
-+  fegetenv(&__fpscr);
-+  return (__fpscr & __excepts);
-+}
-+
-+__static_inline__ int fegetround(void) {
-+  fenv_t _fpscr;
-+  fegetenv(&_fpscr);
-+  return ((_fpscr >> FPSCR_RMODE_SHIFT) & 0x3);
-+}
-+
-+__static_inline__ int fesetround(int __round) {
-+  fenv_t _fpscr;
-+  fegetenv(&_fpscr);
-+  _fpscr &= ~(0x3 << FPSCR_RMODE_SHIFT);
-+  _fpscr |= (__round << FPSCR_RMODE_SHIFT);
-+  fesetenv(&_fpscr);
-+  return 0;
-+}
-+
-+__static_inline__ int feholdexcept(fenv_t* __envp) {
-+  fenv_t __env;
-+  fegetenv(&__env);
-+  *__envp = __env;
-+  __env &= ~(FE_ALL_EXCEPT | FPSCR_ENABLE_MASK);
-+  fesetenv(&__env);
-+  return 0;
-+}
-+
-+__static_inline__ int feupdateenv(const fenv_t* __envp) {
-+  fexcept_t __fpscr;
-+  fegetenv(&__fpscr);
-+  fesetenv(__envp);
-+  feraiseexcept(__fpscr & FE_ALL_EXCEPT);
-+  return 0;
-+}
-+
-+__static_inline__ int feenableexcept(int __mask) {
-+  fenv_t __old_fpscr, __new_fpscr;
-+  fegetenv(&__old_fpscr);
-+  __new_fpscr = __old_fpscr | (__mask & FE_ALL_EXCEPT) << FPSCR_ENABLE_SHIFT;
-+  fesetenv(&__new_fpscr);
-+  return ((__old_fpscr >> FPSCR_ENABLE_SHIFT) & FE_ALL_EXCEPT);
-+}
-+
-+__static_inline__ int fedisableexcept(int __mask) {
-+  fenv_t __old_fpscr, __new_fpscr;
-+  fegetenv(&__old_fpscr);
-+  __new_fpscr = __old_fpscr & ~((__mask & FE_ALL_EXCEPT) << FPSCR_ENABLE_SHIFT);
-+  fesetenv(&__new_fpscr);
-+  return ((__old_fpscr >> FPSCR_ENABLE_SHIFT) & FE_ALL_EXCEPT);
-+}
-+
-+__static_inline__ int fegetexcept(void) {
-+  fenv_t __fpscr;
-+  fegetenv(&__fpscr);
-+  return ((__fpscr & FPSCR_ENABLE_MASK) >> FPSCR_ENABLE_SHIFT);
-+}
-+
-+#undef FPSCR_ENABLE_SHIFT
-+#undef FPSCR_ENABLE_MASK
-+#undef FPSCR_RMODE_SHIFT
-+
-+__END_DECLS
-+
-+#endif /* __ANDROID_API__ < 21 && defined(__arm__) */
-+
-+#endif /* ANDROID_LEGACY_FENV_INLINES_ARM_H */
-diff --git a/android/legacy_fenv_inlines_mips.h b/android/legacy_fenv_inlines_mips.h
-new file mode 100644
-index 0000000..a1eff7c
---- /dev/null
-+++ b/android/legacy_fenv_inlines_mips.h
-@@ -0,0 +1,170 @@
-+/*-
-+ * Copyright (c) 2004 David Schultz <das@FreeBSD.ORG>
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
-+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
-+ *
-+ * $FreeBSD: src/lib/msun/mips/fenv.c,v 1.1 2008/04/26 12:20:29 imp Exp $
-+ */
-+
-+#ifndef ANDROID_LEGACY_FENV_INLINES_MIPS_H
-+#define ANDROID_LEGACY_FENV_INLINES_MIPS_H
-+
-+#include <sys/cdefs.h>
-+
-+#if __ANDROID_API__ < 21 && (defined(__mips__) && !defined(__LP64__))
-+
-+#include <fenv.h>
-+
-+__BEGIN_DECLS
-+
-+#define FCSR_CAUSE_SHIFT 10
-+#define FCSR_ENABLE_SHIFT 5
-+#define FCSR_ENABLE_MASK (FE_ALL_EXCEPT << FCSR_ENABLE_SHIFT)
-+
-+#define FCSR_RMASK       0x3
-+
-+__static_inline__ int fegetenv(fenv_t* __envp) {
-+  fenv_t _fcsr = 0;
-+#ifdef  __mips_hard_float
-+  __asm__ __volatile__("cfc1 %0,$31" : "=r" (_fcsr));
-+#endif
-+  *__envp = _fcsr;
-+  return 0;
-+}
-+
-+__static_inline__ int fesetenv(const fenv_t* __envp) {
-+  fenv_t _fcsr = *__envp;
-+#ifdef  __mips_hard_float
-+  __asm__ __volatile__("ctc1 %0,$31" : : "r" (_fcsr));
-+#endif
-+  return 0;
-+}
-+
-+__static_inline__ int feclearexcept(int __excepts) {
-+  fexcept_t __fcsr;
-+  fegetenv(&__fcsr);
-+  __excepts &= FE_ALL_EXCEPT;
-+  __fcsr &= ~(__excepts | (__excepts << FCSR_CAUSE_SHIFT));
-+  fesetenv(&__fcsr);
-+  return 0;
-+}
-+
-+__static_inline__ int fegetexceptflag(fexcept_t* __flagp, int __excepts) {
-+  fexcept_t __fcsr;
-+  fegetenv(&__fcsr);
-+  *__flagp = __fcsr & __excepts & FE_ALL_EXCEPT;
-+  return 0;
-+}
-+
-+__static_inline__ int fesetexceptflag(const fexcept_t* __flagp, int __excepts) {
-+  fexcept_t __fcsr;
-+  fegetenv(&__fcsr);
-+  /* Ensure that flags are all legal */
-+  __excepts &= FE_ALL_EXCEPT;
-+  __fcsr &= ~__excepts;
-+  __fcsr |= *__flagp & __excepts;
-+  fesetenv(&__fcsr);
-+  return 0;
-+}
-+
-+__static_inline__ int feraiseexcept(int __excepts) {
-+  fexcept_t __fcsr;
-+  fegetenv(&__fcsr);
-+  /* Ensure that flags are all legal */
-+  __excepts &= FE_ALL_EXCEPT;
-+  /* Cause bit needs to be set as well for generating the exception*/
-+  __fcsr |= __excepts | (__excepts << FCSR_CAUSE_SHIFT);
-+  fesetenv(&__fcsr);
-+  return 0;
-+}
-+
-+__static_inline__ int fetestexcept(int __excepts) {
-+  fexcept_t __FCSR;
-+  fegetenv(&__FCSR);
-+  return (__FCSR & __excepts & FE_ALL_EXCEPT);
-+}
-+
-+__static_inline__ int fegetround(void) {
-+  fenv_t _fcsr;
-+  fegetenv(&_fcsr);
-+  return (_fcsr & FCSR_RMASK);
-+}
-+
-+__static_inline__ int fesetround(int __round) {
-+  fenv_t _fcsr;
-+  fegetenv(&_fcsr);
-+  _fcsr &= ~FCSR_RMASK;
-+  _fcsr |= (__round & FCSR_RMASK);
-+  fesetenv(&_fcsr);
-+  return 0;
-+}
-+
-+__static_inline__ int feholdexcept(fenv_t* __envp) {
-+  fenv_t __env;
-+  fegetenv(&__env);
-+  *__envp = __env;
-+  __env &= ~(FE_ALL_EXCEPT | FCSR_ENABLE_MASK);
-+  fesetenv(&__env);
-+  return 0;
-+}
-+
-+__static_inline__ int feupdateenv(const fenv_t* __envp) {
-+  fexcept_t __fcsr;
-+  fegetenv(&__fcsr);
-+  fesetenv(__envp);
-+  feraiseexcept(__fcsr & FE_ALL_EXCEPT);
-+  return 0;
-+}
-+
-+__static_inline__ int feenableexcept(int __mask) {
-+  fenv_t __old_fcsr, __new_fcsr;
-+  fegetenv(&__old_fcsr);
-+  __new_fcsr = __old_fcsr | (__mask & FE_ALL_EXCEPT) << FCSR_ENABLE_SHIFT;
-+  fesetenv(&__new_fcsr);
-+  return ((__old_fcsr >> FCSR_ENABLE_SHIFT) & FE_ALL_EXCEPT);
-+}
-+
-+__static_inline__ int fedisableexcept(int __mask) {
-+  fenv_t __old_fcsr, __new_fcsr;
-+  fegetenv(&__old_fcsr);
-+  __new_fcsr = __old_fcsr & ~((__mask & FE_ALL_EXCEPT) << FCSR_ENABLE_SHIFT);
-+  fesetenv(&__new_fcsr);
-+  return ((__old_fcsr >> FCSR_ENABLE_SHIFT) & FE_ALL_EXCEPT);
-+}
-+
-+__static_inline__ int fegetexcept(void) {
-+  fenv_t __fcsr;
-+  fegetenv(&__fcsr);
-+  return ((__fcsr & FCSR_ENABLE_MASK) >> FCSR_ENABLE_SHIFT);
-+}
-+
-+#undef FCSR_CAUSE_SHIFT
-+#undef FCSR_ENABLE_SHIFT
-+#undef FCSR_ENABLE_MASK
-+#undef FCSR_RMASK
-+
-+__END_DECLS
-+
-+#endif /* __ANDROID_API__ < 21 && (defined(__mips__) && !defined(__LP64__)) */
-+
-+#endif /* ANDROID_LEGACY_FENV_INLINES_MIPS_H */
 diff --git a/android/legacy_signal_inlines.h b/android/legacy_signal_inlines.h
 new file mode 100644
 index 0000000..13b9203
@@ -651,49 +329,38 @@ index 0000000..13b9203
 +#endif /* __ANDROID_API__ < 21 */
 +
 +#endif /* _ANDROID_LEGACY_SIGNAL_INLINES_H_ */
-diff --git a/android/legacy_sys_stat_inlines.h b/android/legacy_sys_stat_inlines.h
-new file mode 100644
-index 0000000..437e453
---- /dev/null
+diff --git a/android/legacy_threads_inlines.h b/android/legacy_sys_stat_inlines.h
+similarity index 75%
+rename from android/legacy_threads_inlines.h
+rename to android/legacy_sys_stat_inlines.h
+index c614cd0..437e453 100644
+--- a/android/legacy_threads_inlines.h
 +++ b/android/legacy_sys_stat_inlines.h
-@@ -0,0 +1,48 @@
-+/*
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2019 The Android Open Source Project
 + * Copyright (C) 2015 The Android Open Source Project
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *  * Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ *  * Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
-+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
-+ */
-+
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -26,13 +26,23 @@
+  * SUCH DAMAGE.
+  */
+ 
+-#pragma once
 +#ifndef _ANDROID_LEGACY_SYS_STAT_INLINES_H_
 +#define _ANDROID_LEGACY_SYS_STAT_INLINES_H_
-+
-+#include <sys/cdefs.h>
-+
+ 
+ #include <sys/cdefs.h>
+ 
+-#if __ANDROID_API__ < 30
 +#if __ANDROID_API__ < 21
-+
+ 
+-#define __BIONIC_THREADS_INLINE static __inline
+-#include <bits/threads_inlines.h>
 +#include <sys/stat.h>
-+
+ 
+-#endif
 +__BEGIN_DECLS
 +
 +__static_inline__ int mkfifo(const char* __path, mode_t __mode) {
@@ -705,67 +372,66 @@ index 0000000..437e453
 +#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
 +
 +#endif /* _ANDROID_LEGACY_SYS_STAT_INLINES_H_ */
-diff --git a/android/legacy_sys_wait_inlines.h b/android/legacy_sys_wait_inlines.h
-new file mode 100644
-index 0000000..553aa95
---- /dev/null
+diff --git a/bits/termios_winsize_inlines.h b/android/legacy_sys_wait_inlines.h
+similarity index 71%
+rename from bits/termios_winsize_inlines.h
+rename to android/legacy_sys_wait_inlines.h
+index 86777b0..553aa95 100644
+--- a/bits/termios_winsize_inlines.h
 +++ b/android/legacy_sys_wait_inlines.h
-@@ -0,0 +1,50 @@
-+/*
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2023 The Android Open Source Project
 + * Copyright (C) 2016 The Android Open Source Project
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *  * Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ *  * Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
-+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
-+ */
-+
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -26,28 +26,25 @@
+  * SUCH DAMAGE.
+  */
+ 
+-#pragma once
 +#ifndef _ANDROID_LEGACY_SYS_WAIT_INLINES_H_
 +#define _ANDROID_LEGACY_SYS_WAIT_INLINES_H_
-+
-+#include <sys/cdefs.h>
-+
+ 
+ #include <sys/cdefs.h>
+ 
+-#include <errno.h>
+-#include <sys/ioctl.h>
+-#include <sys/types.h>
 +#if __ANDROID_API__ < 18
-+
+ 
+-#include <linux/termios.h>
+-
+-#if !defined(__BIONIC_TERMIOS_WINSIZE_INLINE)
+-#define __BIONIC_TERMIOS_WINSIZE_INLINE static __inline
+-#endif
 +#include <sys/syscall.h>
 +#include <sys/wait.h>
 +#include <unistd.h>
-+
-+__BEGIN_DECLS
-+
+ 
+ __BEGIN_DECLS
+ 
+-__BIONIC_TERMIOS_WINSIZE_INLINE int tcgetwinsize(int __fd, struct winsize* _Nonnull __size) {
+-  return ioctl(__fd, TIOCGWINSZ, __size);
+-}
+-
+-__BIONIC_TERMIOS_WINSIZE_INLINE int tcsetwinsize(int __fd, const struct winsize* _Nonnull __size) {
+-  return ioctl(__fd, TIOCSWINSZ, __size);
 +__static_inline__ pid_t wait4(pid_t pid, int* status, int options, struct rusage* rusage) {
 +  return __BIONIC_CAST(static_cast, pid_t, syscall(__NR_wait4, pid, status, options, rusage));
-+}
-+
-+__END_DECLS
+ }
+ 
+ __END_DECLS
 +
 +#endif /* __ANDROID_API__ < 18 */
 +
 +#endif /* _ANDROID_LEGACY_SYS_WAIT_INLINES_H_ */
 diff --git a/android/legacy_termios_inlines.h b/android/legacy_termios_inlines.h
-index a816b40..252969f 100644
+index a816b40..5b219fe 100644
 --- a/android/legacy_termios_inlines.h
 +++ b/android/legacy_termios_inlines.h
-@@ -38,15 +38,12 @@
+@@ -38,15 +38,6 @@
  #include <linux/termios.h>
  #include <sys/ioctl.h>
  #include <sys/types.h>
@@ -774,25 +440,13 @@ index a816b40..252969f 100644
  #include <bits/termios_inlines.h>
  
  #endif
- 
- #if __ANDROID_API__ < 35
- 
+-
+-#if __ANDROID_API__ < 35
+-
 -#define __BIONIC_TERMIOS_WINSIZE_INLINE static __inline
- #include <bits/termios_winsize_inlines.h>
- 
- #endif
-diff --git a/android/legacy_threads_inlines.h b/android/legacy_threads_inlines.h
-index c614cd0..0a45c72 100644
---- a/android/legacy_threads_inlines.h
-+++ b/android/legacy_threads_inlines.h
-@@ -32,7 +32,6 @@
- 
- #if __ANDROID_API__ < 30
- 
--#define __BIONIC_THREADS_INLINE static __inline
- #include <bits/threads_inlines.h>
- 
- #endif
+-#include <bits/termios_winsize_inlines.h>
+-
+-#endif
 diff --git a/android/native_window.h b/android/native_window.h
 index d6620f3..19a533e 100644
 --- a/android/native_window.h
@@ -1416,46 +1070,82 @@ index 3c8443a..da165a7 100644
  
      if (!__bos_trivially_ge_no_overflow(bos, count)) {
 diff --git a/bits/get_device_api_level_inlines.h b/bits/get_device_api_level_inlines.h
-index dc5871b..c039820 100644
+deleted file mode 100644
+index dc5871b..0000000
 --- a/bits/get_device_api_level_inlines.h
-+++ b/bits/get_device_api_level_inlines.h
-@@ -28,7 +28,7 @@
- 
- #pragma once
- 
++++ /dev/null
+@@ -1,50 +0,0 @@
+-/*
+- * Copyright (C) 2018 The Android Open Source Project
+- * All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- *  * Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- *  * Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in
+- *    the documentation and/or other materials provided with the
+- *    distribution.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+- * SUCH DAMAGE.
+- */
+-
+-#pragma once
+-
 -#if defined(__BIONIC_GET_DEVICE_API_LEVEL_INLINE)
-+#if defined(__GET_DEVICE_API_LEVEL_INLINE__)
- 
- #include <sys/cdefs.h>
- 
-@@ -38,13 +38,21 @@ __BEGIN_DECLS
- int __system_property_get(const char* _Nonnull __name, char*  _Nonnull __value);
- int atoi(const char* _Nonnull __s) __attribute_pure__;
- 
+-
+-#include <sys/cdefs.h>
+-
+-__BEGIN_DECLS
+-
+-// Avoid circular dependencies since this is exposed from <sys/cdefs.h>.
+-int __system_property_get(const char* _Nonnull __name, char*  _Nonnull __value);
+-int atoi(const char* _Nonnull __s) __attribute_pure__;
+-
 -__BIONIC_GET_DEVICE_API_LEVEL_INLINE int android_get_device_api_level() {
 -  char value[92] = { 0 };
 -  if (__system_property_get("ro.build.version.sdk", value) < 1) return -1;
 -  int api_level = atoi(value);
 -  return (api_level > 0) ? api_level : -1;
-+__static_inline__ int android_get_device_api_level(void) {
-+	
-+	int api_level = 0;
-+	char value[92] = {0};
-+	
-+	if (__system_property_get("ro.build.version.sdk", value) < 1) {
-+		return -1;
-+	}
-+	
-+	api_level = atoi(value);
-+	
-+	return (api_level > 0) ? api_level : -1;
-+	
- }
+-}
+-
+-__END_DECLS
+-
+-#endif  // __BIONIC_GET_DEVICE_API_LEVEL_INLINE
+diff --git a/bits/getentropy.h b/bits/getentropy.h
+index e8d5d9d..5a520b0 100644
+--- a/bits/getentropy.h
++++ b/bits/getentropy.h
+@@ -38,7 +38,6 @@
+ 
+ __BEGIN_DECLS
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(28)
+ /**
+  * [getentropy(3)](https://man7.org/linux/man-pages/man3/getentropy.3.html) fills the given buffer
+  * with random bytes.
+@@ -49,7 +48,6 @@ __BEGIN_DECLS
+  *
+  * See also arc4random_buf() which is available in all API levels.
+  */
+-__nodiscard int getentropy(void* _Nonnull __buffer, size_t __buffer_size) __INTRODUCED_IN(28);
+-#endif
++__nodiscard int getentropy(void* _Nonnull __buffer, size_t __buffer_size);
  
  __END_DECLS
- 
--#endif  // __BIONIC_GET_DEVICE_API_LEVEL_INLINE
-+#endif /* defined(__GET_DEVICE_API_LEVEL_INLINE__) */
 diff --git a/bits/glibc-syscalls.h b/bits/glibc-syscalls.h
 index 2c2fd31..d9dda7f 100644
 --- a/bits/glibc-syscalls.h
@@ -1498,6 +1188,46 @@ index e15aaa7..1519059 100644
 -#endif
 -
  __END_DECLS
+diff --git a/bits/memset_explicit_impl.h b/bits/memset_explicit_impl.h
+deleted file mode 100644
+index 9562f30..0000000
+--- a/bits/memset_explicit_impl.h
++++ /dev/null
+@@ -1,34 +0,0 @@
+-/*
+- * Copyright (C) 2025 The Android Open Source Project
+- * All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- *  * Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- *  * Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in
+- *    the documentation and/or other materials provided with the
+- *    distribution.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+- * SUCH DAMAGE.
+- */
+-
+-__BIONIC_MEMSET_EXPLICIT_INLINE void* _Nonnull memset_explicit(void* _Nonnull __dst, int __ch, size_t __n) {
+-  void* __result = memset(__dst, __ch, __n);
+-  // https://bugs.llvm.org/show_bug.cgi?id=15495
+-  __asm__ __volatile__("" : : "r"(__dst) : "memory");
+-  return __result;
+-}
 diff --git a/bits/posix_limits.h b/bits/posix_limits.h
 index 2cb91ff..4d9749c 100644
 --- a/bits/posix_limits.h
@@ -1988,208 +1718,212 @@ index bb04e4d..d7df730 100644
    int cmd;
    switch (optional_actions) {
      case TCSANOW: cmd = TCSETS; break;
-diff --git a/bits/termios_winsize_inlines.h b/bits/termios_winsize_inlines.h
-index 86777b0..15e44f8 100644
---- a/bits/termios_winsize_inlines.h
-+++ b/bits/termios_winsize_inlines.h
-@@ -36,17 +36,13 @@
- 
- #include <linux/termios.h>
- 
--#if !defined(__BIONIC_TERMIOS_WINSIZE_INLINE)
--#define __BIONIC_TERMIOS_WINSIZE_INLINE static __inline
--#endif
--
- __BEGIN_DECLS
- 
--__BIONIC_TERMIOS_WINSIZE_INLINE int tcgetwinsize(int __fd, struct winsize* _Nonnull __size) {
-+__static_inline__ int tcgetwinsize(int __fd, struct winsize* _Nonnull __size) {
-   return ioctl(__fd, TIOCGWINSZ, __size);
- }
- 
--__BIONIC_TERMIOS_WINSIZE_INLINE int tcsetwinsize(int __fd, const struct winsize* _Nonnull __size) {
-+__static_inline__ int tcsetwinsize(int __fd, const struct winsize* _Nonnull __size) {
-   return ioctl(__fd, TIOCSWINSZ, __size);
- }
- 
 diff --git a/bits/threads_inlines.h b/bits/threads_inlines.h
-index 53bad2d..cf2fafa 100644
+deleted file mode 100644
+index 53bad2d..0000000
 --- a/bits/threads_inlines.h
-+++ b/bits/threads_inlines.h
-@@ -36,11 +36,9 @@
- #include <sched.h>
- #include <stdlib.h>
- 
++++ /dev/null
+@@ -1,202 +0,0 @@
+-/*
+- * Copyright (C) 2019 The Android Open Source Project
+- * All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- *  * Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- *  * Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in
+- *    the documentation and/or other materials provided with the
+- *    distribution.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+- * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+- * SUCH DAMAGE.
+- */
+-
+-#pragma once
+-
+-#include <sys/cdefs.h>
+-
+-#include <threads.h>
+-
+-#include <errno.h>
+-#include <sched.h>
+-#include <stdlib.h>
+-
 -#if defined(__BIONIC_THREADS_INLINE)
 -
- __BEGIN_DECLS
- 
+-__BEGIN_DECLS
+-
 -static __inline int __bionic_thrd_error(int __pthread_code) {
-+__static_inline__ int __bionic_thrd_error(int __pthread_code) {
-   switch (__pthread_code) {
-     case 0: return 0;
-     case ENOMEM: return thrd_nomem;
-@@ -52,39 +50,39 @@ static __inline int __bionic_thrd_error(int __pthread_code) {
- 
- 
- 
+-  switch (__pthread_code) {
+-    case 0: return 0;
+-    case ENOMEM: return thrd_nomem;
+-    case ETIMEDOUT: return thrd_timedout;
+-    case EBUSY: return thrd_busy;
+-    default: return thrd_error;
+-  }
+-}
+-
+-
+-
 -__BIONIC_THREADS_INLINE int cnd_broadcast(cnd_t* _Nonnull __cnd) {
-+__static_inline__ int cnd_broadcast(cnd_t* _Nonnull __cnd) {
-   return __bionic_thrd_error(pthread_cond_broadcast(__cnd));
- }
- 
+-  return __bionic_thrd_error(pthread_cond_broadcast(__cnd));
+-}
+-
 -__BIONIC_THREADS_INLINE void cnd_destroy(cnd_t* _Nonnull __cnd) {
-+__static_inline__ void cnd_destroy(cnd_t* _Nonnull __cnd) {
-   pthread_cond_destroy(__cnd);
- }
- 
+-  pthread_cond_destroy(__cnd);
+-}
+-
 -__BIONIC_THREADS_INLINE int cnd_init(cnd_t* _Nonnull __cnd) {
-+__static_inline__ int cnd_init(cnd_t* _Nonnull __cnd) {
-   return __bionic_thrd_error(pthread_cond_init(__cnd, NULL));
- }
- 
+-  return __bionic_thrd_error(pthread_cond_init(__cnd, NULL));
+-}
+-
 -__BIONIC_THREADS_INLINE int cnd_signal(cnd_t* _Nonnull __cnd) {
-+__static_inline__ int cnd_signal(cnd_t* _Nonnull __cnd) {
-   return __bionic_thrd_error(pthread_cond_signal(__cnd));
- }
- 
+-  return __bionic_thrd_error(pthread_cond_signal(__cnd));
+-}
+-
 -__BIONIC_THREADS_INLINE int cnd_timedwait(cnd_t* _Nonnull __cnd,
-+__static_inline__ int cnd_timedwait(cnd_t* _Nonnull __cnd,
-                                           mtx_t* _Nonnull __mtx,
-                                           const struct timespec* _Nullable __timeout) {
-   return __bionic_thrd_error(pthread_cond_timedwait(__cnd, __mtx, __timeout));
- }
- 
+-                                          mtx_t* _Nonnull __mtx,
+-                                          const struct timespec* _Nullable __timeout) {
+-  return __bionic_thrd_error(pthread_cond_timedwait(__cnd, __mtx, __timeout));
+-}
+-
 -__BIONIC_THREADS_INLINE int cnd_wait(cnd_t* _Nonnull __cnd, mtx_t* _Nonnull __mtx) {
-+__static_inline__ int cnd_wait(cnd_t* _Nonnull __cnd, mtx_t* _Nonnull __mtx) {
-   return __bionic_thrd_error(pthread_cond_wait(__cnd, __mtx));
- }
- 
- 
- 
+-  return __bionic_thrd_error(pthread_cond_wait(__cnd, __mtx));
+-}
+-
+-
+-
 -__BIONIC_THREADS_INLINE void mtx_destroy(mtx_t* _Nonnull __mtx) {
-+__static_inline__ void mtx_destroy(mtx_t* _Nonnull __mtx) {
-   pthread_mutex_destroy(__mtx);
- }
- 
+-  pthread_mutex_destroy(__mtx);
+-}
+-
 -__BIONIC_THREADS_INLINE int mtx_init(mtx_t* _Nonnull __mtx, int __type) {
-+__static_inline__ int mtx_init(mtx_t* _Nonnull __mtx, int __type) {
-   int __pthread_type = (__type & mtx_recursive) ? PTHREAD_MUTEX_RECURSIVE
-                                                 : PTHREAD_MUTEX_NORMAL;
-   __type &= ~mtx_recursive;
-@@ -96,20 +94,20 @@ __BIONIC_THREADS_INLINE int mtx_init(mtx_t* _Nonnull __mtx, int __type) {
-   return __bionic_thrd_error(pthread_mutex_init(__mtx, &__attr));
- }
- 
+-  int __pthread_type = (__type & mtx_recursive) ? PTHREAD_MUTEX_RECURSIVE
+-                                                : PTHREAD_MUTEX_NORMAL;
+-  __type &= ~mtx_recursive;
+-  if (__type != mtx_plain && __type != mtx_timed) return thrd_error;
+-
+-  pthread_mutexattr_t __attr;
+-  pthread_mutexattr_init(&__attr);
+-  pthread_mutexattr_settype(&__attr, __pthread_type);
+-  return __bionic_thrd_error(pthread_mutex_init(__mtx, &__attr));
+-}
+-
 -__BIONIC_THREADS_INLINE int mtx_lock(mtx_t* _Nonnull __mtx) {
-+__static_inline__ int mtx_lock(mtx_t* _Nonnull __mtx) {
-   return __bionic_thrd_error(pthread_mutex_lock(__mtx));
- }
- 
+-  return __bionic_thrd_error(pthread_mutex_lock(__mtx));
+-}
+-
 -__BIONIC_THREADS_INLINE int mtx_timedlock(mtx_t* _Nonnull __mtx,
-+__static_inline__ int mtx_timedlock(mtx_t* _Nonnull __mtx,
-                                           const struct timespec* _Nullable __timeout) {
-   return __bionic_thrd_error(pthread_mutex_timedlock(__mtx, __timeout));
- }
- 
+-                                          const struct timespec* _Nullable __timeout) {
+-  return __bionic_thrd_error(pthread_mutex_timedlock(__mtx, __timeout));
+-}
+-
 -__BIONIC_THREADS_INLINE int mtx_trylock(mtx_t* _Nonnull __mtx) {
-+__static_inline__ int mtx_trylock(mtx_t* _Nonnull __mtx) {
-   return __bionic_thrd_error(pthread_mutex_trylock(__mtx));
- }
- 
+-  return __bionic_thrd_error(pthread_mutex_trylock(__mtx));
+-}
+-
 -__BIONIC_THREADS_INLINE int mtx_unlock(mtx_t* _Nonnull __mtx) {
-+__static_inline__ int mtx_unlock(mtx_t* _Nonnull __mtx) {
-   return __bionic_thrd_error(pthread_mutex_unlock(__mtx));
- }
- 
-@@ -118,7 +116,7 @@ struct __bionic_thrd_data {
-   void* _Nullable __arg;
- };
- 
+-  return __bionic_thrd_error(pthread_mutex_unlock(__mtx));
+-}
+-
+-struct __bionic_thrd_data {
+-  thrd_start_t _Nonnull __func;
+-  void* _Nullable __arg;
+-};
+-
 -static __inline void* _Nonnull __bionic_thrd_trampoline(void* _Nonnull __arg) {
-+__static_inline__ void* _Nonnull __bionic_thrd_trampoline(void* _Nonnull __arg) {
-   struct __bionic_thrd_data __data =
-       *__BIONIC_CAST(static_cast, struct __bionic_thrd_data*, __arg);
-   free(__arg);
-@@ -127,7 +125,7 @@ static __inline void* _Nonnull __bionic_thrd_trampoline(void* _Nonnull __arg) {
-                        __BIONIC_CAST(static_cast, uintptr_t, __result));
- }
- 
+-  struct __bionic_thrd_data __data =
+-      *__BIONIC_CAST(static_cast, struct __bionic_thrd_data*, __arg);
+-  free(__arg);
+-  int __result = __data.__func(__data.__arg);
+-  return __BIONIC_CAST(reinterpret_cast, void*,
+-                       __BIONIC_CAST(static_cast, uintptr_t, __result));
+-}
+-
 -__BIONIC_THREADS_INLINE int thrd_create(thrd_t* _Nonnull __thrd,
-+__static_inline__ int thrd_create(thrd_t* _Nonnull __thrd,
-                                         thrd_start_t _Nonnull __func,
-                                         void* _Nullable __arg) {
-   struct __bionic_thrd_data* __pthread_arg =
-@@ -142,24 +140,24 @@ __BIONIC_THREADS_INLINE int thrd_create(thrd_t* _Nonnull __thrd,
-   return __result;
- }
- 
+-                                        thrd_start_t _Nonnull __func,
+-                                        void* _Nullable __arg) {
+-  struct __bionic_thrd_data* __pthread_arg =
+-      __BIONIC_CAST(static_cast, struct __bionic_thrd_data*,
+-                    malloc(sizeof(struct __bionic_thrd_data)));
+-  __pthread_arg->__func = __func;
+-  __pthread_arg->__arg = __arg;
+-  int __result = __bionic_thrd_error(pthread_create(__thrd, NULL,
+-                                                    __bionic_thrd_trampoline,
+-                                                    __pthread_arg));
+-  if (__result != thrd_success) free(__pthread_arg);
+-  return __result;
+-}
+-
 -__BIONIC_THREADS_INLINE thrd_t thrd_current(void) {
-+__static_inline__ thrd_t thrd_current(void) {
-   return pthread_self();
- }
- 
+-  return pthread_self();
+-}
+-
 -__BIONIC_THREADS_INLINE int thrd_detach(thrd_t __thrd) {
-+__static_inline__ int thrd_detach(thrd_t __thrd) {
-   return __bionic_thrd_error(pthread_detach(__thrd));
- }
- 
+-  return __bionic_thrd_error(pthread_detach(__thrd));
+-}
+-
 -__BIONIC_THREADS_INLINE int thrd_equal(thrd_t __lhs, thrd_t __rhs) {
-+__static_inline__ int thrd_equal(thrd_t __lhs, thrd_t __rhs) {
-   return pthread_equal(__lhs, __rhs);
- }
- 
+-  return pthread_equal(__lhs, __rhs);
+-}
+-
 -__BIONIC_THREADS_INLINE void thrd_exit(int __result) {
-+__static_inline__ void thrd_exit(int __result) {
-   pthread_exit(__BIONIC_CAST(reinterpret_cast, void*,
-                              __BIONIC_CAST(static_cast, uintptr_t, __result)));
- }
- 
+-  pthread_exit(__BIONIC_CAST(reinterpret_cast, void*,
+-                             __BIONIC_CAST(static_cast, uintptr_t, __result)));
+-}
+-
 -__BIONIC_THREADS_INLINE int thrd_join(thrd_t __thrd, int* _Nullable __result) {
-+__static_inline__ int thrd_join(thrd_t __thrd, int* _Nullable __result) {
-   void* __pthread_result;
-   if (pthread_join(__thrd, &__pthread_result) != 0) return thrd_error;
-   if (__result) {
-@@ -168,35 +166,33 @@ __BIONIC_THREADS_INLINE int thrd_join(thrd_t __thrd, int* _Nullable __result) {
-   return thrd_success;
- }
- 
+-  void* __pthread_result;
+-  if (pthread_join(__thrd, &__pthread_result) != 0) return thrd_error;
+-  if (__result) {
+-    *__result = __BIONIC_CAST(reinterpret_cast, intptr_t, __pthread_result);
+-  }
+-  return thrd_success;
+-}
+-
 -__BIONIC_THREADS_INLINE int thrd_sleep(const struct timespec* _Nonnull __duration,
-+__static_inline__ int thrd_sleep(const struct timespec* _Nonnull __duration,
-                                        struct timespec* _Nullable __remaining) {
-   int __rc = nanosleep(__duration, __remaining);
-   if (__rc == 0) return 0;
-   return (errno == EINTR) ? -1 : -2;
- }
- 
+-                                       struct timespec* _Nullable __remaining) {
+-  int __rc = nanosleep(__duration, __remaining);
+-  if (__rc == 0) return 0;
+-  return (errno == EINTR) ? -1 : -2;
+-}
+-
 -__BIONIC_THREADS_INLINE void thrd_yield(void) {
-+__static_inline__ void thrd_yield(void) {
-   sched_yield();
- }
- 
- 
- 
+-  sched_yield();
+-}
+-
+-
+-
 -__BIONIC_THREADS_INLINE int tss_create(tss_t* _Nonnull __key, tss_dtor_t _Nullable __dtor) {
-+__static_inline__ int tss_create(tss_t* _Nonnull __key, tss_dtor_t _Nullable __dtor) {
-   return __bionic_thrd_error(pthread_key_create(__key, __dtor));
- }
- 
+-  return __bionic_thrd_error(pthread_key_create(__key, __dtor));
+-}
+-
 -__BIONIC_THREADS_INLINE void tss_delete(tss_t __key) {
-+__static_inline__ void tss_delete(tss_t __key) {
-   pthread_key_delete(__key);
- }
- 
+-  pthread_key_delete(__key);
+-}
+-
 -__BIONIC_THREADS_INLINE void* _Nullable tss_get(tss_t __key) {
-+__static_inline__ void* _Nullable tss_get(tss_t __key) {
-   return pthread_getspecific(__key);
- }
- 
+-  return pthread_getspecific(__key);
+-}
+-
 -__BIONIC_THREADS_INLINE int tss_set(tss_t __key, void* _Nonnull __value) {
-+__static_inline__ int tss_set(tss_t __key, void* _Nonnull __value) {
-   return __bionic_thrd_error(pthread_setspecific(__key, __value));
- }
- 
- __END_DECLS
+-  return __bionic_thrd_error(pthread_setspecific(__key, __value));
+-}
+-
+-__END_DECLS
 -
 -#endif  // __BIONIC_THREADS_INLINE
 diff --git a/bits/wctype.h b/bits/wctype.h
@@ -3002,8 +2736,20 @@ index 8f876b6..039dd44 100644
  #endif
  
  #if defined(__USE_GNU) && __BIONIC_AVAILABILITY_GUARD(26)
+diff --git a/features.h b/features.h
+index a915fe7..09ca449 100644
+--- a/features.h
++++ b/features.h
+@@ -34,3 +34,7 @@
+  */
+ 
+ #include <sys/cdefs.h>
++
++/* Imported from musl's src/include/features.h so that verbatim musl sources
++ * compile unmodified: marks a symbol as hidden from the dynamic symbol table. */
++#define hidden __attribute__((__visibility__("hidden")))
 diff --git a/fenv.h b/fenv.h
-index 4c1d490..3fd690b 100644
+index 4c1d490..7de3f46 100644
 --- a/fenv.h
 +++ b/fenv.h
 @@ -38,6 +38,8 @@
@@ -3015,152 +2761,6 @@ index 4c1d490..3fd690b 100644
  #elif defined(__i386__)
  #include <bits/fenv_x86.h>
  #elif defined(__riscv)
-@@ -48,13 +50,15 @@
- 
- __BEGIN_DECLS
- 
-+/* fenv was always available on x86. */
-+#if __BIONIC_AVAILABILITY_GUARD(21) || defined(__i386__)
- /**
-  * [feclearexcept(3)](https://man7.org/linux/man-pages/man3/feclearexcept.3.html)
-  * clears the given `exceptions` in hardware.
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int feclearexcept(int __exceptions);
-+int feclearexcept(int __exceptions) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fegetexceptflag(3)](https://man7.org/linux/man-pages/man3/fegetexceptflag.3.html)
-@@ -63,7 +67,7 @@ int feclearexcept(int __exceptions);
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int fegetexceptflag(fexcept_t* _Nonnull __flag_ptr, int __exceptions);
-+int fegetexceptflag(fexcept_t* _Nonnull __flag_ptr, int __exceptions) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [feraiseexcept(3)](https://man7.org/linux/man-pages/man3/feraiseexcept.3.html)
-@@ -71,7 +75,7 @@ int fegetexceptflag(fexcept_t* _Nonnull __flag_ptr, int __exceptions);
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int feraiseexcept(int __exceptions);
-+int feraiseexcept(int __exceptions) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fesetexceptflag(3)](https://man7.org/linux/man-pages/man3/fesetexceptflag.3.html)
-@@ -80,7 +84,7 @@ int feraiseexcept(int __exceptions);
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int fesetexceptflag(const fexcept_t* _Nonnull __flag_ptr, int __exceptions);
-+int fesetexceptflag(const fexcept_t* _Nonnull __flag_ptr, int __exceptions) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fetestexcept(3)](https://man7.org/linux/man-pages/man3/fetestexcept.3.html)
-@@ -88,7 +92,7 @@ int fesetexceptflag(const fexcept_t* _Nonnull __flag_ptr, int __exceptions);
-  *
-  * Returns the currently-set subset of `exceptions`.
-  */
--int fetestexcept(int __exceptions);
-+int fetestexcept(int __exceptions) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fegetround(3)](https://man7.org/linux/man-pages/man3/fegetround.3.html)
-@@ -96,7 +100,7 @@ int fetestexcept(int __exceptions);
-  *
-  * Returns the rounding mode on success, and returns a negative value on failure.
-  */
--int fegetround(void);
-+int fegetround(void) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fesetround(3)](https://man7.org/linux/man-pages/man3/fesetround.3.html)
-@@ -104,7 +108,7 @@ int fegetround(void);
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int fesetround(int __rounding_mode);
-+int fesetround(int __rounding_mode) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fegetenv(3)](https://man7.org/linux/man-pages/man3/fegetenv.3.html)
-@@ -112,7 +116,7 @@ int fesetround(int __rounding_mode);
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int fegetenv(fenv_t* _Nonnull __env);
-+int fegetenv(fenv_t* _Nonnull __env) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [feholdexcept(3)](https://man7.org/linux/man-pages/man3/feholdexcept.3.html)
-@@ -121,7 +125,7 @@ int fegetenv(fenv_t* _Nonnull __env);
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int feholdexcept(fenv_t* _Nonnull __env);
-+int feholdexcept(fenv_t* _Nonnull __env) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fesetenv(3)](https://man7.org/linux/man-pages/man3/fesetenv.3.html)
-@@ -129,7 +133,7 @@ int feholdexcept(fenv_t* _Nonnull __env);
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int fesetenv(const fenv_t* _Nonnull __env);
-+int fesetenv(const fenv_t* _Nonnull __env) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [feupdateenv(3)](https://man7.org/linux/man-pages/man3/feupdateenv.3.html)
-@@ -138,7 +142,7 @@ int fesetenv(const fenv_t* _Nonnull __env);
-  *
-  * Returns 0 on success, and returns non-zero on failure.
-  */
--int feupdateenv(const fenv_t* _Nonnull __env);
-+int feupdateenv(const fenv_t* _Nonnull __env) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [feenableexcept(3)](https://man7.org/linux/man-pages/man3/feenableexcept.3.html)
-@@ -147,7 +151,7 @@ int feupdateenv(const fenv_t* _Nonnull __env);
-  *
-  * Returns the previous set of enabled exceptions on success, and returns -1 on failure.
-  */
--int feenableexcept(int __exceptions);
-+int feenableexcept(int __exceptions) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fedisableexcept(3)](https://man7.org/linux/man-pages/man3/fedisableexcept.3.html)
-@@ -156,7 +160,7 @@ int feenableexcept(int __exceptions);
-  *
-  * Returns the previous set of enabled exceptions on success, and returns -1 on failure.
-  */
--int fedisableexcept(int __exceptions);
-+int fedisableexcept(int __exceptions) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /**
-  * [fegetexcept(3)](https://man7.org/linux/man-pages/man3/fegetexcept.3.html)
-@@ -165,7 +169,7 @@ int fedisableexcept(int __exceptions);
-  *
-  * Returns the exceptions that currently trap.
-  */
--int fegetexcept(void);
-+int fegetexcept(void) __INTRODUCED_IN_ARM(21) __INTRODUCED_IN_MIPS(21) __INTRODUCED_IN_X86(9);
- 
- /** See FE_DFL_ENV. */
- extern const fenv_t __fe_dfl_env;
-@@ -178,5 +182,11 @@ extern const fenv_t __fe_dfl_env;
-  * environment, namely fesetenv() and feupdateenv().
-  */
- #define FE_DFL_ENV (&__fe_dfl_env)
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) || defined(__i386__) */
-+
-+#if !(__BIONIC_AVAILABILITY_GUARD(21) || defined(__i386__))
-+#include <android/legacy_fenv_inlines_arm.h>
-+#include <android/legacy_fenv_inlines_mips.h>
-+#endif /* !(__BIONIC_AVAILABILITY_GUARD(21) || defined(__i386__)) */
- 
- __END_DECLS
 diff --git a/fts.h b/fts.h
 index 67c69da..92735cc 100644
 --- a/fts.h
@@ -3971,7 +3571,7 @@ index d64658c..1625107 100644
  #if (defined(__STDC_VERSION__) && __STDC_VERSION__ < 201112L) || \
      (defined(__cplusplus) && __cplusplus < 201402L)
 diff --git a/stdlib.h b/stdlib.h
-index cb1ac1f..3dba6c6 100644
+index cb1ac1f..6b7b066 100644
 --- a/stdlib.h
 +++ b/stdlib.h
 @@ -53,12 +53,19 @@ __BEGIN_DECLS
@@ -4009,18 +3609,7 @@ index cb1ac1f..3dba6c6 100644
  int mkstemp(char* _Nonnull __template);
  
  #if __BIONIC_AVAILABILITY_GUARD(23)
-@@ -203,7 +213,9 @@ void free_sized(void* _Nullable __ptr, size_t __size) __INTRODUCED_IN(37);
- */
- void free_aligned_sized(void* _Nullable __ptr, size_t __alignment, size_t __size) __INTRODUCED_IN(37);
- 
--int posix_memalign(void* _Nullable * _Nullable __memptr, size_t __alignment, size_t __size);
-+#if __BIONIC_AVAILABILITY_GUARD(16)
-+int posix_memalign(void* _Nullable * _Nullable __memptr, size_t __alignment, size_t __size) __INTRODUCED_IN(16);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(16) */
- 
- #if __BIONIC_AVAILABILITY_GUARD(28)
- /**
-@@ -276,7 +288,9 @@ void arc4random_buf(void* _Nonnull __buf, size_t __n);
+@@ -276,7 +286,9 @@ void arc4random_buf(void* _Nonnull __buf, size_t __n);
  
  #define RAND_MAX 0x7fffffff
  
@@ -4031,7 +3620,7 @@ index cb1ac1f..3dba6c6 100644
  
  double drand48(void);
  double erand48(unsigned short __xsubi[_Nonnull 3]);
-@@ -292,11 +306,17 @@ long nrand48(unsigned short __xsubi[_Nonnull 3]);
+@@ -292,11 +304,17 @@ long nrand48(unsigned short __xsubi[_Nonnull 3]);
  unsigned short* _Nonnull seed48(unsigned short __seed16v[_Nonnull 3]);
  void srand48(long __seed);
  
@@ -4052,7 +3641,7 @@ index cb1ac1f..3dba6c6 100644
  char* _Nullable ptsname(int __fd);
  int ptsname_r(int __fd, char* _Nonnull __buf, size_t __n);
  int unlockpt(int __fd);
-@@ -360,7 +380,10 @@ int getloadavg(double __averages[_Nonnull], int __n) __INTRODUCED_IN(29);
+@@ -360,7 +378,10 @@ int getloadavg(double __averages[_Nonnull], int __n) __INTRODUCED_IN(29);
  
  
  /* BSD compatibility. */
@@ -4064,7 +3653,7 @@ index cb1ac1f..3dba6c6 100644
  void setprogname(const char* _Nonnull __name);
  
  #if __BIONIC_AVAILABILITY_GUARD(26)
-@@ -368,13 +391,20 @@ int mblen(const char* _Nullable __s, size_t __n) __INTRODUCED_IN(26);
+@@ -368,13 +389,20 @@ int mblen(const char* _Nullable __s, size_t __n) __INTRODUCED_IN(26);
  #endif
  
  size_t mbstowcs(wchar_t* _Nullable __dst, const char* _Nullable __src, size_t __n);
@@ -4089,7 +3678,7 @@ index cb1ac1f..3dba6c6 100644
  #if defined(__BIONIC_INCLUDE_FORTIFY_HEADERS)
  #include <bits/fortify/stdlib.h>
 diff --git a/string.h b/string.h
-index 06793c3..aa46d2b 100644
+index 06793c3..cd1fbcd 100644
 --- a/string.h
 +++ b/string.h
 @@ -52,8 +52,8 @@ void* _Nullable memrchr(const void* _Nonnull __s, int __ch, size_t __n) __attrib
@@ -4103,7 +3692,26 @@ index 06793c3..aa46d2b 100644
  #endif
  
  void* _Nonnull memmove(void* _Nonnull __dst, const void* _Nonnull __src, size_t __n);
-@@ -86,7 +86,10 @@ void* _Nonnull memset_explicit(void* _Nonnull __dst, int __ch, size_t __n) __INT
+@@ -66,7 +66,6 @@ void* _Nonnull memmove(void* _Nonnull __dst, const void* _Nonnull __src, size_t
+  */
+ void* _Nonnull memset(void* _Nonnull __dst, int __ch, size_t __n);
+ 
+-#if __ANDROID_API__ >= 34
+ /**
+  * [memset_explicit(3)](https://man7.org/linux/man-pages/man3/memset_explicit.3.html)
+  * writes the bottom 8 bits of the given int to the next `n` bytes of `dst`,
+@@ -76,17 +75,15 @@ void* _Nonnull memset(void* _Nonnull __dst, int __ch, size_t __n);
+  *
+  * Available from API level 34, or with __ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__.
+  */
+-void* _Nonnull memset_explicit(void* _Nonnull __dst, int __ch, size_t __n) __INTRODUCED_IN(34);
+-#elif defined(__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__)
+-#define __BIONIC_MEMSET_EXPLICIT_INLINE static __inline
+-#include <bits/memset_explicit_impl.h>
+-#undef __BIONIC_MEMSET_EXPLICIT_INLINE
+-#endif
++void* _Nonnull memset_explicit(void* _Nonnull __dst, int __ch, size_t __n);
+ 
  void* _Nullable memmem(const void* _Nonnull __haystack, size_t __haystack_size, const void* _Nonnull __needle, size_t __needle_size) __attribute_pure__;
  
  char* _Nullable strchr(const char* _Nonnull __s, int __ch) __attribute_pure__;
@@ -4115,7 +3723,7 @@ index 06793c3..aa46d2b 100644
  
  #if defined(__USE_GNU) && __BIONIC_AVAILABILITY_GUARD(24)
  #if defined(__cplusplus)
-@@ -98,13 +101,25 @@ char* _Nonnull strchrnul(const char* _Nonnull __s, int __ch) __attribute_pure__
+@@ -98,13 +95,25 @@ char* _Nonnull strchrnul(const char* _Nonnull __s, int __ch) __attribute_pure__
  #endif
  
  char* _Nullable strrchr(const char* _Nonnull __s, int __ch) __attribute_pure__;
@@ -4144,7 +3752,7 @@ index 06793c3..aa46d2b 100644
  char* _Nonnull strcpy(char* _Nonnull __dst, const char* _Nonnull __src);
  char* _Nonnull strcat(char* _Nonnull __dst, const char* _Nonnull __src);
  char* _Nullable strdup(const char* _Nonnull __s);
-@@ -200,6 +215,7 @@ size_t strnlen(const char* _Nonnull __s, size_t __n) __attribute_pure__;
+@@ -200,6 +209,7 @@ size_t strnlen(const char* _Nonnull __s, size_t __n) __attribute_pure__;
  char* _Nonnull strncat(char* _Nonnull __dst, const char* _Nonnull __src, size_t __n);
  char* _Nullable strndup(const char* _Nonnull __s, size_t __n);
  int strncmp(const char* _Nonnull __lhs, const char* _Nonnull __rhs, size_t __n) __attribute_pure__;
@@ -4152,7 +3760,7 @@ index 06793c3..aa46d2b 100644
  char* _Nonnull stpncpy(char* _Nonnull __dst, const char* _Nonnull __src, size_t __n);
  char* _Nonnull strncpy(char* _Nonnull __dst, const char* _Nonnull __src, size_t __n);
  
-@@ -253,13 +269,19 @@ char* _Nonnull strsignal(int __signal);
+@@ -253,13 +263,19 @@ char* _Nonnull strsignal(int __signal);
  
  /** Equivalent to strcmp() on Android. */
  int strcoll(const char* _Nonnull __lhs, const char* _Nonnull __rhs) __attribute_pure__;
@@ -4174,7 +3782,7 @@ index 06793c3..aa46d2b 100644
  
  /*
   * glibc has a basename in <string.h> that's different to the POSIX one in <libgen.h>.
-@@ -279,7 +301,7 @@ char* _Nonnull basename(const char* _Nonnull __path) __RENAME(__gnu_basename) __
+@@ -279,7 +295,7 @@ char* _Nonnull basename(const char* _Nonnull __path) __RENAME(__gnu_basename) __
  #endif
  
  /* Const-correct overloads. Placed after FORTIFY so we call those functions, if possible. */
@@ -5625,11 +5233,544 @@ index ebe4eb8..e532fcd 100644
 +#endif /* __BIONIC_AVAILABILITY_GUARD(16) */
  
  __END_DECLS
+diff --git a/termios.h b/termios.h
+index 5eecfcd..f58638c 100644
+--- a/termios.h
++++ b/termios.h
+@@ -149,10 +149,6 @@ int tcsetattr(int __fd, int __optional_actions, const struct termios* _Nonnull _
+ 
+ #endif
+ 
+-#if __ANDROID_API__ >= 35
+-// These two functions were POSIX Issue 8 additions that we can also trivially
+-// implement as inlines for older OS version.
+-
+ /**
+  * tcgetwinsize(3) gets the window size of the given terminal.
+  *
+@@ -166,7 +162,6 @@ int tcgetwinsize(int __fd, struct winsize* _Nonnull __size);
+  * Returns 0 on success and returns -1 and sets `errno` on failure.
+  */
+ int tcsetwinsize(int __fd, const struct winsize* _Nonnull __size);
+-#endif
+ 
+ __END_DECLS
+ 
+diff --git a/tgmath.h b/tgmath.h
+new file mode 100644
+index 0000000..05fcc8a
+--- /dev/null
++++ b/tgmath.h
+@@ -0,0 +1,293 @@
++/*
++ * Copyright (c) 2011-2024 The musl development team.
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining
++ * a copy of this software and associated documentation files (the
++ * "Software"), to deal in the Software without restriction, including
++ * without limitation the rights to use, copy, modify, merge, publish,
++ * distribute, sublicense, and/or sell copies of the Software, and to
++ * permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be
++ * included in all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
++ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
++ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++ */
++
++#ifndef _TGMATH_H
++#define _TGMATH_H
++
++/*
++the return types are only correct with gcc (__GNUC__)
++otherwise they are long double or long double complex
++
++the long double version of a function is never chosen when
++sizeof(double) == sizeof(long double)
++(but the return type is set correctly with gcc)
++*/
++
++#include <math.h>
++#include <complex.h>
++
++#define __IS_FP(x) (sizeof((x)+1ULL) == sizeof((x)+1.0f))
++#define __IS_CX(x) (__IS_FP(x) && sizeof(x) == sizeof((x)+I))
++#define __IS_REAL(x) (__IS_FP(x) && 2*sizeof(x) == sizeof((x)+I))
++
++#define __FLT(x) (__IS_REAL(x) && sizeof(x) == sizeof(float))
++#define __LDBL(x) (__IS_REAL(x) && sizeof(x) == sizeof(long double) && sizeof(long double) != sizeof(double))
++
++#define __FLTCX(x) (__IS_CX(x) && sizeof(x) == sizeof(float complex))
++#define __DBLCX(x) (__IS_CX(x) && sizeof(x) == sizeof(double complex))
++#define __LDBLCX(x) (__IS_CX(x) && sizeof(x) == sizeof(long double complex) && sizeof(long double) != sizeof(double))
++
++/* return type */
++
++#ifdef __GNUC__
++/*
++the result must be casted to the right type
++(otherwise the result type is determined by the conversion
++rules applied to all the function return types so it is long
++double or long double complex except for integral functions)
++
++this cannot be done in c99, so the typeof gcc extension is
++used and that the type of ?: depends on wether an operand is
++a null pointer constant or not
++(in c11 _Generic can be used)
++
++the c arguments below must be integer constant expressions
++so they can be in null pointer constants
++(__IS_FP above was carefully chosen this way)
++*/
++/* if c then t else void */
++#define __type1(c,t) __typeof__(*(0?(t*)0:(void*)!(c)))
++/* if c then t1 else t2 */
++#define __type2(c,t1,t2) __typeof__(*(0?(__type1(c,t1)*)0:(__type1(!(c),t2)*)0))
++/* cast to double when x is integral, otherwise use typeof(x) */
++#define __RETCAST(x) ( \
++	__type2(__IS_FP(x), __typeof__(x), double))
++/* 2 args case, should work for complex types (cpow) */
++#define __RETCAST_2(x, y) ( \
++	__type2(__IS_FP(x) && __IS_FP(y), \
++		__typeof__((x)+(y)), \
++		__typeof__((x)+(y)+1.0)))
++/* 3 args case (fma only) */
++#define __RETCAST_3(x, y, z) ( \
++	__type2(__IS_FP(x) && __IS_FP(y) && __IS_FP(z), \
++		__typeof__((x)+(y)+(z)), \
++		__typeof__((x)+(y)+(z)+1.0)))
++/* drop complex from the type of x */
++/* TODO: wrong when sizeof(long double)==sizeof(double) */
++#define __RETCAST_REAL(x) (  \
++	__type2(__IS_FP(x) && sizeof((x)+I) == sizeof(float complex), float, \
++	__type2(sizeof((x)+1.0+I) == sizeof(double complex), double, \
++		long double)))
++/* add complex to the type of x */
++#define __RETCAST_CX(x) (__typeof__(__RETCAST(x)0+I))
++#else
++#define __RETCAST(x)
++#define __RETCAST_2(x, y)
++#define __RETCAST_3(x, y, z)
++#define __RETCAST_REAL(x)
++#define __RETCAST_CX(x)
++#endif
++
++/* function selection */
++
++#define __tg_real_nocast(fun, x) ( \
++	__FLT(x) ? fun ## f (x) : \
++	__LDBL(x) ? fun ## l (x) : \
++	fun(x) )
++
++#define __tg_real(fun, x) (__RETCAST(x)__tg_real_nocast(fun, x))
++
++#define __tg_real_2_1(fun, x, y) (__RETCAST(x)( \
++	__FLT(x) ? fun ## f (x, y) : \
++	__LDBL(x) ? fun ## l (x, y) : \
++	fun(x, y) ))
++
++#define __tg_real_2(fun, x, y) (__RETCAST_2(x, y)( \
++	__FLT(x) && __FLT(y) ? fun ## f (x, y) : \
++	__LDBL((x)+(y)) ? fun ## l (x, y) : \
++	fun(x, y) ))
++
++#define __tg_complex(fun, x) (__RETCAST_CX(x)( \
++	__FLTCX((x)+I) && __IS_FP(x) ? fun ## f (x) : \
++	__LDBLCX((x)+I) ? fun ## l (x) : \
++	fun(x) ))
++
++#define __tg_complex_retreal(fun, x) (__RETCAST_REAL(x)( \
++	__FLTCX((x)+I) && __IS_FP(x) ? fun ## f (x) : \
++	__LDBLCX((x)+I) ? fun ## l (x) : \
++	fun(x) ))
++
++#define __tg_real_complex(fun, x) (__RETCAST(x)( \
++	__FLTCX(x) ? c ## fun ## f (x) : \
++	__DBLCX(x) ? c ## fun (x) : \
++	__LDBLCX(x) ? c ## fun ## l (x) : \
++	__FLT(x) ? fun ## f (x) : \
++	__LDBL(x) ? fun ## l (x) : \
++	fun(x) ))
++
++/* special cases */
++
++#define __tg_real_remquo(x, y, z) (__RETCAST_2(x, y)( \
++	__FLT(x) && __FLT(y) ? remquof(x, y, z) : \
++	__LDBL((x)+(y)) ? remquol(x, y, z) : \
++	remquo(x, y, z) ))
++
++#define __tg_real_fma(x, y, z) (__RETCAST_3(x, y, z)( \
++	__FLT(x) && __FLT(y) && __FLT(z) ? fmaf(x, y, z) : \
++	__LDBL((x)+(y)+(z)) ? fmal(x, y, z) : \
++	fma(x, y, z) ))
++
++#define __tg_real_complex_pow(x, y) (__RETCAST_2(x, y)( \
++	__FLTCX((x)+(y)) && __IS_FP(x) && __IS_FP(y) ? cpowf(x, y) : \
++	__FLTCX((x)+(y)) ? cpow(x, y) : \
++	__DBLCX((x)+(y)) ? cpow(x, y) : \
++	__LDBLCX((x)+(y)) ? cpowl(x, y) : \
++	__FLT(x) && __FLT(y) ? powf(x, y) : \
++	__LDBL((x)+(y)) ? powl(x, y) : \
++	pow(x, y) ))
++
++#define __tg_real_complex_fabs(x) (__RETCAST_REAL(x)( \
++	__FLTCX(x) ? cabsf(x) : \
++	__DBLCX(x) ? cabs(x) : \
++	__LDBLCX(x) ? cabsl(x) : \
++	__FLT(x) ? fabsf(x) : \
++	__LDBL(x) ? fabsl(x) : \
++	fabs(x) ))
++
++/* suppress any macros in math.h or complex.h */
++
++#undef acos
++#undef acosh
++#undef asin
++#undef asinh
++#undef atan
++#undef atan2
++#undef atanh
++#undef carg
++#undef cbrt
++#undef ceil
++#undef cimag
++#undef conj
++#undef copysign
++#undef cos
++#undef cosh
++#undef cproj
++#undef creal
++#undef erf
++#undef erfc
++#undef exp
++#undef exp2
++#undef expm1
++#undef fabs
++#undef fdim
++#undef floor
++#undef fma
++#undef fmax
++#undef fmin
++#undef fmod
++#undef frexp
++#undef hypot
++#undef ilogb
++#undef ldexp
++#undef lgamma
++#undef llrint
++#undef llround
++#undef log
++#undef log10
++#undef log1p
++#undef log2
++#undef logb
++#undef lrint
++#undef lround
++#undef nearbyint
++#undef nextafter
++#undef nexttoward
++#undef pow
++#undef remainder
++#undef remquo
++#undef rint
++#undef round
++#undef scalbln
++#undef scalbn
++#undef sin
++#undef sinh
++#undef sqrt
++#undef tan
++#undef tanh
++#undef tgamma
++#undef trunc
++
++/* tg functions */
++
++#define acos(x)         __tg_real_complex(acos, (x))
++#define acosh(x)        __tg_real_complex(acosh, (x))
++#define asin(x)         __tg_real_complex(asin, (x))
++#define asinh(x)        __tg_real_complex(asinh, (x))
++#define atan(x)         __tg_real_complex(atan, (x))
++#define atan2(x,y)      __tg_real_2(atan2, (x), (y))
++#define atanh(x)        __tg_real_complex(atanh, (x))
++#define carg(x)         __tg_complex_retreal(carg, (x))
++#define cbrt(x)         __tg_real(cbrt, (x))
++#define ceil(x)         __tg_real(ceil, (x))
++#define cimag(x)        __tg_complex_retreal(cimag, (x))
++#define conj(x)         __tg_complex(conj, (x))
++#define copysign(x,y)   __tg_real_2(copysign, (x), (y))
++#define cos(x)          __tg_real_complex(cos, (x))
++#define cosh(x)         __tg_real_complex(cosh, (x))
++#define cproj(x)        __tg_complex(cproj, (x))
++#define creal(x)        __tg_complex_retreal(creal, (x))
++#define erf(x)          __tg_real(erf, (x))
++#define erfc(x)         __tg_real(erfc, (x))
++#define exp(x)          __tg_real_complex(exp, (x))
++#define exp2(x)         __tg_real(exp2, (x))
++#define expm1(x)        __tg_real(expm1, (x))
++#define fabs(x)         __tg_real_complex_fabs(x)
++#define fdim(x,y)       __tg_real_2(fdim, (x), (y))
++#define floor(x)        __tg_real(floor, (x))
++#define fma(x,y,z)      __tg_real_fma((x), (y), (z))
++#define fmax(x,y)       __tg_real_2(fmax, (x), (y))
++#define fmin(x,y)       __tg_real_2(fmin, (x), (y))
++#define fmod(x,y)       __tg_real_2(fmod, (x), (y))
++#define frexp(x,y)      __tg_real_2_1(frexp, (x), (y))
++#define hypot(x,y)      __tg_real_2(hypot, (x), (y))
++#define ilogb(x)        __tg_real_nocast(ilogb, (x))
++#define ldexp(x,y)      __tg_real_2_1(ldexp, (x), (y))
++#define lgamma(x)       __tg_real(lgamma, (x))
++#define llrint(x)       __tg_real_nocast(llrint, (x))
++#define llround(x)      __tg_real_nocast(llround, (x))
++#define log(x)          __tg_real_complex(log, (x))
++#define log10(x)        __tg_real(log10, (x))
++#define log1p(x)        __tg_real(log1p, (x))
++#define log2(x)         __tg_real(log2, (x))
++#define logb(x)         __tg_real(logb, (x))
++#define lrint(x)        __tg_real_nocast(lrint, (x))
++#define lround(x)       __tg_real_nocast(lround, (x))
++#define nearbyint(x)    __tg_real(nearbyint, (x))
++#define nextafter(x,y)  __tg_real_2(nextafter, (x), (y))
++#define nexttoward(x,y) __tg_real_2(nexttoward, (x), (y))
++#define pow(x,y)        __tg_real_complex_pow((x), (y))
++#define remainder(x,y)  __tg_real_2(remainder, (x), (y))
++#define remquo(x,y,z)   __tg_real_remquo((x), (y), (z))
++#define rint(x)         __tg_real(rint, (x))
++#define round(x)        __tg_real(round, (x))
++#define scalbln(x,y)    __tg_real_2_1(scalbln, (x), (y))
++#define scalbn(x,y)     __tg_real_2_1(scalbn, (x), (y))
++#define sin(x)          __tg_real_complex(sin, (x))
++#define sinh(x)         __tg_real_complex(sinh, (x))
++#define sqrt(x)         __tg_real_complex(sqrt, (x))
++#define tan(x)          __tg_real_complex(tan, (x))
++#define tanh(x)         __tg_real_complex(tanh, (x))
++#define tgamma(x)       __tg_real(tgamma, (x))
++#define trunc(x)        __tg_real(trunc, (x))
++
++#endif
+diff --git a/threads.h b/threads.h
+index fc1f073..279c460 100644
+--- a/threads.h
++++ b/threads.h
+@@ -78,105 +78,99 @@ enum {
+ # define thread_local _Thread_local
+ #endif
+ 
+-#if __ANDROID_API__ >= 30
+-// This file is implemented as static inlines before API level 30.
+-
+ /**
+  * Unblocks all threads blocked on `__cond`.
+  */
+-int cnd_broadcast(cnd_t* _Nonnull __cond) __INTRODUCED_IN(30);
++int cnd_broadcast(cnd_t* _Nonnull __cond);
+ 
+ /**
+  * Destroys a condition variable.
+  */
+-void cnd_destroy(cnd_t* _Nonnull __cond) __INTRODUCED_IN(30);
++void cnd_destroy(cnd_t* _Nonnull __cond);
+ 
+ /**
+  * Creates a condition variable.
+  */
+-int cnd_init(cnd_t* _Nonnull __cond) __INTRODUCED_IN(30);
++int cnd_init(cnd_t* _Nonnull __cond);
+ 
+ /**
+  * Unblocks one thread blocked on `__cond`.
+  */
+-int cnd_signal(cnd_t* _Nonnull __cond) __INTRODUCED_IN(30);
++int cnd_signal(cnd_t* _Nonnull __cond);
+ 
+ /**
+  * Unlocks `__mutex` and blocks until `__cond` is signaled or `__timeout` occurs.
+  */
+-int cnd_timedwait(cnd_t* _Nonnull __cond, mtx_t* _Nonnull __mutex, const struct timespec* _Nonnull __timeout)
+-    __INTRODUCED_IN(30);
++int cnd_timedwait(cnd_t* _Nonnull __cond, mtx_t* _Nonnull __mutex, const struct timespec* _Nonnull __timeout);
+ 
+ /**
+  * Unlocks `__mutex` and blocks until `__cond` is signaled.
+  */
+-int cnd_wait(cnd_t* _Nonnull __cond, mtx_t* _Nonnull __mutex) __INTRODUCED_IN(30);
++int cnd_wait(cnd_t* _Nonnull __cond, mtx_t* _Nonnull __mutex);
+ 
+ 
+ 
+ /**
+  * Destroys a mutex.
+  */
+-void mtx_destroy(mtx_t* _Nonnull __mutex) __INTRODUCED_IN(30);
++void mtx_destroy(mtx_t* _Nonnull __mutex);
+ 
+ /**
+  * Creates a mutex.
+  */
+-int mtx_init(mtx_t* _Nonnull __mutex, int __type) __INTRODUCED_IN(30);
++int mtx_init(mtx_t* _Nonnull __mutex, int __type);
+ 
+ /**
+  * Blocks until `__mutex` is acquired.
+  */
+-int mtx_lock(mtx_t* _Nonnull __mutex) __INTRODUCED_IN(30);
++int mtx_lock(mtx_t* _Nonnull __mutex);
+ 
+ /**
+  * Blocks until `__mutex` is acquired or `__timeout` expires.
+  */
+-int mtx_timedlock(mtx_t* _Nonnull __mutex, const struct timespec* _Nonnull __timeout) __INTRODUCED_IN(30);
++int mtx_timedlock(mtx_t* _Nonnull __mutex, const struct timespec* _Nonnull __timeout);
+ 
+ /**
+  * Acquires `__mutex` or returns `thrd_busy`.
+  */
+-int mtx_trylock(mtx_t* _Nonnull __mutex) __INTRODUCED_IN(30);
++int mtx_trylock(mtx_t* _Nonnull __mutex);
+ 
+ /**
+  * Unlocks `__mutex`.
+  */
+-int mtx_unlock(mtx_t* _Nonnull __mutex) __INTRODUCED_IN(30);
+-
+-
++int mtx_unlock(mtx_t* _Nonnull __mutex);
+ 
+ /**
+  * Creates a new thread running `__function(__arg)`, and sets `*__thrd` to
+  * the new thread.
+  */
+-int thrd_create(thrd_t* _Nonnull __thrd, thrd_start_t _Nonnull __function, void* _Nullable __arg) __INTRODUCED_IN(30);
++int thrd_create(thrd_t* _Nonnull __thrd, thrd_start_t _Nonnull __function, void* _Nullable __arg);
+ 
+ /**
+  * Returns the `thrd_t` corresponding to the caller.
+  */
+-thrd_t thrd_current(void) __INTRODUCED_IN(30);
++thrd_t thrd_current(void);
+ 
+ /**
+  * Tells the OS to automatically dispose of `__thrd` when it exits.
+  */
+-int thrd_detach(thrd_t __thrd) __INTRODUCED_IN(30);
++int thrd_detach(thrd_t __thrd);
+ 
+ /**
+  * Tests whether two threads are the same thread.
+  */
+-int thrd_equal(thrd_t __lhs, thrd_t __rhs) __INTRODUCED_IN(30);
++int thrd_equal(thrd_t __lhs, thrd_t __rhs);
+ 
+ /**
+  * Terminates the calling thread, setting its result to `__result`.
+  */
+-void thrd_exit(int __result) __noreturn __INTRODUCED_IN(30);
++void thrd_exit(int __result) __noreturn;
+ 
+ /**
+  * Blocks until `__thrd` terminates. If `__result` is not null, `*__result`
+  * is set to the exiting thread's result.
+  */
+-int thrd_join(thrd_t __thrd, int* _Nullable __result) __INTRODUCED_IN(30);
++int thrd_join(thrd_t __thrd, int* _Nullable __result);
+ 
+ /**
+  * Blocks the caller for at least `__duration` unless a signal is delivered.
+@@ -185,40 +179,34 @@ int thrd_join(thrd_t __thrd, int* _Nullable __result) __INTRODUCED_IN(30);
+  *
+  * Returns 0 on success, or -1 if a signal was delivered.
+  */
+-int thrd_sleep(const struct timespec* _Nonnull __duration, struct timespec* _Nullable __remaining) __INTRODUCED_IN(30);
++int thrd_sleep(const struct timespec* _Nonnull __duration, struct timespec* _Nullable __remaining);
+ 
+ /**
+  * Request that other threads should be scheduled.
+  */
+-void thrd_yield(void) __INTRODUCED_IN(30);
+-
+-
++void thrd_yield(void);
+ 
+ /**
+  * Creates a thread-specific storage key with the associated destructor (which
+  * may be null).
+  */
+-int tss_create(tss_t* _Nonnull __key, tss_dtor_t _Nullable __dtor) __INTRODUCED_IN(30);
++int tss_create(tss_t* _Nonnull __key, tss_dtor_t _Nullable __dtor);
+ 
+ /**
+  * Destroys a thread-specific storage key.
+  */
+-void tss_delete(tss_t __key) __INTRODUCED_IN(30);
++void tss_delete(tss_t __key);
+ 
+ /**
+  * Returns the value for the current thread held in the thread-specific storage
+  * identified by `__key`.
+  */
+-void* _Nullable tss_get(tss_t __key) __INTRODUCED_IN(30);
++void* _Nullable tss_get(tss_t __key);
+ 
+ /**
+  * Sets the current thread's value for the thread-specific storage identified
+  * by `__key` to `__value`.
+  */
+-int tss_set(tss_t __key, void* _Nonnull __value) __INTRODUCED_IN(30);
+-
+-#endif
++int tss_set(tss_t __key, void* _Nonnull __value);
+ 
+ __END_DECLS
+-
+-#include <android/legacy_threads_inlines.h>
 diff --git a/time.h b/time.h
-index b15ca75..7dac8ba 100644
+index b15ca75..0876732 100644
 --- a/time.h
 +++ b/time.h
-@@ -279,7 +279,7 @@ char* _Nullable strptime(const char* _Nonnull __s, const char* _Nonnull __fmt, s
+@@ -188,7 +188,6 @@ double difftime(time_t __time1, time_t __time0);
+  */
+ time_t mktime(struct tm* _Nonnull __tm);
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(35)
+ /**
+  * mktime_z(3) converts broken-down time `tm` into the number of seconds
+  * since the Unix epoch, assuming the given timezone.
+@@ -197,8 +196,7 @@ time_t mktime(struct tm* _Nonnull __tm);
+  *
+  * Available since API level 35.
+  */
+-time_t mktime_z(timezone_t _Nonnull __tz, struct tm* _Nonnull __tm) __INTRODUCED_IN(35);
+-#endif
++time_t mktime_z(timezone_t _Nonnull __tz, struct tm* _Nonnull __tm);
+ 
+ /**
+  * [localtime(3)](https://man7.org/linux/man-pages/man3/localtime.3p.html) converts
+@@ -223,7 +221,6 @@ struct tm* _Nullable localtime(const time_t* _Nonnull __t);
+  */
+ struct tm* _Nullable localtime_r(const time_t* _Nonnull __t, struct tm* _Nonnull __tm);
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(35)
+ /**
+  * localtime_rz(3) converts the number of seconds since the Unix epoch in
+  * `t` to a broken-down time, assuming the given timezone. That broken-down
+@@ -233,8 +230,7 @@ struct tm* _Nullable localtime_r(const time_t* _Nonnull __t, struct tm* _Nonnull
+  *
+  * Available since API level 35.
+  */
+-struct tm* _Nullable localtime_rz(timezone_t _Nonnull __tz, const time_t* _Nonnull __t, struct tm* _Nonnull __tm) __INTRODUCED_IN(35);
+-#endif
++struct tm* _Nullable localtime_rz(timezone_t _Nonnull __tz, const time_t* _Nonnull __t, struct tm* _Nonnull __tm);
+ 
+ /**
+  * Inverse of localtime().
+@@ -279,7 +275,7 @@ char* _Nullable strptime(const char* _Nonnull __s, const char* _Nonnull __fmt, s
  /**
   * Equivalent to strptime() on Android where only C/POSIX locales are available.
   */
@@ -5638,7 +5779,7 @@ index b15ca75..7dac8ba 100644
  
  /**
   * [strftime(3)](https://man7.org/linux/man-pages/man3/strftime.3.html) formats
-@@ -290,10 +290,12 @@ char* _Nullable strptime_l(const char* _Nonnull __s, const char* _Nonnull __fmt,
+@@ -290,10 +286,12 @@ char* _Nullable strptime_l(const char* _Nonnull __s, const char* _Nonnull __fmt,
   */
  size_t strftime(char* _Nonnull __buf, size_t __n, const char* _Nonnull __fmt, const struct tm* _Nullable __tm) __strftimelike(3);
  
@@ -5652,6 +5793,82 @@ index b15ca75..7dac8ba 100644
  
  /**
   * [tzset(3)](https://man7.org/linux/man-pages/man3/tzset.3.html) tells
+@@ -309,7 +307,6 @@ size_t strftime_l(char* _Nonnull __buf, size_t __n, const char* _Nonnull __fmt,
+  */
+ void tzset(void);
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(35)
+ /**
+  * tzalloc(3) allocates a timezone corresponding to the given Olson ID.
+  *
+@@ -328,10 +325,8 @@ void tzset(void);
+  *
+  * Available since API level 35.
+  */
+-timezone_t _Nullable tzalloc(const char* _Nullable __id) __INTRODUCED_IN(35);
+-#endif
++timezone_t _Nullable tzalloc(const char* _Nullable __id);
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(35)
+ /**
+  * tzfree(3) frees a timezone object returned by tzalloc().
+  *
+@@ -341,8 +336,7 @@ timezone_t _Nullable tzalloc(const char* _Nullable __id) __INTRODUCED_IN(35);
+  *
+  * Available since API level 35.
+  */
+-void tzfree(timezone_t _Nullable __tz) __INTRODUCED_IN(35);
+-#endif
++void tzfree(timezone_t _Nullable __tz);
+ 
+ /**
+  * [clock(3)](https://man7.org/linux/man-pages/man3/clock.3.html)
+@@ -356,15 +350,13 @@ void tzfree(timezone_t _Nullable __tz) __INTRODUCED_IN(35);
+  */
+ clock_t clock(void);
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(23)
+ /**
+  * [clock_getcpuclockid(3)](https://man7.org/linux/man-pages/man3/clock_getcpuclockid.3.html)
+  * gets the clock ID of the cpu-time clock for the given `pid`.
+  *
+  * Returns 0 on success, and returns an error number on failure (unlike other clock functions).
+  */
+-int clock_getcpuclockid(pid_t __pid, clockid_t* _Nonnull __clock) __INTRODUCED_IN(23);
+-#endif
++int clock_getcpuclockid(pid_t __pid, clockid_t* _Nonnull __clock);
+ 
+ /**
+  * [clock_getres(2)](https://man7.org/linux/man-pages/man2/clock_getres.2.html)
+@@ -470,7 +462,6 @@ int timer_getoverrun(timer_t _Nonnull __timer);
+  */
+ #define TIME_THREAD_ACTIVE (CLOCK_THREAD_CPUTIME_ID+1)
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(29)
+ /**
+  * timespec_get(3) is equivalent to clock_gettime() for the clock corresponding to the given base.
+  *
+@@ -479,10 +470,8 @@ int timer_getoverrun(timer_t _Nonnull __timer);
+  * Available since API level 29 for TIME_UTC; other bases arrived later.
+  * Code for Android should prefer clock_gettime().
+  */
+-int timespec_get(struct timespec* _Nonnull __ts, int __base) __INTRODUCED_IN(29);
+-#endif
++int timespec_get(struct timespec* _Nonnull __ts, int __base);
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(35)
+ /**
+  * timespec_getres(3) is equivalent to clock_getres() for the clock corresponding to the given base.
+  *
+@@ -491,7 +480,6 @@ int timespec_get(struct timespec* _Nonnull __ts, int __base) __INTRODUCED_IN(29)
+  * Available since API level 35.
+  * Code for Android should prefer clock_gettime().
+  */
+-int timespec_getres(struct timespec* _Nonnull __ts, int __base) __INTRODUCED_IN(35);
+-#endif
++int timespec_getres(struct timespec* _Nonnull __ts, int __base);
+ 
+ __END_DECLS
 diff --git a/uchar.h b/uchar.h
 index 94efb2d..b9fb3c8 100644
 --- a/uchar.h

@@ -1,3 +1,1 @@
-double complex cacosh(double complex __z) { 
-	return __builtin_cacosh(__z);
-}
+../../../submodules/musl/src/complex/cacosh.c

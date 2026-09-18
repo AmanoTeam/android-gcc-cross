@@ -1,3 +1,1 @@
-long double erfl(long double __x) { 
-	return __builtin_erfl(__x);
-}
+../../../submodules/musl/src/math/erfl.c

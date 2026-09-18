@@ -1,3 +1,1 @@
-float cargf(float complex __z) { 
-	return __builtin_cargf(__z);
-}
+../../../submodules/musl/src/complex/cargf.c

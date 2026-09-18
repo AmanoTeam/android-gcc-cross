@@ -1,3 +1,1 @@
-long double roundl(long double __x) { 
-	return __builtin_roundl(__x);
-}
+../../../submodules/musl/src/math/roundl.c

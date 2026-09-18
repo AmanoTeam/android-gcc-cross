@@ -1,3 +1,1 @@
-double complex casin(double complex __z) { 
-	return __builtin_casin(__z);
-}
+../../../submodules/musl/src/complex/casin.c
