@@ -1,4 +1,4 @@
-From 3bd4caf333b94e18f648a49a009226eb3bf4ae66 Mon Sep 17 00:00:00 2001
+From 1b2a55ac2dd2bff21f77e7de489aeda475bd4909 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Wed, 8 Jul 2026 23:12:57 -0300
 Subject: [PATCH] Android NDK headers
@@ -42,7 +42,6 @@ Subject: [PATCH] Android NDK headers
  ctype.h                                       |  75 ++---
  dirent.h                                      |  14 +-
  fcntl.h                                       |  29 +-
- features.h                                    |   4 +
  fenv.h                                        |   2 +
  fts.h                                         |  12 +-
  ftw.h                                         |  13 +-
@@ -96,7 +95,7 @@ Subject: [PATCH] Android NDK headers
  unistd.h                                      |  56 +++-
  wchar.h                                       |  67 +++-
  wctype.h                                      |  36 +-
- 92 files changed, 1933 insertions(+), 1417 deletions(-)
+ 91 files changed, 1929 insertions(+), 1417 deletions(-)
  create mode 100644 android/legacy_signal_inlines.h
  rename android/{legacy_threads_inlines.h => legacy_sys_stat_inlines.h} (75%)
  rename bits/termios_winsize_inlines.h => android/legacy_sys_wait_inlines.h (71%)
@@ -2736,18 +2735,6 @@ index 8f876b6..039dd44 100644
  #endif
  
  #if defined(__USE_GNU) && __BIONIC_AVAILABILITY_GUARD(26)
-diff --git a/features.h b/features.h
-index a915fe7..09ca449 100644
---- a/features.h
-+++ b/features.h
-@@ -34,3 +34,7 @@
-  */
- 
- #include <sys/cdefs.h>
-+
-+/* Imported from musl's src/include/features.h so that verbatim musl sources
-+ * compile unmodified: marks a symbol as hidden from the dynamic symbol table. */
-+#define hidden __attribute__((__visibility__("hidden")))
 diff --git a/fenv.h b/fenv.h
 index 4c1d490..7de3f46 100644
 --- a/fenv.h
@@ -3889,7 +3876,7 @@ index d06d683..cae83e4 100644
  __BEGIN_DECLS
  
 diff --git a/sys/cdefs.h b/sys/cdefs.h
-index bd57ef0..3fe649c 100644
+index bd57ef0..6076dc0 100644
 --- a/sys/cdefs.h
 +++ b/sys/cdefs.h
 @@ -93,7 +93,7 @@
@@ -4005,23 +3992,23 @@ index bd57ef0..3fe649c 100644
 +
 +#if defined(__cplusplus)
 +	#if __cplusplus >= 201103L
-+		#define __THROW noexcept (true)
++		#define __NOEXCEPT noexcept (true)
 +	#else
-+		#define __THROW throw ()
++		#define __NOEXCEPT throw ()
 +	#endif
 +	
-+	#define __THROWNL __THROW
++	#define __NOEXCEPTNL __NOEXCEPT
 +#else
-+	#define __THROW __attribute__((__nothrow__ , __leaf__))
-+	#define __THROWNL __attribute__((__nothrow__))
++	#define __NOEXCEPT __attribute__((__nothrow__ , __leaf__))
++	#define __NOEXCEPTNL __attribute__((__nothrow__))
 +#endif
 +
 +#if defined(__cplusplus)
-+	#define __REDIRECT_NTH(name) __THROW __RENAME(#name)
-+	#define __REDIRECT_IF_FILE_OFFSET64_NTH(name) __THROW __RENAME_IF_FILE_OFFSET64(#name)
++	#define __REDIRECT_NOEXCEPT(name) __NOEXCEPT __RENAME(#name)
++	#define __REDIRECT_LFS_NOEXCEPT(name) __NOEXCEPT __RENAME_IF_FILE_OFFSET64(#name)
 +#else
-+	#define __REDIRECT_NTH(name) __RENAME(#name) __THROW
-+	#define __REDIRECT_IF_FILE_OFFSET64_NTH(name) __RENAME_IF_FILE_OFFSET64(#name) __THROW
++	#define __REDIRECT_NOEXCEPT(name) __RENAME(#name) __NOEXCEPT
++	#define __REDIRECT_LFS_NOEXCEPT(name) __RENAME_IF_FILE_OFFSET64(#name) __NOEXCEPT
 +#endif
 +
 +#define _Nonnull

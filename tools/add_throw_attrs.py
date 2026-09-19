@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Annotate android headers with __THROW/__THROWNL from glibc mapping.
+"""Annotate android headers with __NOEXCEPT/__NOEXCEPTNL from glibc mapping.
 
 Approach: 
 1. Strip all comments from the file (producing clean text + position map)
@@ -293,8 +293,8 @@ def find_func_declarations(clean_text):
             i = j + 1
             continue
         
-        # Check if already has __THROW or __THROWNL
-        has_throw = '__THROW' in flat or '__THROWNL' in flat
+        # Check if already has __NOEXCEPT or __NOEXCEPTNL
+        has_throw = '__NOEXCEPT' in flat or '__NOEXCEPTNL' in flat
         
         # Find position of ';' in clean text
         # We need the character position in clean_text, not just line
@@ -308,7 +308,7 @@ def find_func_declarations(clean_text):
         semi_pos_clean = stmt_start_clean + last_semi
         
         # Find closing paren of the function parameter list for insertion point.
-        # Insert __THROW right after the ) so it's the first thing after the
+        # Insert __NOEXCEPT right after the ) so it's the first thing after the
         # function prototype, before any __attribute__, __RENAME, etc.
         ins_pos_clean = semi_pos_clean  # fallback
         func_re = re.compile(r'\b' + re.escape(candidate_name) + r'\s*\(')
@@ -382,11 +382,11 @@ def process_file(filepath, rel_path, nothrow_leaf, nothrow_only, neither, dry_ru
         # Determine annotation text
         # Trailing space (not leading) because we insert right at the next token's
         # first character, and the original whitespace before it serves as separator
-        # between )/__RENAME and __THROW.
+        # between )/__RENAME and __NOEXCEPT.
         if name in nothrow_leaf:
-            annotation = '__THROW '
+            annotation = '__NOEXCEPT '
         elif name in nothrow_only:
-            annotation = '__THROWNL '
+            annotation = '__NOEXCEPTNL '
         else:
             continue
         
@@ -401,7 +401,7 @@ def process_file(filepath, rel_path, nothrow_leaf, nothrow_only, neither, dry_ru
         semi_pos_clean = d['semi_pos_clean']
         semi_pos_orig = pos_map[semi_pos_clean] if semi_pos_clean < len(pos_map) else ins_pos_orig
         
-        # Before inserting, verify no __THROW/__THROWNL in the declaration itself.
+        # Before inserting, verify no __NOEXCEPT/__NOEXCEPTNL in the declaration itself.
         # Use the statement text from clean text to find the declaration bounds.
         stmt_clean = d['stmt_flat']
         stmt_len_clean = len(stmt_clean)
@@ -410,12 +410,12 @@ def process_file(filepath, rel_path, nothrow_leaf, nothrow_only, neither, dry_ru
         orig_till_semi = content[orig_start:semi_pos_orig]
         
         # Check only within the declaration context (up to the semicolon we found)
-        # by checking for __THROW or __THROWNL between the function name and ;
+        # by checking for __NOEXCEPT or __NOEXCEPTNL between the function name and ;
         func_name = d['name']
         name_idx = orig_till_semi.rfind(func_name)
         if name_idx >= 0:
             decl_only = orig_till_semi[name_idx:semi_pos_orig - orig_start]
-            if '__THROW' in decl_only or '__THROWNL' in decl_only:
+            if '__NOEXCEPT' in decl_only or '__NOEXCEPTNL' in decl_only:
                 continue
         
         modifications.append((ins_pos_orig, annotation))

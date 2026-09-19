@@ -171,9 +171,9 @@ if ! [ -f "${ndk_archive}" ]; then
 		sed \
 			--in-place \
 			--regexp-extended \
-			--expression 's/\s*__THROW\s*__THROW/__THROW/g' \
-			--expression 's/\s*__THROW\s*__RENAME\(([^)]*)\)/ __REDIRECT_NTH(\1)/g' \
-			--expression 's/\s*__THROW\s*__RENAME_IF_FILE_OFFSET64\(([^)]*)\)/ __REDIRECT_IF_FILE_OFFSET64_NTH(\1)/g' \
+			--expression 's/\s*__NOEXCEPT\s*__NOEXCEPT/__NOEXCEPT/g' \
+			--expression 's/\s*__NOEXCEPT\s*__RENAME\(([^)]*)\)/ __REDIRECT_NOEXCEPT(\1)/g' \
+			--expression 's/\s*__NOEXCEPT\s*__RENAME_IF_FILE_OFFSET64\(([^)]*)\)/ __REDIRECT_LFS_NOEXCEPT(\1)/g' \
 			"${file}"
 	done <<< "$(find "${include_dir}" -type 'f')"
 	
