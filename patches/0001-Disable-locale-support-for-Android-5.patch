@@ -1,0 +1,48 @@
+From 54b2818eeb7d04036177e46dbe8dd18e31384d4c Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Sat, 19 Sep 2026 16:12:59 -0300
+Subject: [PATCH] Disable locale support for Android <5
+
+---
+ libstdc++-v3/include/std/charconv             | 2 +-
+ libstdc++-v3/src/c++17/floating_from_chars.cc | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/libstdc++-v3/include/std/charconv b/libstdc++-v3/include/std/charconv
+index 993ceb3f7..f8de57dd0 100644
+--- a/libstdc++-v3/include/std/charconv
++++ b/libstdc++-v3/include/std/charconv
+@@ -664,7 +664,7 @@ namespace __detail
+   operator^=(chars_format& __lhs, chars_format __rhs) noexcept
+   { return __lhs = __lhs ^ __rhs; }
+ 
+-#if defined __cpp_lib_to_chars || _GLIBCXX_HAVE_USELOCALE
++#if defined __cpp_lib_to_chars || __ANDROID_API__ >= 21
+   from_chars_result
+   from_chars(const char* __first, const char* __last, float& __value,
+ 	     chars_format __fmt = chars_format::general) noexcept;
+diff --git a/libstdc++-v3/src/c++17/floating_from_chars.cc b/libstdc++-v3/src/c++17/floating_from_chars.cc
+index ed434b395..e7581ca5a 100644
+--- a/libstdc++-v3/src/c++17/floating_from_chars.cc
++++ b/libstdc++-v3/src/c++17/floating_from_chars.cc
+@@ -49,7 +49,7 @@
+ # include <xlocale.h>
+ #endif
+ 
+-#if _GLIBCXX_HAVE_USELOCALE
++#if __ANDROID_API__ >= 21
+ // FIXME: This should be reimplemented so it doesn't use strtod and newlocale.
+ // That will avoid the need for any memory allocation, meaning that the
+ // non-conforming errc::not_enough_memory result cannot happen.
+@@ -595,7 +595,7 @@ namespace
+   // RAII type to change and restore the locale.
+   struct auto_locale
+   {
+-#if _GLIBCXX_HAVE_USELOCALE
++#if __ANDROID_API__ >= 21
+     // When we have uselocale we can change the current thread's locale.
+     const locale_t loc;
+     locale_t orig;
+-- 
+2.55.0
+

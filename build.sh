@@ -104,10 +104,10 @@ declare -ra targets=(
 	# 'mips64el-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
 	
+	'armv7-unknown-linux-androideabi'
+	'aarch64-unknown-linux-android'
 	'x86_64-unknown-linux-android'
 	'i686-unknown-linux-android'
-	'aarch64-unknown-linux-android'
-	'armv7-unknown-linux-androideabi'
 	
 	# 'riscv64-unknown-linux-android'
 )
@@ -592,6 +592,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-c-family-Add-__builtin_available-support-inspired-by-Clang.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-version-guards-for-some-libstdc-header-definitions.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Force-disable-TLS-support-in-libstdc.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Disable-locale-support-for-Android-5.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-enable-default-semantic-interposition.patch"
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Avoid-relying-on-dynamic-shadow-when-building-libsan.patch"
