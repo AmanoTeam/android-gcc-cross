@@ -1,4 +1,4 @@
-From 1b2a55ac2dd2bff21f77e7de489aeda475bd4909 Mon Sep 17 00:00:00 2001
+From 5c0b45e438aa71f00543bc849df11add9a12a7b0 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Wed, 8 Jul 2026 23:12:57 -0300
 Subject: [PATCH] Android NDK headers
@@ -59,6 +59,7 @@ Subject: [PATCH] Android NDK headers
  setjmp.h                                      |   8 +
  signal.h                                      |  52 ++-
  stdatomic.h                                   | 135 --------
+ stdint.h                                      |   3 +
  stdio.h                                       |  17 +-
  stdlib.h                                      |  52 ++-
  string.h                                      |  48 ++-
@@ -95,7 +96,7 @@ Subject: [PATCH] Android NDK headers
  unistd.h                                      |  56 +++-
  wchar.h                                       |  67 +++-
  wctype.h                                      |  36 +-
- 91 files changed, 1929 insertions(+), 1417 deletions(-)
+ 92 files changed, 1932 insertions(+), 1417 deletions(-)
  create mode 100644 android/legacy_signal_inlines.h
  rename android/{legacy_threads_inlines.h => legacy_sys_stat_inlines.h} (75%)
  rename bits/termios_winsize_inlines.h => android/legacy_sys_wait_inlines.h (71%)
@@ -3504,6 +3505,20 @@ index b7dac4a..0000000
 -#endif /* <atomic> unavailable */
 -
 -#endif /* !_STDATOMIC_H_ */
+diff --git a/stdint.h b/stdint.h
+index 1e228fa..d910d61 100644
+--- a/stdint.h
++++ b/stdint.h
+@@ -247,6 +247,9 @@ typedef int64_t       intmax_t;
+ #define WCHAR_WIDTH __WCHAR_WIDTH__
+ #define WINT_WIDTH __WINT_WIDTH__
+ 
++#define __UINTPTR_WIDTH__ __SIZE_WIDTH__
++#define __UINTMAX_WIDTH__ __INTMAX_WIDTH__
++
+ #define INTPTR_WIDTH __INTPTR_WIDTH__
+ #define UINTPTR_WIDTH __UINTPTR_WIDTH__
+ 
 diff --git a/stdio.h b/stdio.h
 index d64658c..1625107 100644
 --- a/stdio.h
