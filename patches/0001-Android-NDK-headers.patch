@@ -1,4 +1,4 @@
-From d1906689f55a2d36028d70df362308ea1d8c681c Mon Sep 17 00:00:00 2001
+From 111f37c135793426c8e4e49ddf147eb8b6d8e7f1 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Wed, 8 Jul 2026 23:12:57 -0300
 Subject: [PATCH] Android NDK headers
@@ -40,7 +40,7 @@ Subject: [PATCH] Android NDK headers
  bits/wctype.h                                 |   6 +-
  complex.h                                     | 317 ++++--------------
  ctype.h                                       |  75 ++---
- dirent.h                                      |  14 +-
+ dirent.h                                      |  17 +-
  fcntl.h                                       |  29 +-
  fenv.h                                        |   2 +
  fts.h                                         |  12 +-
@@ -96,7 +96,7 @@ Subject: [PATCH] Android NDK headers
  unistd.h                                      |  56 +++-
  wchar.h                                       |  67 +++-
  wctype.h                                      |  36 +-
- 92 files changed, 1924 insertions(+), 1395 deletions(-)
+ 92 files changed, 1927 insertions(+), 1395 deletions(-)
  create mode 100644 android/legacy_signal_inlines.h
  rename android/{legacy_threads_inlines.h => legacy_sys_stat_inlines.h} (75%)
  rename bits/termios_winsize_inlines.h => android/legacy_sys_wait_inlines.h (71%)
@@ -2571,10 +2571,20 @@ index beabc90..52e61e8 100644
  }
  
 diff --git a/dirent.h b/dirent.h
-index a63570d..cfefa87 100644
+index a63570d..cce5e59 100644
 --- a/dirent.h
 +++ b/dirent.h
-@@ -116,6 +116,7 @@ DIR* _Nullable fdopendir(int __dir_fd);
+@@ -57,6 +57,9 @@ __BEGIN_DECLS
+ /** d_type value for a socket. */
+ #define DT_SOCK 12
+ #define DT_WHT 14
++ 
++#define IFTODT(x) ((x)>>12 & 0xF)
++#define DTTOIF(x) ((x)<<12)
+ 
+ #if defined(__LP64__)
+ #define __DIRENT64_INO_T ino_t
+@@ -116,6 +119,7 @@ DIR* _Nullable fdopendir(int __dir_fd);
   */
  struct dirent* _Nullable readdir(DIR* _Nonnull __dir);
  
@@ -2582,7 +2592,7 @@ index a63570d..cfefa87 100644
  /**
   * [readdir64(3)](https://man7.org/linux/man-pages/man3/readdir.3.html)
   * returns the next directory entry in the given directory.
-@@ -124,10 +125,11 @@ struct dirent* _Nullable readdir(DIR* _Nonnull __dir);
+@@ -124,10 +128,11 @@ struct dirent* _Nullable readdir(DIR* _Nonnull __dir);
   * or returns null and leaves `errno` unchanged at the end of the directory,
   * or returns null and sets `errno` on failure.
   */
@@ -2596,7 +2606,7 @@ index a63570d..cfefa87 100644
  
  /**
   * [closedir(3)](https://man7.org/linux/man-pages/man3/closedir.3.html)
-@@ -181,11 +183,13 @@ int dirfd(DIR* _Nonnull __dir);
+@@ -181,11 +186,13 @@ int dirfd(DIR* _Nonnull __dir);
   */
  int alphasort(const struct dirent* _Nonnull * _Nonnull __lhs, const struct dirent* _Nonnull * _Nonnull __rhs);
  
@@ -2611,7 +2621,7 @@ index a63570d..cfefa87 100644
  
  /**
   * [scandir(3)](https://man7.org/linux/man-pages/man3/scandir.3.html)
-@@ -199,6 +203,7 @@ int alphasort64(const struct dirent64* _Nonnull * _Nonnull __lhs, const struct d
+@@ -199,6 +206,7 @@ int alphasort64(const struct dirent64* _Nonnull * _Nonnull __lhs, const struct d
   */
  int scandir(const char* _Nonnull __path, struct dirent* _Nonnull * _Nonnull * _Nonnull __name_list, int (* _Nullable __filter)(const struct dirent* _Nonnull), int (* _Nullable __comparator)(const struct dirent* _Nonnull * _Nonnull, const struct dirent* _Nonnull * _Nonnull));
  
@@ -2619,7 +2629,7 @@ index a63570d..cfefa87 100644
  /**
   * [scandir64(3)](https://man7.org/linux/man-pages/man3/scandir.3.html)
   * scans all the directory `__path`, filtering entries with `__filter` and
-@@ -209,7 +214,8 @@ int scandir(const char* _Nonnull __path, struct dirent* _Nonnull * _Nonnull * _N
+@@ -209,7 +217,8 @@ int scandir(const char* _Nonnull __path, struct dirent* _Nonnull * _Nonnull * _N
   * Returns the number of entries returned in the list on success,
   * and returns -1 and sets `errno` on failure.
   */
