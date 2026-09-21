@@ -1,4 +1,4 @@
-From 5c0b45e438aa71f00543bc849df11add9a12a7b0 Mon Sep 17 00:00:00 2001
+From d1906689f55a2d36028d70df362308ea1d8c681c Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Wed, 8 Jul 2026 23:12:57 -0300
 Subject: [PATCH] Android NDK headers
@@ -91,12 +91,12 @@ Subject: [PATCH] Android NDK headers
  termios.h                                     |   5 -
  tgmath.h                                      | 293 ++++++++++++++++
  threads.h                                     |  60 ++--
- time.h                                        |  34 +-
+ time.h                                        |   4 +-
  uchar.h                                       |  10 +-
  unistd.h                                      |  56 +++-
  wchar.h                                       |  67 +++-
  wctype.h                                      |  36 +-
- 92 files changed, 1932 insertions(+), 1417 deletions(-)
+ 92 files changed, 1924 insertions(+), 1395 deletions(-)
  create mode 100644 android/legacy_signal_inlines.h
  rename android/{legacy_threads_inlines.h => legacy_sys_stat_inlines.h} (75%)
  rename bits/termios_winsize_inlines.h => android/legacy_sys_wait_inlines.h (71%)
@@ -5733,46 +5733,26 @@ index fc1f073..279c460 100644
 -
 -#include <android/legacy_threads_inlines.h>
 diff --git a/time.h b/time.h
-index b15ca75..0876732 100644
+index b15ca75..876a06c 100644
 --- a/time.h
 +++ b/time.h
-@@ -188,7 +188,6 @@ double difftime(time_t __time1, time_t __time0);
-  */
- time_t mktime(struct tm* _Nonnull __tm);
+@@ -39,6 +39,7 @@
  
--#if __BIONIC_AVAILABILITY_GUARD(35)
- /**
-  * mktime_z(3) converts broken-down time `tm` into the number of seconds
-  * since the Unix epoch, assuming the given timezone.
-@@ -197,8 +196,7 @@ time_t mktime(struct tm* _Nonnull __tm);
-  *
-  * Available since API level 35.
-  */
--time_t mktime_z(timezone_t _Nonnull __tz, struct tm* _Nonnull __tm) __INTRODUCED_IN(35);
--#endif
-+time_t mktime_z(timezone_t _Nonnull __tz, struct tm* _Nonnull __tm);
+ __BEGIN_DECLS
  
- /**
-  * [localtime(3)](https://man7.org/linux/man-pages/man3/localtime.3p.html) converts
-@@ -223,7 +221,6 @@ struct tm* _Nullable localtime(const time_t* _Nonnull __t);
-  */
- struct tm* _Nullable localtime_r(const time_t* _Nonnull __t, struct tm* _Nonnull __tm);
++#if __BIONIC_AVAILABILITY_GUARD(35)
+ /* If we just use void* in the typedef, the compiler exposes that in error messages. */
+ struct __timezone_t;
  
--#if __BIONIC_AVAILABILITY_GUARD(35)
- /**
-  * localtime_rz(3) converts the number of seconds since the Unix epoch in
-  * `t` to a broken-down time, assuming the given timezone. That broken-down
-@@ -233,8 +230,7 @@ struct tm* _Nullable localtime_r(const time_t* _Nonnull __t, struct tm* _Nonnull
-  *
-  * Available since API level 35.
+@@ -50,6 +51,7 @@ struct __timezone_t;
+  * to remove the pointer.
   */
--struct tm* _Nullable localtime_rz(timezone_t _Nonnull __tz, const time_t* _Nonnull __t, struct tm* _Nonnull __tm) __INTRODUCED_IN(35);
--#endif
-+struct tm* _Nullable localtime_rz(timezone_t _Nonnull __tz, const time_t* _Nonnull __t, struct tm* _Nonnull __tm);
+ typedef struct __timezone_t* timezone_t;
++#endif
  
- /**
-  * Inverse of localtime().
-@@ -279,7 +275,7 @@ char* _Nullable strptime(const char* _Nonnull __s, const char* _Nonnull __fmt, s
+ /** Divisor to compute seconds from the result of a call to clock(). */
+ #define CLOCKS_PER_SEC 1000000
+@@ -279,7 +281,7 @@ char* _Nullable strptime(const char* _Nonnull __s, const char* _Nonnull __fmt, s
  /**
   * Equivalent to strptime() on Android where only C/POSIX locales are available.
   */
@@ -5781,96 +5761,6 @@ index b15ca75..0876732 100644
  
  /**
   * [strftime(3)](https://man7.org/linux/man-pages/man3/strftime.3.html) formats
-@@ -290,10 +286,12 @@ char* _Nullable strptime_l(const char* _Nonnull __s, const char* _Nonnull __fmt,
-  */
- size_t strftime(char* _Nonnull __buf, size_t __n, const char* _Nonnull __fmt, const struct tm* _Nullable __tm) __strftimelike(3);
- 
-+#if __BIONIC_AVAILABILITY_GUARD(21)
- /**
-  * Equivalent to strftime() on Android where only C/POSIX locales are available.
-  */
--size_t strftime_l(char* _Nonnull __buf, size_t __n, const char* _Nonnull __fmt, const struct tm* _Nullable __tm, locale_t _Nonnull __l) __strftimelike(3);
-+size_t strftime_l(char* _Nonnull __buf, size_t __n, const char* _Nonnull __fmt, const struct tm* _Nullable __tm, locale_t _Nonnull __l) __strftimelike(3) __INTRODUCED_IN(21);
-+#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
- 
- /**
-  * [tzset(3)](https://man7.org/linux/man-pages/man3/tzset.3.html) tells
-@@ -309,7 +307,6 @@ size_t strftime_l(char* _Nonnull __buf, size_t __n, const char* _Nonnull __fmt,
-  */
- void tzset(void);
- 
--#if __BIONIC_AVAILABILITY_GUARD(35)
- /**
-  * tzalloc(3) allocates a timezone corresponding to the given Olson ID.
-  *
-@@ -328,10 +325,8 @@ void tzset(void);
-  *
-  * Available since API level 35.
-  */
--timezone_t _Nullable tzalloc(const char* _Nullable __id) __INTRODUCED_IN(35);
--#endif
-+timezone_t _Nullable tzalloc(const char* _Nullable __id);
- 
--#if __BIONIC_AVAILABILITY_GUARD(35)
- /**
-  * tzfree(3) frees a timezone object returned by tzalloc().
-  *
-@@ -341,8 +336,7 @@ timezone_t _Nullable tzalloc(const char* _Nullable __id) __INTRODUCED_IN(35);
-  *
-  * Available since API level 35.
-  */
--void tzfree(timezone_t _Nullable __tz) __INTRODUCED_IN(35);
--#endif
-+void tzfree(timezone_t _Nullable __tz);
- 
- /**
-  * [clock(3)](https://man7.org/linux/man-pages/man3/clock.3.html)
-@@ -356,15 +350,13 @@ void tzfree(timezone_t _Nullable __tz) __INTRODUCED_IN(35);
-  */
- clock_t clock(void);
- 
--#if __BIONIC_AVAILABILITY_GUARD(23)
- /**
-  * [clock_getcpuclockid(3)](https://man7.org/linux/man-pages/man3/clock_getcpuclockid.3.html)
-  * gets the clock ID of the cpu-time clock for the given `pid`.
-  *
-  * Returns 0 on success, and returns an error number on failure (unlike other clock functions).
-  */
--int clock_getcpuclockid(pid_t __pid, clockid_t* _Nonnull __clock) __INTRODUCED_IN(23);
--#endif
-+int clock_getcpuclockid(pid_t __pid, clockid_t* _Nonnull __clock);
- 
- /**
-  * [clock_getres(2)](https://man7.org/linux/man-pages/man2/clock_getres.2.html)
-@@ -470,7 +462,6 @@ int timer_getoverrun(timer_t _Nonnull __timer);
-  */
- #define TIME_THREAD_ACTIVE (CLOCK_THREAD_CPUTIME_ID+1)
- 
--#if __BIONIC_AVAILABILITY_GUARD(29)
- /**
-  * timespec_get(3) is equivalent to clock_gettime() for the clock corresponding to the given base.
-  *
-@@ -479,10 +470,8 @@ int timer_getoverrun(timer_t _Nonnull __timer);
-  * Available since API level 29 for TIME_UTC; other bases arrived later.
-  * Code for Android should prefer clock_gettime().
-  */
--int timespec_get(struct timespec* _Nonnull __ts, int __base) __INTRODUCED_IN(29);
--#endif
-+int timespec_get(struct timespec* _Nonnull __ts, int __base);
- 
--#if __BIONIC_AVAILABILITY_GUARD(35)
- /**
-  * timespec_getres(3) is equivalent to clock_getres() for the clock corresponding to the given base.
-  *
-@@ -491,7 +480,6 @@ int timespec_get(struct timespec* _Nonnull __ts, int __base) __INTRODUCED_IN(29)
-  * Available since API level 35.
-  * Code for Android should prefer clock_gettime().
-  */
--int timespec_getres(struct timespec* _Nonnull __ts, int __base) __INTRODUCED_IN(35);
--#endif
-+int timespec_getres(struct timespec* _Nonnull __ts, int __base);
- 
- __END_DECLS
 diff --git a/uchar.h b/uchar.h
 index 94efb2d..b9fb3c8 100644
 --- a/uchar.h
