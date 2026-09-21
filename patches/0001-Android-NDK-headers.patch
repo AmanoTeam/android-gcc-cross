@@ -1,4 +1,4 @@
-From f2b489865a06cfeb7b6201648ac909350dffc0af Mon Sep 17 00:00:00 2001
+From 0263056cc81b662e6bd8a0e20e423145e5d85db2 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Wed, 8 Jul 2026 23:12:57 -0300
 Subject: [PATCH] Android NDK headers
@@ -42,7 +42,7 @@ Subject: [PATCH] Android NDK headers
  complex.h                                     | 317 ++++--------------
  ctype.h                                       |  75 ++---
  dirent.h                                      |  17 +-
- fcntl.h                                       |  29 +-
+ fcntl.h                                       |  31 +-
  fenv.h                                        |   2 +
  fts.h                                         |  12 +-
  ftw.h                                         |  13 +-
@@ -93,7 +93,7 @@ Subject: [PATCH] Android NDK headers
  termios.h                                     |   5 -
  tgmath.h                                      | 293 ++++++++++++++++
  threads.h                                     |  60 ++--
- time.h                                        |   4 +-
+ time.h                                        |   2 +-
  uchar.h                                       |  10 +-
  unistd.h                                      |  56 +++-
  wchar.h                                       |  67 +++-
@@ -2731,10 +2731,25 @@ index a63570d..cce5e59 100644
  #if defined(__USE_GNU) && __BIONIC_AVAILABILITY_GUARD(24)
  /**
 diff --git a/fcntl.h b/fcntl.h
-index 8f876b6..039dd44 100644
+index 8f876b6..9c47a5a 100644
 --- a/fcntl.h
 +++ b/fcntl.h
-@@ -108,8 +108,11 @@ __BEGIN_DECLS
+@@ -93,12 +93,14 @@ __BEGIN_DECLS
+ /** Flag for splice(). */
+ #define SPLICE_F_GIFT 8
+ 
++#if __BIONIC_AVAILABILITY_GUARD(26)
+ /** Flag for sync_file_range(). */
+ #define SYNC_FILE_RANGE_WAIT_BEFORE 1
+ /** Flag for sync_file_range(). */
+ #define SYNC_FILE_RANGE_WRITE 2
+ /** Flag for sync_file_range(). */
+ #define SYNC_FILE_RANGE_WAIT_AFTER 4
++#endif /* __BIONIC_AVAILABILITY_GUARD(26) */
+ 
+ /**
+  * [creat(2)](https://man7.org/linux/man-pages/man2/creat.2.html)
+@@ -108,8 +110,11 @@ __BEGIN_DECLS
   * failure.
   */
  int creat(const char* _Nonnull __path, mode_t __mode);
@@ -2747,7 +2762,7 @@ index 8f876b6..039dd44 100644
  
  /**
   * [openat(2)](https://man7.org/linux/man-pages/man2/openat.2.html)
-@@ -119,8 +122,11 @@ int creat64(const char* _Nonnull __path, mode_t __mode);
+@@ -119,8 +124,11 @@ int creat64(const char* _Nonnull __path, mode_t __mode);
   * failure.
   */
  int openat(int __dir_fd, const char* _Nonnull __path, int __flags, ...);
@@ -2760,7 +2775,7 @@ index 8f876b6..039dd44 100644
  
  /**
   * [open(2)](https://man7.org/linux/man-pages/man2/open.2.html)
-@@ -130,8 +136,10 @@ int openat64(int __dir_fd, const char* _Nonnull __path, int __flags, ...);
+@@ -130,8 +138,10 @@ int openat64(int __dir_fd, const char* _Nonnull __path, int __flags, ...);
   * failure.
   */
  int open(const char* _Nonnull __path, int __flags, ...);
@@ -2772,7 +2787,7 @@ index 8f876b6..039dd44 100644
  
  /**
   * [splice(2)](https://man7.org/linux/man-pages/man2/splice.2.html)
-@@ -143,7 +151,7 @@ int open64(const char* _Nonnull __path, int __flags, ...);
+@@ -143,7 +153,7 @@ int open64(const char* _Nonnull __path, int __flags, ...);
   * Returns the number of bytes spliced on success and returns -1 and sets
   * `errno` on failure.
   */
@@ -2781,7 +2796,7 @@ index 8f876b6..039dd44 100644
  
  /**
   * [tee(2)](https://man7.org/linux/man-pages/man2/tee.2.html)
-@@ -155,7 +163,7 @@ ssize_t splice(int __in_fd, off64_t* __BIONIC_COMPLICATED_NULLNESS __in_offset,
+@@ -155,7 +165,7 @@ ssize_t splice(int __in_fd, off64_t* __BIONIC_COMPLICATED_NULLNESS __in_offset,
   * Returns the number of bytes duplicated on success and returns -1 and sets
   * `errno` on failure.
   */
@@ -2790,7 +2805,7 @@ index 8f876b6..039dd44 100644
  
  /**
   * [vmsplice(2)](https://man7.org/linux/man-pages/man2/vmsplice.2.html)
-@@ -167,7 +175,7 @@ ssize_t tee(int __in_fd, int __out_fd, size_t __length, unsigned int __flags);
+@@ -167,7 +177,7 @@ ssize_t tee(int __in_fd, int __out_fd, size_t __length, unsigned int __flags);
   * Returns the number of bytes spliced on success and returns -1 and sets
   * `errno` on failure.
   */
@@ -2799,7 +2814,7 @@ index 8f876b6..039dd44 100644
  
  /**
   * [fallocate(2)](https://man7.org/linux/man-pages/man2/fallocate.2.html)
-@@ -180,9 +188,10 @@ ssize_t vmsplice(int __fd, const struct iovec* _Nonnull __iov, size_t __count, u
+@@ -180,9 +190,10 @@ ssize_t vmsplice(int __fd, const struct iovec* _Nonnull __iov, size_t __count, u
   *
   * Returns 0 on success and returns -1 and sets `errno` on failure.
   */
@@ -2812,7 +2827,7 @@ index 8f876b6..039dd44 100644
  
  /**
   * [posix_fadvise(2)](https://man7.org/linux/man-pages/man2/posix_fadvise.2.html)
-@@ -194,7 +203,7 @@ int fallocate64(int __fd, int __mode, off64_t __offset, off64_t __length);
+@@ -194,7 +205,7 @@ int fallocate64(int __fd, int __mode, off64_t __offset, off64_t __length);
   *
   * Returns 0 on success and returns an error number on failure.
   */
@@ -2821,7 +2836,7 @@ index 8f876b6..039dd44 100644
  /** See posix_fadvise(). */
  int posix_fadvise64(int __fd, off64_t __offset, off64_t __length, int __advice);
  
-@@ -209,6 +218,7 @@ int posix_fallocate(int __fd, off_t __offset, off_t __length) __RENAME_IF_FILE_O
+@@ -209,6 +220,7 @@ int posix_fallocate(int __fd, off_t __offset, off_t __length) __RENAME_IF_FILE_O
  int posix_fallocate64(int __fd, off64_t __offset, off64_t __length);
  
  #if defined(__USE_GNU)
@@ -2829,7 +2844,7 @@ index 8f876b6..039dd44 100644
  /**
   * [readahead(2)](https://man7.org/linux/man-pages/man2/readahead.2.html)
   * initiates readahead for the given file.
-@@ -218,6 +228,7 @@ int posix_fallocate64(int __fd, off64_t __offset, off64_t __length);
+@@ -218,6 +230,7 @@ int posix_fallocate64(int __fd, off64_t __offset, off64_t __length);
   * Available when compiling with `_GNU_SOURCE`.
   */
  ssize_t readahead(int __fd, off64_t __offset, size_t __length);
@@ -5889,26 +5904,10 @@ index fc1f073..279c460 100644
 -
 -#include <android/legacy_threads_inlines.h>
 diff --git a/time.h b/time.h
-index b15ca75..876a06c 100644
+index b15ca75..9e3cd16 100644
 --- a/time.h
 +++ b/time.h
-@@ -39,6 +39,7 @@
- 
- __BEGIN_DECLS
- 
-+#if __BIONIC_AVAILABILITY_GUARD(35)
- /* If we just use void* in the typedef, the compiler exposes that in error messages. */
- struct __timezone_t;
- 
-@@ -50,6 +51,7 @@ struct __timezone_t;
-  * to remove the pointer.
-  */
- typedef struct __timezone_t* timezone_t;
-+#endif
- 
- /** Divisor to compute seconds from the result of a call to clock(). */
- #define CLOCKS_PER_SEC 1000000
-@@ -279,7 +281,7 @@ char* _Nullable strptime(const char* _Nonnull __s, const char* _Nonnull __fmt, s
+@@ -279,7 +279,7 @@ char* _Nullable strptime(const char* _Nonnull __s, const char* _Nonnull __fmt, s
  /**
   * Equivalent to strptime() on Android where only C/POSIX locales are available.
   */
