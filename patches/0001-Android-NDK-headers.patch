@@ -1,4 +1,4 @@
-From 111f37c135793426c8e4e49ddf147eb8b6d8e7f1 Mon Sep 17 00:00:00 2001
+From 122c36ede6296a5c094bb42e7dd60291dc610602 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Wed, 8 Jul 2026 23:12:57 -0300
 Subject: [PATCH] Android NDK headers
@@ -46,7 +46,8 @@ Subject: [PATCH] Android NDK headers
  fts.h                                         |  12 +-
  ftw.h                                         |  13 +-
  inttypes.h                                    |  13 +-
- langinfo.h                                    |   6 +-
+ langinfo.h                                    |   9 +-
+ libintl.h                                     |  47 +++
  link.h                                        |   4 +-
  locale.h                                      |  16 +-
  malloc.h                                      |  13 +-
@@ -96,7 +97,7 @@ Subject: [PATCH] Android NDK headers
  unistd.h                                      |  56 +++-
  wchar.h                                       |  67 +++-
  wctype.h                                      |  36 +-
- 92 files changed, 1927 insertions(+), 1395 deletions(-)
+ 93 files changed, 1973 insertions(+), 1399 deletions(-)
  create mode 100644 android/legacy_signal_inlines.h
  rename android/{legacy_threads_inlines.h => legacy_sys_stat_inlines.h} (75%)
  rename bits/termios_winsize_inlines.h => android/legacy_sys_wait_inlines.h (71%)
@@ -106,6 +107,7 @@ Subject: [PATCH] Android NDK headers
  create mode 100644 bits/sigcontext_riscv64.h
  delete mode 100644 bits/stdatomic.h
  delete mode 100644 bits/threads_inlines.h
+ create mode 100644 libintl.h
  delete mode 100644 stdatomic.h
  create mode 100644 tgmath.h
 
@@ -2845,23 +2847,78 @@ index 43c8ea8..e951950 100644
  __END_DECLS
  
 diff --git a/langinfo.h b/langinfo.h
-index e015ecc..e8cbce9 100644
+index e015ecc..349c7c7 100644
 --- a/langinfo.h
 +++ b/langinfo.h
-@@ -94,10 +94,10 @@ __BEGIN_DECLS
+@@ -92,13 +92,8 @@ __BEGIN_DECLS
+ #define NOEXPR 54
+ #define CRNCYSTR 55
  
- #if __BIONIC_AVAILABILITY_GUARD(26)
- char* _Nonnull nl_langinfo(nl_item __item) __INTRODUCED_IN(26);
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-char* _Nonnull nl_langinfo(nl_item __item) __INTRODUCED_IN(26);
 -#endif
 -
 -#if __BIONIC_AVAILABILITY_GUARD(26)
- char* _Nonnull nl_langinfo_l(nl_item __item, locale_t _Nonnull __l) __INTRODUCED_IN(26);
-+#else
-+__static_inline__ char* _Nonnull nl_langinfo(nl_item __item) { return "ASCII"; }
-+__static_inline__ char* _Nonnull nl_langinfo_l(nl_item __item, locale_t _Nonnull __l) { return "ASCII"; }
- #endif
+-char* _Nonnull nl_langinfo_l(nl_item __item, locale_t _Nonnull __l) __INTRODUCED_IN(26);
+-#endif
++char* _Nonnull nl_langinfo(nl_item __item);
++char* _Nonnull nl_langinfo_l(nl_item __item, locale_t _Nonnull __l);
  
  __END_DECLS
+ 
+diff --git a/libintl.h b/libintl.h
+new file mode 100644
+index 0000000..a278468
+--- /dev/null
++++ b/libintl.h
+@@ -0,0 +1,47 @@
++/*
++ * Copyright (C) 2008 The Android Open Source Project
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *  * Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef _LIBINTL_H_
++#define _LIBINTL_H_
++
++#include <sys/cdefs.h>
++
++__BEGIN_DECLS
++
++char* _Nonnull gettext(const char* _Nonnull __msgid);
++char* _Nonnull dgettext(const char* _Nonnull __domainname, const char* _Nonnull __msgid);
++char* _Nonnull dcgettext(const char* _Nonnull __domainname, const char* _Nonnull __msgid, int __category);
++char* _Nonnull ngettext(const char* _Nonnull __msgid1, const char* _Nonnull __msgid2, unsigned long __n);
++char* _Nonnull dngettext(const char* _Nonnull __domainname, const char* _Nonnull __msgid1, const char* _Nonnull __msgid2, unsigned long __n);
++char* _Nonnull dcngettext(const char* _Nonnull __domainname, const char* _Nonnull __msgid1, const char* _Nonnull __msgid2, unsigned long __n, int __category);
++char* _Nullable textdomain(const char* _Nullable __domainname);
++char* _Nullable bindtextdomain(const char* _Nonnull __domainname, const char* _Nullable __dirname);
++char* _Nullable bind_textdomain_codeset(const char* _Nonnull __domainname, const char* _Nullable __codeset);
++
++__END_DECLS
++
++#endif
 diff --git a/link.h b/link.h
 index 2afc5dc..7d4af5c 100644
 --- a/link.h
