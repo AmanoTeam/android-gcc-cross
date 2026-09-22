@@ -1,0 +1,524 @@
+From 2e957b05e6adb6bc211650c58c9fc650303b4f96 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Tue, 22 Sep 2026 09:53:37 +0000
+Subject: [PATCH] Termux patches
+
+---
+ asm-generic/termbits.h |  3 +-
+ bits/termios_inlines.h |  1 -
+ grp.h                  | 16 +++-------
+ linux/fcntl.h          |  2 +-
+ paths.h                | 11 +++++--
+ pwd.h                  | 50 ++++++++++++++++++++++++++++---
+ semaphore.h            |  7 ++++-
+ stdio.h                | 45 ++++++++++++++++++++++++----
+ stdlib.h               | 14 ++++-----
+ sys/cdefs.h            |  2 ++
+ sys/time.h             | 14 ++++-----
+ syslog.h               | 18 +++++++++++
+ time.h                 |  2 ++
+ unistd.h               | 68 ++++++++++++++++++++++++++++++++++++++++++
+ utmp.h                 |  6 ++--
+ 15 files changed, 212 insertions(+), 47 deletions(-)
+
+diff --git a/asm-generic/termbits.h b/asm-generic/termbits.h
+index 26b0097..21278dd 100644
+--- a/asm-generic/termbits.h
++++ b/asm-generic/termbits.h
+@@ -132,5 +132,6 @@ struct ktermios {
+ #define EXTPROC 0x10000
+ #define TCSANOW 0
+ #define TCSADRAIN 1
+-#define TCSAFLUSH 2
++/* TCSAFLUSH is patched to be TCSANOW in Termux to work around Android SELinux rule */
++#define TCSAFLUSH 0
+ #endif
+diff --git a/bits/termios_inlines.h b/bits/termios_inlines.h
+index 3d738d1..fddba54 100644
+--- a/bits/termios_inlines.h
++++ b/bits/termios_inlines.h
+@@ -114,7 +114,6 @@ __static_inline__ int __attribute__((nonnull(3))) tcsetattr(int fd, int optional
+   switch (optional_actions) {
+     case TCSANOW: cmd = TCSETS; break;
+     case TCSADRAIN: cmd = TCSETSW; break;
+-    case TCSAFLUSH: cmd = TCSETSF; break;
+     default: errno = EINVAL; return -1;
+   }
+   return ioctl(fd, cmd, s);
+diff --git a/grp.h b/grp.h
+index ab4d6ce..a42e940 100644
+--- a/grp.h
++++ b/grp.h
+@@ -52,18 +52,6 @@ struct group* getgrnam(const char* __name) __attribute__((nonnull(1)));
+ 
+ /* Note: Android has thousands and thousands of ids to iterate through. */
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-struct group* getgrent(void) __INTRODUCED_IN_API_O__;
+-#endif
+-
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-void setgrent(void) __INTRODUCED_IN_API_O__;
+-#endif
+-
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-void endgrent(void) __INTRODUCED_IN_API_O__;
+-#endif
+-
+ #if __BIONIC_AVAILABILITY_GUARD(24)
+ int getgrgid_r(gid_t __gid, struct group* __group, char* __buf, size_t __n, struct group* * __result) __INTRODUCED_IN_API_N__ __attribute__((nonnull(3,5)));
+ #endif
+@@ -72,6 +60,10 @@ int getgrgid_r(gid_t __gid, struct group* __group, char* __buf, size_t __n, stru
+ int getgrnam_r(const char* __name, struct group* __group, char* __buf, size_t __n, struct group** __result) __INTRODUCED_IN_API_N__ __attribute__((nonnull(1,3,5)));
+ #endif
+ 
++static struct group* getgrent(void) { return 0; }
++static void setgrent(void) {}
++static void endgrent(void) {}
++
+ int getgrouplist(const char* __user, gid_t __group, gid_t* __groups, int* __group_count) __attribute__((nonnull(1,4)));
+ int initgroups(const char* __user, gid_t __group) __attribute__((nonnull(1)));
+ 
+diff --git a/linux/fcntl.h b/linux/fcntl.h
+index 53ee662..8f96f1f 100644
+--- a/linux/fcntl.h
++++ b/linux/fcntl.h
+@@ -69,7 +69,7 @@ struct delegation {
+ #define AT_RENAME_NOREPLACE 0x0001
+ #define AT_RENAME_EXCHANGE 0x0002
+ #define AT_RENAME_WHITEOUT 0x0004
+-#define AT_EACCESS 0x200
++#define AT_EACCESS 0
+ #define AT_REMOVEDIR 0x200
+ #define AT_HANDLE_FID 0x200
+ #define AT_HANDLE_MNT_ID_UNIQUE 0x001
+diff --git a/paths.h b/paths.h
+index fbdaa76..f05b821 100644
+--- a/paths.h
++++ b/paths.h
+@@ -41,14 +41,13 @@
+ __BEGIN_DECLS
+ 
+ /** Path to the default system shell. Historically the 'B' was to specify the Bourne shell. */
+-#define _PATH_BSHELL "/system/bin/sh"
++#define _PATH_BSHELL "/data/data/com.amanoteam.zetta/files/usr/bin/sh"
+ 
+ /** Path to the system console. */
+ #define _PATH_CONSOLE "/dev/console"
+ 
+ /** Default shell search path. */
+-// TODO(b/369944471) Remove com.android.runtime support
+-#define _PATH_DEFPATH "/product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/apex/com.android.virt/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin"
++#define _PATH_DEFPATH "/data/data/com.amanoteam.zetta/files/usr/bin"
+ 
+ /** Path to the directory containing device files. */
+ #define _PATH_DEV "/dev/"
+@@ -65,4 +64,10 @@ __BEGIN_DECLS
+ /** Path to the calling process' tty. */
+ #define _PATH_TTY "/dev/tty"
+ 
++#define        _PATH_STDPATH   _PATH_DEFPATH
++#define        _PATH_TMP       "/data/data/com.amanoteam.zetta/files/usr/tmp/"
++#define        _PATH_VARDB     "/data/data/com.amanoteam.zetta/files/usr/var/db/"
++#define        _PATH_VARRUN    "/data/data/com.amanoteam.zetta/files/usr/var/run/"
++#define        _PATH_VARTMP    "/data/data/com.amanoteam.zetta/files/usr/var/tmp/"
++
+ __END_DECLS
+diff --git a/pwd.h b/pwd.h
+index 420ba2a..3c79c7c 100644
+--- a/pwd.h
++++ b/pwd.h
+@@ -93,13 +93,55 @@ struct passwd* getpwent(void) __INTRODUCED_IN_API_O__;
+ void setpwent(void) __INTRODUCED_IN_API_O__;
+ #endif
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-void endpwent(void) __INTRODUCED_IN_API_O__;
+-#endif
+-
+ int getpwnam_r(const char* __name, struct passwd* __pwd, char* __buf, size_t __n, struct passwd* * __result) __attribute__((nonnull(1,2,3,5)));
+ int getpwuid_r(uid_t __uid, struct passwd* __pwd, char* __buf, size_t __n, struct passwd* * __result) __attribute__((nonnull(2,3,5)));
+ 
++int access(const char* __path, int __mode);
++
++static void android_setup_pwd(struct passwd* pw) {
++       char const* result = "/data/data/com.amanoteam.zetta/files/usr/bin/login";
++       if (result == NULL || access(result, /*X_OK*/1) == -1) {
++               pw->pw_shell = "/data/data/com.amanoteam.zetta/files/usr/bin/bash";
++       } else {
++               pw->pw_shell = (char*) result;
++       }
++       pw->pw_dir = "/data/data/com.amanoteam.zetta/files/home";
++       pw->pw_passwd = "*";
++#ifdef __LP64__
++       pw->pw_gecos = ""; /* Avoid NULL field. */
++#endif
++}
++
++static struct passwd* android_polyfill_getpwuid(uid_t t) {
++       struct passwd* pw = getpwuid(t);
++       if (pw == NULL) return NULL;
++       android_setup_pwd(pw);
++       return pw;
++}
++
++static struct passwd* android_polyfill_getpwnam(const char* name) {
++       struct passwd* pw = getpwnam(name);
++       if (pw == NULL) return NULL;
++       android_setup_pwd(pw);
++       return pw;
++}
++
++static int android_polyfill_getpwuid_r(uid_t uid,
++                                       struct passwd *pwd,
++                                       char *buffer,
++                                       size_t bufsize,
++                                       struct passwd **result) {
++       int ret = getpwuid_r(uid, pwd, buffer, bufsize, result);
++       if (ret != 0) return ret;
++       android_setup_pwd(pwd);
++       return 0;
++}
++
++#define getpwnam android_polyfill_getpwnam
++#define getpwuid android_polyfill_getpwuid
++#define getpwuid_r android_polyfill_getpwuid_r
++static void endpwent(void) { /* Do nothing. */ }
++
+ __END_DECLS
+ 
+ #endif
+diff --git a/semaphore.h b/semaphore.h
+index 2565e15..29f5879 100644
+--- a/semaphore.h
++++ b/semaphore.h
+@@ -74,9 +74,14 @@ int sem_timedwait_monotonic_np(sem_t* __sem, const struct timespec* __ts) __INTR
+ int sem_trywait(sem_t* __sem) __NOEXCEPT __attribute__((nonnull(1)));
+ int sem_wait(sem_t* __sem) __NOEXCEPT __attribute__((nonnull(1)));
+ 
+-/* These aren't actually implemented. */
++#undef sem_open
++#define sem_open libandroid_sem_open
+ sem_t* sem_open(const char* __name, int _flags, ...) __NOEXCEPT __attribute__((nonnull(1)));
++#undef sem_close
++#define sem_close libandroid_sem_close
+ int sem_close(sem_t* __sem) __NOEXCEPT __attribute__((nonnull(1)));
++#undef sem_unlink
++#define sem_unlink libandroid_sem_unlink
+ int sem_unlink(const char* __name) __NOEXCEPT __attribute__((nonnull(1)));
+ 
+ __END_DECLS
+diff --git a/stdio.h b/stdio.h
+index b0ad4b8..3a9aff8 100644
+--- a/stdio.h
++++ b/stdio.h
+@@ -44,6 +44,11 @@
+ #include <stdarg.h>
+ #include <stddef.h>
+ 
++#if !defined(__swift__)
++#include <string.h>            /* For strcpy(3) used by ctermid() */
++#endif
++#include <asm/fcntl.h>         /* For O_RDWR and other O_* constants */
++
+ #include <bits/seek_constants.h>
+ 
+ #if __ANDROID_API__ < 24
+@@ -210,7 +215,7 @@ int vsprintf(char* __s, const char* __fmt, va_list __args)
+     __NOEXCEPTNL __printflike(2, 0) __warnattr_strict("vsprintf is often misused; please use vsnprintf") __attribute__((nonnull(2)));
+ char* tmpnam(char* __s)
+     __NOEXCEPT __attribute__((__deprecated__("tmpnam is unsafe, use mkstemp or tmpfile instead")));
+-#define P_tmpdir "/tmp/" /* deprecated */
++#define P_tmpdir "/data/data/com.amanoteam.zetta/files/usr/tmp/" /* deprecated */
+ char* tempnam(const char* __dir, const char* __prefix)
+     __NOEXCEPT __attribute__((__deprecated__("tempnam is unsafe, use mkstemp or tmpfile instead")));
+ 
+@@ -350,8 +355,6 @@ FILE* freopen(const char* __path, const char* __mode, FILE* __fp) __attribute__(
+ FILE* freopen64(const char* __path, const char* __mode, FILE* __fp) __INTRODUCED_IN_API_N__ __attribute__((nonnull(2,3)));
+ #endif
+ 
+-__nodiscard FILE* tmpfile(void);
+-
+ #if __BIONIC_AVAILABILITY_GUARD(24)
+ __nodiscard FILE* tmpfile64(void) __INTRODUCED_IN_API_N__;
+ #endif
+@@ -364,8 +367,16 @@ int vsscanf(const char* __s, const char* __fmt, va_list __args) __NOEXCEPT __sca
+ 
+ #define L_ctermid 1024 /* size for ctermid() */
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-char* ctermid(char* __buf) __NOEXCEPT __INTRODUCED_IN_API_O__;
++/* Needed by gnulibs freading(). */
++#define __sferror(p)    (((p)->_flags & __SERR) != 0)
++ 
++/* Used by perl, fish, and others. */
++#if !defined(__swift__)
++static __inline__ char* ctermid(char* __termux_s) {
++	if (__termux_s == 0) return (char*) "/dev/tty";
++	strcpy(__termux_s, "/dev/tty");
++	return __termux_s;
++}
+ #endif
+ 
+ __nodiscard FILE* fdopen(int __fd, const char* __mode) __NOEXCEPT __attribute__((nonnull(2)));
+@@ -451,6 +462,30 @@ char* fgets_unlocked(char* __buf, int __size, FILE* __fp) __INTRODUCED_IN_API_P_
+ #include <bits/fortify/stdio.h>
+ #endif
+ 
++int open(const char*, int, ...);
++extern pid_t getpid();
++extern int unlink(const char*);
++void free(void*);
++uint32_t arc4random(void);
++static __inline__ FILE* tmpfile() {
++	int __termux_pid = getpid();
++	char* __termux_path;
++	int __termux_i;
++	for (__termux_i = 0; __termux_i < 100; __termux_i++) {
++		unsigned int __termux_random = arc4random();
++		if (asprintf(&__termux_path, "/data/data/com.amanoteam.zetta/files/usr/tmp/tmpfile.%d-%u", __termux_pid, __termux_random) == -1) return NULL;
++		int __termux_fd = open(__termux_path, O_RDWR | O_CREAT | O_EXCL | O_LARGEFILE, 0600);
++		if (__termux_fd >= 0) {
++			FILE* __termux_result = fdopen(__termux_fd, "w+");
++			unlink(__termux_path);
++			free(__termux_path);
++			return __termux_result;
++		}
++		free(__termux_path);
++	}
++	return NULL;
++}
++
+ __END_DECLS
+ 
+ #endif
+diff --git a/stdlib.h b/stdlib.h
+index ce96e2a..44e3881 100644
+--- a/stdlib.h
++++ b/stdlib.h
+@@ -35,6 +35,9 @@
+ #include <bits/wait.h>
+ #include <malloc.h>
+ #include <stddef.h>
++#if !defined(__swift__)
++#include <stdint.h>
++#endif
+ #include <xlocale.h>
+ 
+ #if !defined(__cplusplus) && __STDC_VERSION__ >= 202311L
+@@ -384,9 +387,7 @@ const char* getprogname(void) __INTRODUCED_IN_API_L__;
+ 
+ void setprogname(const char* __name) __attribute__((nonnull(1)));
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(26)
+-int mblen(const char* __s, size_t __n) __NOEXCEPT __INTRODUCED_IN_API_O__;
+-#endif
++int mblen(const char* __s, size_t __n);
+ 
+ size_t mbstowcs(wchar_t* __dst, const char* __src, size_t __n)__NOEXCEPT ;
+ 
+@@ -397,12 +398,7 @@ int wctomb(char* __dst, wchar_t __wc) __NOEXCEPT __INTRODUCED_IN_API_L__;
+ 
+ size_t wcstombs(char* __dst, const wchar_t* __src, size_t __n)__NOEXCEPT ;
+ 
+-#if __BIONIC_AVAILABILITY_GUARD(21) && !defined(__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__)
+-size_t __ctype_get_mb_cur_max(void) __NOEXCEPT __INTRODUCED_IN_API_L__;
+-#define MB_CUR_MAX __ctype_get_mb_cur_max()
+-#else
+-#define MB_CUR_MAX 1
+-#endif /* __BIONIC_AVAILABILITY_GUARD(21) */
++#define MB_CUR_MAX 4
+ 
+ #if defined(__BIONIC_INCLUDE_FORTIFY_HEADERS)
+ #include <bits/fortify/stdlib.h>
+diff --git a/sys/cdefs.h b/sys/cdefs.h
+index 6076dc0..ee35c53 100644
+--- a/sys/cdefs.h
++++ b/sys/cdefs.h
+@@ -651,3 +651,5 @@
+ #error Unversioned target triples are not supported!
+ #endif
+ #endif
++#define __TERMUX__ 1
++#define __TERMUX_PREFIX__ "/data/data/com.amanoteam.zetta/files/usr"
+diff --git a/sys/time.h b/sys/time.h
+index 169cc94..b9ff78d 100644
+--- a/sys/time.h
++++ b/sys/time.h
+@@ -46,15 +46,14 @@ int setitimer(int __which, const struct itimerval* __new_value, struct itimerval
+ 
+ int utimes(const char* __path, const struct timeval __times[2]) __NOEXCEPT __attribute__((nonnull(1)));
+ 
+-#if defined(__USE_BSD) && __BIONIC_AVAILABILITY_GUARD(26)
+-int futimes(int __fd, const struct timeval __times[2]) __NOEXCEPT __INTRODUCED_IN_API_O__;
+-#endif
++#if defined(__USE_BSD)
++
++int futimes(int __fd, const struct timeval __times[2]);
++int lutimes(const char* __path, const struct timeval __times[2]);
+ 
+-#if defined(__USE_BSD) && __BIONIC_AVAILABILITY_GUARD(26)
+-int lutimes(const char* __path, const struct timeval __times[2]) __NOEXCEPT __INTRODUCED_IN_API_O__ __attribute__((nonnull(1)));
+ #endif
+ 
+-#if defined(__USE_GNU) && __BIONIC_AVAILABILITY_GUARD(26)
++#if defined(__USE_GNU)
+ /**
+  * [futimesat(2)](https://man7.org/linux/man-pages/man2/futimesat.2.html) sets
+  * file timestamps.
+@@ -68,7 +67,8 @@ int lutimes(const char* __path, const struct timeval __times[2]) __NOEXCEPT __IN
+  *
+  * Available since API level 26 when compiling with `_GNU_SOURCE`.
+  */
+-int futimesat(int __dir_fd, const char* __path, const struct timeval __times[2]) __NOEXCEPT __INTRODUCED_IN_API_O__;
++int futimesat(int __dir_fd, const char* __path, const struct timeval __times[2]);
++
+ #endif
+ 
+ #define timerclear(a)   \
+diff --git a/syslog.h b/syslog.h
+index ca0a7a9..010d7ff 100644
+--- a/syslog.h
++++ b/syslog.h
+@@ -246,4 +246,22 @@ void syslog(int __priority, const char* __fmt, ...) __printflike(2, 3) __attribu
+  */
+ void vsyslog(int __priority, const char* __fmt, va_list __args) __printflike(2, 0) __attribute__((nonnull(2)));
+ 
++static __inline__ void android_polyfill_syslog_r(int syslog_priority, void* d, const char* format, ...)
++{
++  (void) d;
++  va_list myargs;
++  va_start(myargs, format);
++  vsyslog(syslog_priority, format, myargs);
++  va_end(myargs);
++}
++
++static __inline__ void android_polyfill_vsyslog_r(int syslog_priority, void* d, const char* fmt, va_list ap)
++{
++  (void) d;
++  vsyslog(syslog_priority, fmt, ap);
++}
++
++#define syslog_r android_polyfill_syslog_r
++#define vsyslog_r android_polyfill_vsyslog_r
++
+ __END_DECLS
+diff --git a/time.h b/time.h
+index 575fa79..022ef36 100644
+--- a/time.h
++++ b/time.h
+@@ -39,6 +39,7 @@
+ 
+ __BEGIN_DECLS
+ 
++#if __BIONIC_AVAILABILITY_GUARD(35)
+ /* If we just use void* in the typedef, the compiler exposes that in error messages. */
+ struct __timezone_t;
+ 
+@@ -50,6 +51,7 @@ struct __timezone_t;
+  * to remove the pointer.
+  */
+ typedef struct __timezone_t* timezone_t;
++#endif
+ 
+ /** Divisor to compute seconds from the result of a call to clock(). */
+ #define CLOCKS_PER_SEC 1000000
+diff --git a/unistd.h b/unistd.h
+index df56219..adb1fe8 100644
+--- a/unistd.h
++++ b/unistd.h
+@@ -560,6 +560,74 @@ int close_range(unsigned int __min_fd, unsigned int __max_fd, int __flags) __NOE
+ #undef _UNISTD_H_
+ #endif
+ 
++#if !defined GETPASS_H && !defined getpass && !defined HAVE_GETPASS && !defined HAS_GETPASS && !defined NO_INLINE_GETPASS
++#define GETPASS_H 1
++#define HAVE_GETPASS 1
++#define HAS_GETPASS 1
++#define PASSWORDLEN 512
++
++static __inline__ char* getpass(const char* prompt) {
++    // termios struct as in asm-generic/termbits.h
++    struct _termios {
++        unsigned int c_iflag;              /* input mode flags */
++        unsigned int c_oflag;              /* output mode flags */
++        unsigned int c_cflag;              /* control mode flags */
++        unsigned int c_lflag;              /* local mode flags */
++        unsigned char c_line;              /* line discipline */
++        unsigned char c_cc[19/* NCCS */];  /* control characters */
++    };
++
++    struct _termios term_old, term_new;
++    static char password[513] = { 0 }; /* 512 1-byte charactes and '0' */
++    int len = 0, tty_changed = 0;
++
++    // print prompt
++    while (*prompt) {
++        write(1, prompt, 1);
++        prompt++;
++    }
++
++    // try to disable echoing on terminal
++    if (ioctl(0, 0x5401 /* TCGETS */, &term_old) == 0) {
++        term_new = term_old;
++        term_new.c_lflag &= ~0000010;/* ~ECHO */
++
++        if (ioctl(0, 0x5402+0 /* TCSETS+TCSANOW */, &term_new) == 0) {
++            tty_changed = 1;
++        } else {
++            tty_changed = 0;
++        }
++    }
++
++    // read password
++    char chr;
++    while (read(0, &chr, sizeof(char)) > 0) {
++        if (chr == '\r' || chr == '\n' || chr == 0) {
++            break;
++        }
++
++        if (len == sizeof(password)-1) {
++            // we should consume all entered characters even
++            // if maximal input length reached
++            continue;
++        } else {
++            password[len++] = chr;
++        }
++    }
++    password[len] = 0;
++
++    // restore terminal to previous state if needed
++    if (tty_changed) {
++        ioctl(0, 0x5402+0 /* TCSETS+TCSANOW */, &term_old);
++    }
++
++    // force new line
++    write(1, "\n", 1);
++
++    return password;
++}
++#endif
++
+ __END_DECLS
+ 
+ #include <android/legacy_unistd_inlines.h>
+diff --git a/utmp.h b/utmp.h
+index 26b41f2..c80a7a1 100644
+--- a/utmp.h
++++ b/utmp.h
+@@ -39,9 +39,9 @@
+ 
+ __BEGIN_DECLS
+ 
+-#define _PATH_UTMP      "/var/run/utmp"
+-#define _PATH_WTMP      "/var/log/wtmp"
+-#define _PATH_LASTLOG   "/var/log/lastlog"
++#define _PATH_UTMP      "/data/data/com.amanoteam.zetta/files/usr/var/run/utmp"
++#define _PATH_WTMP      "/data/data/com.amanoteam.zetta/files/usr/var/log/wtmp"
++#define _PATH_LASTLOG   "/data/data/com.amanoteam.zetta/files/usr/var/log/lastlog"
+ 
+ #ifdef __LP64__
+ #define UT_NAMESIZE 32
+-- 
+2.55.0
+
