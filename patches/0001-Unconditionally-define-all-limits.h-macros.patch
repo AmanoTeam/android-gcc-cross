@@ -1,0 +1,59 @@
+From 875c8c548516cd1ef5e40102762dc17256a91a65 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Tue, 22 Sep 2026 20:36:17 -0300
+Subject: [PATCH] Unconditionally define all limits.h macros
+
+This is consistent with how Clang generally does it, as well as with Bionic.
+---
+ gcc/glimits.h | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/gcc/glimits.h b/gcc/glimits.h
+index 2098016ef..eaa3f5d73 100644
+--- a/gcc/glimits.h
++++ b/gcc/glimits.h
+@@ -99,7 +99,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ #undef ULONG_MAX
+ #define ULONG_MAX (LONG_MAX * 2UL + 1UL)
+ 
+-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+ /* Minimum and maximum values a `signed long long int' can hold.  */
+ # undef LLONG_MIN
+ # define LLONG_MIN (-LLONG_MAX - 1LL)
+@@ -109,7 +108,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ /* Maximum value an `unsigned long long int' can hold.  (Minimum is 0).  */
+ # undef ULLONG_MAX
+ # define ULLONG_MAX (LLONG_MAX * 2ULL + 1ULL)
+-#endif
+ 
+ #if defined (__GNU_LIBRARY__) ? defined (__USE_GNU) : !defined (__STRICT_ANSI__)
+ /* Minimum and maximum values a `signed long long int' can hold.  */
+@@ -123,8 +121,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ # define ULONG_LONG_MAX (LONG_LONG_MAX * 2ULL + 1ULL)
+ #endif
+ 
+-#if (defined __STDC_WANT_IEC_60559_BFP_EXT__ \
+-     || (defined (__STDC_VERSION__) && __STDC_VERSION__ > 201710L))
+ /* TS 18661-1 / C23 widths of integer types.  */
+ # undef CHAR_WIDTH
+ # define CHAR_WIDTH __SCHAR_WIDTH__
+@@ -148,9 +144,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ # define LLONG_WIDTH __LONG_LONG_WIDTH__
+ # undef ULLONG_WIDTH
+ # define ULLONG_WIDTH __LONG_LONG_WIDTH__
+-#endif
+ 
+-#if defined (__STDC_VERSION__) && __STDC_VERSION__ > 201710L
+ /* C23 width and limit of _Bool.  */
+ # undef BOOL_MAX
+ # define BOOL_MAX 1
+@@ -165,6 +159,5 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ # ifndef __STDC_VERSION_LIMITS_H__
+ #  define __STDC_VERSION_LIMITS_H__	202311L
+ # endif
+-#endif
+ 
+ #endif /* _LIMITS_H___ */
+-- 
+2.55.0
+
