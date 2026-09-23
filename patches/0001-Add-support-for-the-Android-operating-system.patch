@@ -1,4 +1,4 @@
-From 7c65c5277c44cc6e9e7c325484ffd335da74adf7 Mon Sep 17 00:00:00 2001
+From ffb50d2479ba1a5c5e0b60c0896563c7153775c7 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sun, 7 Jun 2026 23:45:02 -0300
 Subject: [PATCH] Add support for the Android operating system
@@ -15,7 +15,7 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/config/arm/linux-eabi.h                |   3 -
  gcc/config/i386/gnu-user64.h               |   2 +
  gcc/config/i386/i386.cc                    |   6 +
- gcc/config/linux-android.h                 |  86 +++++++++++--
+ gcc/config/linux-android.h                 |  83 +++++++++++--
  gcc/config/linux-android.opt               |   8 ++
  gcc/config/linux.h                         |   5 +
  gcc/config/mips/android-elf.h              |  23 ++++
@@ -25,7 +25,7 @@ Subject: [PATCH] Add support for the Android operating system
  gcc/varasm.cc                              |   4 +-
  libgcc/config/i386/cpuinfo.c               |   2 +-
  libstdc++-v3/config/os/bionic/ctype_base.h |  27 ++--
- 21 files changed, 455 insertions(+), 45 deletions(-)
+ 21 files changed, 452 insertions(+), 45 deletions(-)
  create mode 100644 gcc/config/android-driver.cc
  create mode 100644 gcc/config/android.cc
  create mode 100644 gcc/config/arm/android-elf.h
@@ -482,7 +482,7 @@ index bf2a3bdfb..13ec06f8c 100644
  	 ? default_external_stack_protect_fail ()
  	 : default_hidden_stack_protect_fail ();
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index f68acecb8..01061acbd 100644
+index f68acecb8..5cc608cdb 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
 @@ -19,10 +19,32 @@
@@ -520,7 +520,7 @@ index f68acecb8..01061acbd 100644
      } while (0)
  
  #if ANDROID_DEFAULT
-@@ -37,23 +59,63 @@
+@@ -37,23 +59,60 @@
  #define LINUX_OR_ANDROID_LD(LINUX_SPEC, ANDROID_SPEC) \
    "%{" NOANDROID "|tno-android-ld:" LINUX_SPEC ";:" ANDROID_SPEC "}"
  
@@ -544,13 +544,10 @@ index f68acecb8..01061acbd 100644
 +* Enable DT_RELR packed relocations on Android 9+ (API level 28).
 +*/
 +#define ANDROID_RELR_SPEC \
-+  "%{fuse-ld=lld|fuse-ld=mold: " \
++  "%{!fuse-ld=gold: " \
 +  " %:version-compare(>= 23 mandroid-version-min= --pack-dyn-relocs=android) " \
 +  " %:version-compare(>= 28 mandroid-version-min= --use-android-relr-tags) " \
 +  " %:version-compare(>= 28 mandroid-version-min= --pack-dyn-relocs=android+relr) " \
-+  " ;: " \
-+  " %:version-compare(>= 30 mandroid-version-min= -z) " \
-+  " %:version-compare(>= 30 mandroid-version-min= pack-relative-relocs) " \
 +  " } "
 +
 +/* Use read-only segments on Android 10+ (API level 29). */
