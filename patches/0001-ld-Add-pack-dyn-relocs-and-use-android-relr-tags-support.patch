@@ -1,7 +1,7 @@
-From 15e84f2604106d07696f510d5bfc6479565ee913 Mon Sep 17 00:00:00 2001
+From 82e2cfe07e97503ca19cc190046dc9634789c7bc Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sat, 1 Aug 2026 21:14:59 +0000
-Subject: [PATCH] ld: Add --pack-dyn-relocs=android[+relr] support
+Subject: [PATCH] ld: Add --pack-dyn-relocs and --use-android-relr-tags support
 
 Add a new --pack-dyn-relocs=STYLE option that stores the dynamic
 relocations of an ELF output file in the Android packed relocation
@@ -34,14 +34,44 @@ android-gcc-cross toolchain and an NDK-clang cross build of Nouzen
 (curl+nghttp2+bearssl+zstd+libarchive+...) targeting x86_64-android
 (216 vs 180 dynamic relocations per compiler, both decodable).
 
+Also add a --use-android-relr-tags option and its negation
+--no-use-android-relr-tags, mirroring the lld options of the same
+names.  When compact relative relocations are enabled, via
+--pack-dyn-relocs=relr, --pack-dyn-relocs=android+relr or
+-z pack-relative-relocs, --use-android-relr-tags labels the
+.relr.dyn section SHT_ANDROID_RELR and emits the DT_ANDROID_RELR,
+DT_ANDROID_RELRSZ and DT_ANDROID_RELRENT dynamic tags instead of
+SHT_RELR and DT_RELR/DT_RELRSZ/DT_RELRENT.  The .relr.dyn contents
+are the same in both formats; only the section type and the tag
+names differ.  The Android tags are what the dynamic linker on
+Android understands before API level 30; the standard tags are
+understood from API level 30 on and by glibc 2.36+.  The default,
+--no-use-android-relr-tags, keeps the standard tags, like lld.
+Since glibc only processes the standard DT_RELR tags, the
+GLIBC_ABI_DT_RELR version dependency is no longer added when the
+Android tags are used, matching what lld does.
+
+Also fix the RELR decoder of the pack-dyn-relocs testsuite checker:
+after decoding a bitmap it advanced the base by the position of the
+highest set bit instead of by the full 63-word (31 on ELFCLASS32)
+window, so a sparse bitmap followed by another bitmap decoded wrong
+addresses.  The checker now also accepts the Android RELR section
+type and dynamic tags.
+
 The full ld and binutils testsuites continue to pass (3311 ld, 351
-binutils cases on x86_64, plus the four new pack-dyn-relocs tests on
-x86_64 and aarch64 cross builds).
+binutils cases on x86_64, plus the new pack-dyn-relocs tests on
+x86_64 and aarch64 cross builds; the ld-elf dump tests pass 416
+cases on x86_64-linux-gnu), and manual links on x86_64, i386
+(-m elf_i386) and aarch64 (-m aarch64linux), including with
+--use-android-relr-tags, decode identically to plain links and to
+llvm-readelf output.
 
 include/
-	* bfdlink.h (struct bfd_link_info) <pack_dyn_relocs_android>: New.
+	* bfdlink.h (struct bfd_link_info) <pack_dyn_relocs_android>,
+	<use_android_relr_tags>: New.
 	* elf/common.h (DT_ANDROID_REL, DT_ANDROID_RELSZ, DT_ANDROID_RELA,
-	DT_ANDROID_RELASZ): New dynamic tags.
+	DT_ANDROID_RELASZ, DT_ANDROID_RELR, DT_ANDROID_RELRSZ,
+	DT_ANDROID_RELRENT): New dynamic tags.
 	(RELOCATION_GROUPED_BY_INFO_FLAG,
 	RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG,
 	RELOCATION_GROUPED_BY_ADDEND_FLAG,
@@ -52,94 +82,81 @@ bfd/
 	<android_rela_contents>: New fields.
 	* elf.c (assign_section_numbers) [SHT_ANDROID_REL/A]: Fix up
 	sh_link to .dynsym when unset.
+	(bfd_section_from_shdr) <SHT_ANDROID_RELR>: Treat like SHT_RELR
+	when reading input sections.
+	(_bfd_elf_print_private_bfd_data) <DT_ANDROID_RELR{,SZ,ENT}>:
+	Print readable names.
 	(_bfd_elf_copy_private_section_data): Preserve SHT_ANDROID_REL/A
-	across objcopy and relocatable link.
+	and SHT_ANDROID_RELR across objcopy and relocatable link.
+	* elf32-i386.c (elf_i386_add_glibc_version_dependency): Don't add
+	GLIBC_ABI_DT_RELR with Android RELR tags.
+	* elf64-x86-64.c (elf_x86_64_add_glibc_version_dependency):
+	Likewise.
 	* elflink.c (_bfd_elf_add_dynamic_entry): Treat DT_ANDROID_RELA and
 	DT_ANDROID_REL as marking dynamic_relocs.
 	(elf_android_sleb128, elf_android_reloc, elf_android_reloc_cmp,
 	elf_android_encode_relocs, elf_link_android_pack_relocs): New.
 	(_bfd_elf_add_dynamic_tags): Emit DT_ANDROID_REL{A,SZ} instead of
 	DT_REL{A,SZ,[A]ENT} when pack_dyn_relocs_android is set.
+	(_bfd_elf_link_add_dt_relr_dependency): Don't add GLIBC_ABI_DT_RELR
+	with Android RELR tags.
 	(_bfd_elf_final_link): Retype the unique .rel.dyn/.rela.dyn section
 	to SHT_ANDROID_REL(A) and pack its relocations into APS2; remove
-	empty-section DT_ANDROID_* entries; write the blob after dynobj.
+	empty-section DT_ANDROID_* entries; write the blob after dynobj;
+	retype .relr.dyn to SHT_ANDROID_RELR and emit
+	DT_ANDROID_RELR/DT_ANDROID_RELRSZ/DT_ANDROID_RELRENT instead of
+	DT_RELR/DT_RELRSZ/DT_RELRENT when use_android_relr_tags is set.
 
 binutils/
 	* readelf.c (get_dynamic_type) <DT_ANDROID_REL>, <DT_ANDROID_RELSZ>,
-	<DT_ANDROID_RELA>, <DT_ANDROID_RELASZ>: Print readable names.
+	<DT_ANDROID_RELA>, <DT_ANDROID_RELASZ>, <DT_ANDROID_RELR>,
+	<DT_ANDROID_RELRSZ>, <DT_ANDROID_RELRENT>: Print readable names.
+	(count_relr_relocations, rel_type_from_sh_type): Accept
+	SHT_ANDROID_RELR like SHT_RELR.
+	(process_dynamic_section) <DT_ANDROID_RELR{,SZ,ENT}>: Record in the
+	DT_RELR/DT_RELRSZ/DT_RELRENT slots so relocation decoding handles
+	both tag flavors.
 
 ld/
 	* ld.texi, ldlex.h, lexsup.c, emultempl/elf.em, NEWS: Plumb the
-	--pack-dyn-relocs option through.
-	* testsuite/ld-elf/pack-dyn-relocs{.d,-relr.d,.exp,.s,-1.c,
-	-check.py}: New tests.
+	--pack-dyn-relocs and --use-android-relr-tags options through.
+	* testsuite/ld-elf/pack-dyn-relocs{.d,-relr.d,-android-relr-tags.d,
+	.exp,.s,-1.c,-check.py}: New tests.
 ---
- bfd/ChangeLog                                |  24 +
- bfd/elf-bfd.h                                |   7 +
- bfd/elf.c                                    |  20 +-
- bfd/elflink.c                                | 481 ++++++++++++++++++-
- binutils/ChangeLog                           |   5 +
- binutils/readelf.c                           |   4 +
- include/ChangeLog                            |  12 +
- include/bfdlink.h                            |   4 +
- include/elf/common.h                         |  12 +
- ld/ChangeLog                                 |  19 +
- ld/NEWS                                      |   6 +
- ld/emultempl/elf.em                          |  26 +
- ld/ld.texi                                   |  19 +
- ld/ldlex.h                                   |   1 +
- ld/lexsup.c                                  |   3 +
- ld/testsuite/ld-elf/pack-dyn-relocs-1.c      |  29 ++
- ld/testsuite/ld-elf/pack-dyn-relocs-check.py | 368 ++++++++++++++
- ld/testsuite/ld-elf/pack-dyn-relocs-relr.d   |  16 +
- ld/testsuite/ld-elf/pack-dyn-relocs.d        |  12 +
- ld/testsuite/ld-elf/pack-dyn-relocs.exp      | 104 ++++
- ld/testsuite/ld-elf/pack-dyn-relocs.s        |  35 ++
- 21 files changed, 1202 insertions(+), 5 deletions(-)
+ bfd/elf-bfd.h                                 |   7 +
+ bfd/elf.c                                     |  28 +-
+ bfd/elf32-i386.c                              |   4 +-
+ bfd/elf64-x86-64.c                            |   4 +-
+ bfd/elflink.c                                 | 509 +++++++++++++++++-
+ binutils/readelf.c                            |  37 +-
+ include/bfdlink.h                             |   9 +
+ include/elf/common.h                          |  19 +
+ ld/NEWS                                       |  14 +
+ ld/emultempl/elf.em                           |  36 ++
+ ld/ld.texi                                    |  39 ++
+ ld/ldlex.h                                    |   3 +
+ ld/lexsup.c                                   |   8 +
+ ld/testsuite/ld-elf/pack-dyn-relocs-1.c       |  29 +
+ .../pack-dyn-relocs-android-relr-tags.d       |  18 +
+ ld/testsuite/ld-elf/pack-dyn-relocs-check.py  | 381 +++++++++++++
+ ld/testsuite/ld-elf/pack-dyn-relocs-relr.d    |  16 +
+ ld/testsuite/ld-elf/pack-dyn-relocs.d         |  12 +
+ ld/testsuite/ld-elf/pack-dyn-relocs.exp       | 124 +++++
+ ld/testsuite/ld-elf/pack-dyn-relocs.s         |  35 ++
+ 20 files changed, 1320 insertions(+), 12 deletions(-)
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-1.c
+ create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-android-relr-tags.d
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-check.py
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-relr.d
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs.d
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs.exp
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs.s
 
-diff --git a/bfd/ChangeLog b/bfd/ChangeLog
-index 6046f658..db211043 100644
---- a/bfd/ChangeLog
-+++ b/bfd/ChangeLog
-@@ -1,3 +1,27 @@
-+2026-08-01  Kartatz  <105828205+Kartatz@users.noreply.github.com>
-+
-+	* elf-bfd.h (struct elf_link_hash_table) <android_rela_sec>,
-+	<android_rela_contents>: New fields.
-+	* elf.c (assign_section_numbers) <SHT_ANDROID_REL, SHT_ANDROID_RELA>:
-+	Set sh_link to .dynsym when unset.
-+	(_bfd_elf_copy_private_section_data): Preserve SHT_ANDROID_REL and
-+	SHT_ANDROID_RELA section types across objcopy and relocatable link.
-+	* elflink.c (_bfd_elf_add_dynamic_entry): Mark dynamic_relocs for
-+	DT_ANDROID_RELA and DT_ANDROID_REL too.
-+	(elf_android_sleb128, elf_android_reloc, elf_android_reloc_cmp,
-+	elf_android_encode_relocs, elf_link_android_pack_relocs): New
-+	functions to encode dynamic relocations into the Android APS2
-+	packed format.
-+	(_bfd_elf_add_dynamic_tags): Emit DT_ANDROID_REL/RELSZ or
-+	DT_ANDROID_RELA/RELASZ (and skip DT_RELA/REL, RELAENT/RELENT) when
-+	pack_dyn_relocs_android is set.
-+	(_bfd_elf_final_link): After final layout, retype the unique
-+	.rel.dyn/.rela.dyn output section to SHT_ANDROID_REL(A) and call
-+	elf_link_android_pack_relocs to write the APS2 blob in place of
-+	the plain relocations.  Remove any leftover DT_ANDROID_* entries
-+	when the packed section ends up empty (e.g. all relatives diverted
-+	to .relr.dyn by --pack-dyn-relocs=android+relr).
-+
- 2025-09-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
- 
- 	* config.bfd <powerpc-*-solaris2*>: Remove.
 diff --git a/bfd/elf-bfd.h b/bfd/elf-bfd.h
-index 88d35925..69bf8707 100644
+index 6e21dcac80c..246b68a7557 100644
 --- a/bfd/elf-bfd.h
 +++ b/bfd/elf-bfd.h
-@@ -785,6 +785,13 @@ struct elf_link_hash_table
+@@ -783,6 +783,13 @@ struct elf_link_hash_table
    asection *srelrdyn;
    asection *dynamic;
    asection *interp;
@@ -154,10 +171,36 @@ index 88d35925..69bf8707 100644
  
  /* Returns TRUE if the hash table is a struct elf_link_hash_table.  */
 diff --git a/bfd/elf.c b/bfd/elf.c
-index ea127919..7eff0c5f 100644
+index 2cae97a6dd3..8e2158c1df9 100644
 --- a/bfd/elf.c
 +++ b/bfd/elf.c
-@@ -4338,6 +4338,19 @@ assign_section_numbers (bfd *abfd, struct bfd_link_info *link_info)
+@@ -1654,6 +1654,9 @@ _bfd_elf_print_private_bfd_data (bfd *abfd, void *farg)
+ 	    case DT_RELR: name = "RELR"; break;
+ 	    case DT_RELRSZ: name = "RELRSZ"; break;
+ 	    case DT_RELRENT: name = "RELRENT"; break;
++	    case DT_ANDROID_RELR: name = "ANDROID_RELR"; break;
++	    case DT_ANDROID_RELRSZ: name = "ANDROID_RELRSZ"; break;
++	    case DT_ANDROID_RELRENT: name = "ANDROID_RELRENT"; break;
+ 	    case DT_PLTREL: name = "PLTREL"; break;
+ 	    case DT_DEBUG: name = "DEBUG"; break;
+ 	    case DT_TEXTREL: name = "TEXTREL"; break;
+@@ -2805,6 +2808,7 @@ bfd_section_from_shdr (bfd *abfd, unsigned int shindex)
+     case SHT_REL:
+     case SHT_RELA:
+     case SHT_RELR:
++    case SHT_ANDROID_RELR:
+       /* *These* do a lot of work -- but build no sections!  */
+       {
+ 	asection *target_sect;
+@@ -2851,6 +2855,7 @@ bfd_section_from_shdr (bfd *abfd, unsigned int shindex)
+ 	     && (hdr->sh_flags & SHF_ALLOC) != 0)
+ 	    || (hdr->sh_flags & SHF_COMPRESSED) != 0
+ 	    || hdr->sh_type == SHT_RELR
++	    || hdr->sh_type == SHT_ANDROID_RELR
+ 	    || hdr->sh_link == SHN_UNDEF
+ 	    || hdr->sh_link != elf_onesymtab (abfd)
+ 	    || hdr->sh_info == SHN_UNDEF
+@@ -4339,6 +4344,19 @@ assign_section_numbers (bfd *abfd, struct bfd_link_info *link_info)
  
        switch (d->this_hdr.sh_type)
  	{
@@ -177,7 +220,7 @@ index ea127919..7eff0c5f 100644
  	case SHT_REL:
  	case SHT_RELA:
  	  /* sh_link is the section index of the symbol table.
-@@ -8461,7 +8474,12 @@ _bfd_elf_copy_private_section_data (bfd *ibfd,
+@@ -8462,7 +8480,15 @@ _bfd_elf_copy_private_section_data (bfd *ibfd,
       SHF_MASKOS and SHF_MASKPROC.  */
    if (elf_section_type (osec) == SHT_PROGBITS
        || elf_section_type (osec) == SHT_NOTE
@@ -187,15 +230,62 @@ index ea127919..7eff0c5f 100644
 +	 OSEC would otherwise keep the type implied by its name
 +	 (SHT_REL/SHT_RELA).  */
 +      || elf_section_type (isec) == SHT_ANDROID_REL
-+      || elf_section_type (isec) == SHT_ANDROID_RELA)
++      || elf_section_type (isec) == SHT_ANDROID_RELA
++      /* Likewise for Android RELR sections, which would otherwise
++	 get SHT_RELR from the .relr.dyn name.  */
++      || elf_section_type (isec) == SHT_ANDROID_RELR)
      elf_section_type (osec) = SHT_NULL;
  
    /* For objcopy and relocatable link, copy the ELF section type from
+diff --git a/bfd/elf32-i386.c b/bfd/elf32-i386.c
+index 36a957d03f1..03beebcdb83 100644
+--- a/bfd/elf32-i386.c
++++ b/bfd/elf32-i386.c
+@@ -4566,7 +4566,9 @@ elf_i386_add_glibc_version_dependency
+   bool auto_version[4] = { false, false, false, false };
+   struct elf_x86_link_hash_table *htab;
+ 
+-  if (rinfo->info->enable_dt_relr)
++  /* glibc only understands the standard DT_RELR tags.  */
++  if (rinfo->info->enable_dt_relr
++      && !rinfo->info->use_android_relr_tags)
+     {
+       version[i] = "GLIBC_ABI_DT_RELR";
+       i++;
+diff --git a/bfd/elf64-x86-64.c b/bfd/elf64-x86-64.c
+index c52839d7be2..5e747d05fe0 100644
+--- a/bfd/elf64-x86-64.c
++++ b/bfd/elf64-x86-64.c
+@@ -6318,7 +6318,9 @@ elf_x86_64_add_glibc_version_dependency
+   bool auto_version[4] = { false, false, false, false };
+   struct elf_x86_link_hash_table *htab;
+ 
+-  if (rinfo->info->enable_dt_relr)
++  /* glibc only understands the standard DT_RELR tags.  */
++  if (rinfo->info->enable_dt_relr
++      && !rinfo->info->use_android_relr_tags)
+     {
+       version[i] = "GLIBC_ABI_DT_RELR";
+       i++;
 diff --git a/bfd/elflink.c b/bfd/elflink.c
-index 0af9837a..9ef9bda2 100644
+index d5956b8bd2f..a435961caf4 100644
 --- a/bfd/elflink.c
 +++ b/bfd/elflink.c
-@@ -3805,7 +3805,8 @@ _bfd_elf_add_dynamic_entry (struct bfd_link_info *info,
+@@ -2454,7 +2454,12 @@ _bfd_elf_link_add_glibc_version_dependency
+ void
+ _bfd_elf_link_add_dt_relr_dependency (struct elf_find_verdep_info *rinfo)
+ {
+-  if (rinfo->info->enable_dt_relr)
++  /* glibc only understands the standard DT_RELR tags; never add the
++     GLIBC_ABI_DT_RELR dependency when the RELR data is labeled with
++     the Android tags (--use-android-relr-tags), which is only ever
++     used against the Android dynamic linker.  */
++  if (rinfo->info->enable_dt_relr
++      && !rinfo->info->use_android_relr_tags)
+     {
+       static const char *const version[] =
+ 	{
+@@ -3870,7 +3875,8 @@ _bfd_elf_add_dynamic_entry (struct bfd_link_info *info,
    if (! is_elf_hash_table (&hash_table->root))
      return false;
  
@@ -205,7 +295,7 @@ index 0af9837a..9ef9bda2 100644
      hash_table->dynamic_relocs = true;
  
    obed = get_elf_backend_data (hash_table->dynobj);
-@@ -12598,6 +12599,326 @@ elf_final_link_free (bfd *obfd, struct elf_final_link_info *flinfo)
+@@ -12653,6 +12659,326 @@ elf_final_link_free (bfd *obfd, struct elf_final_link_info *flinfo)
      }
  }
  
@@ -532,7 +622,7 @@ index 0af9837a..9ef9bda2 100644
  /* Do the final step of an ELF link.  */
  
  bool
-@@ -12918,6 +13239,59 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -12973,6 +13299,72 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
    if (! bfd_link_relocatable (info) && merged)
      elf_link_hash_traverse (htab, _bfd_elf_link_sec_merge_syms, obfd);
  
@@ -589,10 +679,23 @@ index 0af9837a..9ef9bda2 100644
 +	}
 +    }
 +
++  /* When using Android RELR tags, change the .relr.dyn section type
++     from SHT_RELR to SHT_ANDROID_RELR.  The .relr.dyn section itself
++     and its contents are the same in both formats; only the section
++     type and the DT_RELR* dynamic tags differ, matching what LLD
++     does for --use-android-relr-tags.  */
++  if (info->use_android_relr_tags
++      && !bfd_link_relocatable (info)
++      && htab->srelrdyn != NULL
++      && htab->srelrdyn->output_section != NULL
++      && htab->srelrdyn->size != 0)
++    elf_section_data (htab->srelrdyn->output_section)->this_hdr.sh_type
++      = SHT_ANDROID_RELR;
++
    /* Figure out the file positions for everything but the symbol table
       and the relocs.  We set symcount to force assign_section_numbers
       to create a symbol table.  */
-@@ -13484,8 +13858,18 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13547,8 +13939,18 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
      }
  
    relativecount = 0;
@@ -613,7 +716,7 @@ index 0af9837a..9ef9bda2 100644
  
    relr_entsize = 0;
    if (htab->srelrdyn != NULL
-@@ -13511,6 +13895,46 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13574,6 +13976,46 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
        o = htab->dynamic;
        BFD_ASSERT (o != NULL);
  
@@ -660,7 +763,31 @@ index 0af9837a..9ef9bda2 100644
        dyncon = o->contents;
        dynconend = PTR_ADD (o->contents, o->size);
        for (; dyncon < dynconend; dyncon += obed->s->sizeof_dyn)
-@@ -13672,6 +14096,25 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13612,18 +14054,20 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+ 		  if (dynconend - dyncon >= 3 * obed->s->sizeof_dyn)
+ 		    {
+ 		      asection *s = htab->srelrdyn;
+-		      dyn.d_tag = DT_RELR;
++		      bool android_relr = info->use_android_relr_tags;
++
++		      dyn.d_tag = android_relr ? DT_ANDROID_RELR : DT_RELR;
+ 		      dyn.d_un.d_ptr
+ 			= s->output_section->vma + s->output_offset;
+ 		      obed->s->swap_dyn_out (dynobj, &dyn, dyncon);
+ 		      dyncon += obed->s->sizeof_dyn;
+ 
+-		      dyn.d_tag = DT_RELRSZ;
++		      dyn.d_tag = android_relr ? DT_ANDROID_RELRSZ : DT_RELRSZ;
+ 		      dyn.d_un.d_val = s->size;
+ 		      obed->s->swap_dyn_out (dynobj, &dyn, dyncon);
+ 		      dyncon += obed->s->sizeof_dyn;
+ 
+-		      dyn.d_tag = DT_RELRENT;
++		      dyn.d_tag = android_relr ? DT_ANDROID_RELRENT : DT_RELRENT;
+ 		      dyn.d_un.d_val = relr_entsize;
+ 		      relr_entsize = 0;
+ 		      break;
+@@ -13735,6 +14179,25 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
  	      dyn.d_un.d_ptr = o->output_section->vma + o->output_offset;
  	      break;
  
@@ -686,7 +813,7 @@ index 0af9837a..9ef9bda2 100644
  	    case DT_REL:
  	    case DT_RELA:
  	    case DT_RELSZ:
-@@ -13810,6 +14253,19 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13873,6 +14336,19 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
  		goto error_return;
  	    }
  	}
@@ -706,7 +833,7 @@ index 0af9837a..9ef9bda2 100644
      }
  
    if (!info->resolve_section_groups)
-@@ -15784,7 +16240,24 @@ _bfd_elf_add_dynamic_tags (struct bfd_link_info *info, bool need_dynamic_reloc)
+@@ -15843,7 +16319,24 @@ _bfd_elf_add_dynamic_tags (struct bfd_link_info *info, bool need_dynamic_reloc)
  
        if (need_dynamic_reloc)
  	{
@@ -732,27 +859,27 @@ index 0af9837a..9ef9bda2 100644
  	    {
  	      if (!add_dynamic_entry (DT_RELA, 0)
  		  || !add_dynamic_entry (DT_RELASZ, 0)
-diff --git a/binutils/ChangeLog b/binutils/ChangeLog
-index 1cf08d80..febc4c04 100644
---- a/binutils/ChangeLog
-+++ b/binutils/ChangeLog
-@@ -1,3 +1,8 @@
-+2026-08-01  Kartatz  <105828205+Kartatz@users.noreply.github.com>
-+
-+	* readelf.c (get_dynamic_type) <DT_ANDROID_REL>, <DT_ANDROID_RELSZ>,
-+	<DT_ANDROID_RELA>, <DT_ANDROID_RELASZ>: Print readable names.
-+
- 2025-07-13  Nick Clifton  <nickc@redhat.com>
- 
- 	* 2.45 Branch point.
 diff --git a/binutils/readelf.c b/binutils/readelf.c
-index a52fe2b8..57d589dd 100644
+index b86bf3eb294..5fe54f36699 100644
 --- a/binutils/readelf.c
 +++ b/binutils/readelf.c
-@@ -3320,6 +3320,10 @@ get_dynamic_type (Filedata * filedata, unsigned long type)
+@@ -1865,7 +1865,8 @@ count_relr_relocations (Filedata *          filedata,
+   int         entsize;
+ 
+   if (section == NULL
+-      || section->sh_type != SHT_RELR
++      || (section->sh_type != SHT_RELR
++	  && section->sh_type != SHT_ANDROID_RELR)
+       || section->sh_size == 0)
+     return 0;
+ 
+@@ -3320,6 +3321,13 @@ get_dynamic_type (Filedata * filedata, unsigned long type)
      case DT_RELR:	return "RELR";
      case DT_RELRSZ:	return "RELRSZ";
      case DT_RELRENT:	return "RELRENT";
++    case DT_ANDROID_RELR: return "ANDROID_RELR";
++    case DT_ANDROID_RELRSZ: return "ANDROID_RELRSZ";
++    case DT_ANDROID_RELRENT: return "ANDROID_RELRENT";
 +    case DT_ANDROID_REL: return "ANDROID_REL";
 +    case DT_ANDROID_RELSZ: return "ANDROID_RELSZ";
 +    case DT_ANDROID_RELA: return "ANDROID_RELA";
@@ -760,31 +887,52 @@ index a52fe2b8..57d589dd 100644
      case DT_PLTREL:	return "PLTREL";
      case DT_DEBUG:	return "DEBUG";
      case DT_TEXTREL:	return "TEXTREL";
-diff --git a/include/ChangeLog b/include/ChangeLog
-index 2d05f2e4..1023967d 100644
---- a/include/ChangeLog
-+++ b/include/ChangeLog
-@@ -1,3 +1,15 @@
-+2026-08-01  Kartatz  <105828205+Kartatz@users.noreply.github.com>
-+
-+	* bfdlink.h (struct bfd_link_info) <pack_dyn_relocs_android>: New
-+	bitfield.
-+	* elf/common.h (DT_ANDROID_REL, DT_ANDROID_RELSZ, DT_ANDROID_RELA,
-+	DT_ANDROID_RELASZ): New dynamic tags.
-+	(RELOCATION_GROUPED_BY_INFO_FLAG,
-+	RELOCATION_GROUPED_BY_OFFSET_DELTA_FLAG,
-+	RELOCATION_GROUPED_BY_ADDEND_FLAG,
-+	RELOCATION_GROUP_HAS_ADDEND_FLAG): New Android packed relocation
-+	group flags.
-+
- 2025-07-13  Nick Clifton  <nickc@redhat.com>
+@@ -9533,6 +9541,7 @@ rel_type_from_sh_type (unsigned int sh_type)
+     case SHT_RELA: return reltype_rela;
+     case SHT_REL:  return reltype_rel;
+     case SHT_RELR: return reltype_relr;
++    case SHT_ANDROID_RELR: return reltype_relr;
+     default:       return reltype_unknown;
+     }
+ }
+@@ -13074,6 +13083,32 @@ the .dynstr section doesn't match the DT_STRTAB and DT_STRSZ tags\n"));
+ 	    }
+ 	  break;
  
- 	* 2.45 Branch point.
++	case DT_ANDROID_RELRSZ:
++	  /* Like DT_RELRSZ, but with the Android tag value.  Store it
++	     in the DT_RELRSZ slot so that relocation decoding treats
++	     both tag flavors the same.  */
++	  filedata->dynamic_info[DT_RELRSZ] = entry->d_un.d_val;
++	  goto print_android_relr_bytes;
++	case DT_ANDROID_RELRENT:
++	  filedata->dynamic_info[DT_RELRENT] = entry->d_un.d_val;
++	print_android_relr_bytes:
++	  if (do_dynamic)
++	    {
++	      print_vma (entry->d_un.d_val, UNSIGNED);
++	      printf (_(" (bytes)\n"));
++	    }
++	  break;
++
++	case DT_ANDROID_RELR:
++	  /* Like DT_RELR, but with the Android tag value.  */
++	  filedata->dynamic_info[DT_RELR] = entry->d_un.d_val;
++	  if (do_dynamic)
++	    {
++	      print_vma (entry->d_un.d_val, PREFIX_HEX);
++	      putchar ('\n');
++	    }
++	  break;
++
+ 	case DT_PLTRELSZ:
+ 	case DT_RELASZ	:
+ 	case DT_STRSZ	:
 diff --git a/include/bfdlink.h b/include/bfdlink.h
-index 90b5d8a8..e60287a0 100644
+index 90b5d8a8d85..da451897fdb 100644
 --- a/include/bfdlink.h
 +++ b/include/bfdlink.h
-@@ -427,6 +427,10 @@ struct bfd_link_info
+@@ -427,6 +427,15 @@ struct bfd_link_info
       relocations.  */
    unsigned int enable_dt_relr: 1;
  
@@ -792,14 +940,19 @@ index 90b5d8a8..e60287a0 100644
 +     packed relocation format (--pack-dyn-relocs=android).  */
 +  unsigned int pack_dyn_relocs_android: 1;
 +
++  /* TRUE if relative relocations should be labeled with the Android
++     SHT_ANDROID_RELR section type and DT_ANDROID_RELR* dynamic tags
++     instead of SHT_RELR and DT_RELR* (--use-android-relr-tags).  */
++  unsigned int use_android_relr_tags: 1;
++
    /* TRUE if separate code segment should be created.  */
    unsigned int separate_code: 1;
  
 diff --git a/include/elf/common.h b/include/elf/common.h
-index f811b8da..37024f86 100644
+index 6b99f0075bf..414afd6f860 100644
 --- a/include/elf/common.h
 +++ b/include/elf/common.h
-@@ -1229,9 +1229,21 @@
+@@ -1237,9 +1237,28 @@
     values outside of the new range (see below).	 */
  #define OLD_DT_LOOS	0x60000000
  #define DT_LOOS		0x6000000d
@@ -810,6 +963,13 @@ index f811b8da..37024f86 100644
  #define DT_HIOS		0x6ffff000
  #define OLD_DT_HIOS	0x6fffffff
  
++/* Android's experimental support for SHT_RELR sections.  Like the
++   standard DT_RELR tags, but understood by the Android dynamic
++   linker since API level 28.  Used by --use-android-relr-tags.  */
++#define DT_ANDROID_RELR	  0x6fffe000 /* Android RELR relocations.  */
++#define DT_ANDROID_RELRSZ 0x6fffe001
++#define DT_ANDROID_RELRENT 0x6fffe003
++
 +/* Android packed relocation group flags, used by the relocation
 +   packing format stored in SHT_ANDROID_REL/SHT_ANDROID_RELA
 +   sections.  */
@@ -821,38 +981,11 @@ index f811b8da..37024f86 100644
  #define DT_LOPROC	0x70000000
  #define DT_HIPROC	0x7fffffff
  
-diff --git a/ld/ChangeLog b/ld/ChangeLog
-index ffac8a83..b4c512b6 100644
---- a/ld/ChangeLog
-+++ b/ld/ChangeLog
-@@ -1,3 +1,22 @@
-+2026-08-01  Kartatz  <105828205+Kartatz@users.noreply.github.com>
-+
-+	* NEWS: Mention --pack-dyn-relocs=android[+relr].
-+	* ld.texi (--pack-dyn-relocs): Document.
-+	* ldlex.h (enum option_values) <OPTION_PACK_DYN_RELOCS>: New.
-+	* lexsup.c (elf_shlib_list_options): Add --pack-dyn-relocs to the
-+	help text.
-+	* emultempl/elf.em: Register OPTION_PACK_DYN_RELOCS in the long
-+	options table.
-+	(gld${EMULATION_NAME}_handle_option) <OPTION_PACK_DYN_RELOCS>: Handle
-+	none, relr, android and android+relr; set pack_dyn_relocs_android and
-+	enable_dt_relr accordingly.
-+	* testsuite/ld-elf/pack-dyn-relocs.d: New.
-+	* testsuite/ld-elf/pack-dyn-relocs-relr.d: New.
-+	* testsuite/ld-elf/pack-dyn-relocs.exp: New.
-+	* testsuite/ld-elf/pack-dyn-relocs.s: New.
-+	* testsuite/ld-elf/pack-dyn-relocs-1.c: New.
-+	* testsuite/ld-elf/pack-dyn-relocs-check.py: New.
-+
- 2025-09-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
- 
- 	* configure.tgt <powerpc*-*-solaris*>: Remove.
 diff --git a/ld/NEWS b/ld/NEWS
-index 53394fee..955b5889 100644
+index dab32bf648c..3aa490a9cc6 100644
 --- a/ld/NEWS
 +++ b/ld/NEWS
-@@ -2,6 +2,12 @@
+@@ -18,6 +18,20 @@
  
  Changes in 2.47:
  
@@ -862,22 +995,32 @@ index 53394fee..955b5889 100644
 +  sections with DT_ANDROID_REL/DT_ANDROID_RELA dynamic tags), compatible
 +  with Android's dynamic linker.
 +
++* Add ELF linker support for the --use-android-relr-tags and
++  --no-use-android-relr-tags options, which label compact relative
++  relocations with the SHT_ANDROID_RELR section type and
++  DT_ANDROID_RELR/DT_ANDROID_RELRSZ/DT_ANDROID_RELRENT dynamic tags
++  instead of SHT_RELR/DT_RELR*, as understood by the Android dynamic
++  linker before API level 30.  The options match the lld ones of the
++  same names.
++
  * Add a linker optimization level of zero.  Using "-O 0" on the linker command
    line will stop it from combining the contents of mergeable sections.  This
    can significantly speed up the link process at the cost of producing larger
 diff --git a/ld/emultempl/elf.em b/ld/emultempl/elf.em
-index 639f4f34..6d92356d 100644
+index 8576c282a03..d92d129f544 100644
 --- a/ld/emultempl/elf.em
 +++ b/ld/emultempl/elf.em
-@@ -813,6 +813,7 @@ EOF
+@@ -813,6 +813,9 @@ EOF
  fi
  fragment <<EOF
      {"build-id", optional_argument, NULL, OPTION_BUILD_ID},
 +    {"pack-dyn-relocs", required_argument, NULL, OPTION_PACK_DYN_RELOCS},
++    {"use-android-relr-tags", no_argument, NULL, OPTION_USE_ANDROID_RELR_TAGS},
++    {"no-use-android-relr-tags", no_argument, NULL, OPTION_NO_USE_ANDROID_RELR_TAGS},
      {"package-metadata", optional_argument, NULL, OPTION_PACKAGE_METADATA},
      {"compress-debug-sections", required_argument, NULL, OPTION_COMPRESS_DEBUG},
      {"rosegment", no_argument, NULL, OPTION_ROSEGMENT},
-@@ -864,6 +865,31 @@ gld${EMULATION_NAME}_handle_option (int optc)
+@@ -864,6 +867,39 @@ gld${EMULATION_NAME}_handle_option (int optc)
  	ldelf_emit_note_gnu_build_id = xstrdup (optarg);
        break;
  
@@ -906,14 +1049,22 @@ index 639f4f34..6d92356d 100644
 +	fatal (_("%P: unknown --pack-dyn-relocs format: %s\n"), optarg);
 +      break;
 +
++    case OPTION_USE_ANDROID_RELR_TAGS:
++      link_info.use_android_relr_tags = true;
++      break;
++
++    case OPTION_NO_USE_ANDROID_RELR_TAGS:
++      link_info.use_android_relr_tags = false;
++      break;
++
      case OPTION_PACKAGE_METADATA:
        free ((char *) ldelf_emit_note_fdo_package_metadata);
        ldelf_emit_note_fdo_package_metadata = NULL;
 diff --git a/ld/ld.texi b/ld/ld.texi
-index 9d6618a4..e5302614 100644
+index 90c84c8d3c1..6b9a1b2dc79 100644
 --- a/ld/ld.texi
 +++ b/ld/ld.texi
-@@ -3342,6 +3342,25 @@ the classic ELF @code{.hash} and new style GNU @code{.gnu.hash}
+@@ -3342,6 +3342,45 @@ the classic ELF @code{.hash} and new style GNU @code{.gnu.hash}
  hash tables.  The default depends upon how the linker was configured,
  but for most Linux based systems it will be @code{both}.
  
@@ -936,38 +1087,65 @@ index 9d6618a4..e5302614 100644
 +linker on Android.  PLT relocations referenced by @code{DT_JMPREL}
 +are not packed.
 +
++@kindex --use-android-relr-tags
++@kindex --no-use-android-relr-tags
++@item --use-android-relr-tags
++@itemx --no-use-android-relr-tags
++When compact relative relocations are enabled, via
++@option{--pack-dyn-relocs=relr}, @option{--pack-dyn-relocs=android+relr}
++or @option{-z pack-relative-relocs}, select how the @code{.relr.dyn}
++section and its dynamic tags are labeled.
++
++@option{--no-use-android-relr-tags}, the default, uses the standard
++@code{SHT_RELR} section type and the @code{DT_RELR},
++@code{DT_RELRSZ} and @code{DT_RELRENT} dynamic tags.
++@option{--use-android-relr-tags} instead labels the section
++@code{SHT_ANDROID_RELR} and emits the @code{DT_ANDROID_RELR},
++@code{DT_ANDROID_RELRSZ} and @code{DT_ANDROID_RELRENT} tags, which is
++what the dynamic linker on Android understands before API level 30.
++The @code{.relr.dyn} contents are the same in both formats; only the
++section type and tag names differ.  This matches the @command{lld}
++options of the same names.
++
  @kindex --compress-debug-sections=none
  @kindex --compress-debug-sections=zlib
  @kindex --compress-debug-sections=zlib-gnu
 diff --git a/ld/ldlex.h b/ld/ldlex.h
-index 43b0d9d4..0d2bafa3 100644
+index b4f1bffd2a7..4cb63adf399 100644
 --- a/ld/ldlex.h
 +++ b/ld/ldlex.h
-@@ -287,6 +287,7 @@ enum option_values
+@@ -288,6 +288,9 @@ enum option_values
    OPTION_EH_FRAME_HDR,
    OPTION_NO_EH_FRAME_HDR,
    OPTION_HASH_STYLE,
 +  OPTION_PACK_DYN_RELOCS,
++  OPTION_USE_ANDROID_RELR_TAGS,
++  OPTION_NO_USE_ANDROID_RELR_TAGS,
    OPTION_PACKAGE_METADATA,
    OPTION_AUDIT,
    OPTION_COMPRESS_DEBUG,
 diff --git a/ld/lexsup.c b/ld/lexsup.c
-index f7ec00d8..22de87bd 100644
+index f7ec00d8489..7f8894285be 100644
 --- a/ld/lexsup.c
 +++ b/ld/lexsup.c
-@@ -2221,6 +2221,9 @@ elf_shlib_list_options (FILE *file)
+@@ -2221,6 +2221,14 @@ elf_shlib_list_options (FILE *file)
    -P AUDITLIB, --depaudit=AUDITLIB\n" "\
                                Specify a library to use for auditing dependencies\n"));
    fprintf (file, _("\
 +  --pack-dyn-relocs=STYLE     Pack dynamic relocations using STYLE\n\
 +                                (none, relr, android, android+relr)\n"));
 +  fprintf (file, _("\
++  --use-android-relr-tags      Use SHT_ANDROID_RELR / DT_ANDROID_RELR* tags\n\
++                                instead of SHT_RELR / DT_RELR*\n"));
++  fprintf (file, _("\
++  --no-use-android-relr-tags   Use SHT_RELR / DT_RELR* tags (default)\n"));
++  fprintf (file, _("\
    -z combreloc                Merge dynamic relocs into one section and sort\n"));
    fprintf (file, _("\
    -z nocombreloc              Don't merge dynamic relocs into one section\n"));
 diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs-1.c b/ld/testsuite/ld-elf/pack-dyn-relocs-1.c
 new file mode 100644
-index 00000000..7e9ff57a
+index 00000000000..7e9ff57ad0b
 --- /dev/null
 +++ b/ld/testsuite/ld-elf/pack-dyn-relocs-1.c
 @@ -0,0 +1,29 @@
@@ -1000,12 +1178,36 @@ index 00000000..7e9ff57a
 +
 +int (*fptr1)(void) = foo;
 +int (*fptr2)(void) = extern_func;
+diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs-android-relr-tags.d b/ld/testsuite/ld-elf/pack-dyn-relocs-android-relr-tags.d
+new file mode 100644
+index 00000000000..f476386b151
+--- /dev/null
++++ b/ld/testsuite/ld-elf/pack-dyn-relocs-android-relr-tags.d
+@@ -0,0 +1,18 @@
++#name: --pack-dyn-relocs=android+relr --use-android-relr-tags
++#source: pack-dyn-relocs.s
++#ld: -shared --pack-dyn-relocs=android+relr --use-android-relr-tags
++#readelf: -dW -SW
++#target: [supports_dt_relr]
++
++#...
++.*\.rel(a)?\.dyn\s+ANDROID_RELA?\s.*
++#...
++.*\.relr\.dyn\s+ANDROID_RELR\s.*
++#...
++.*0x[0-9a-f]+ \(ANDROID_RELA?\)\s+0x[0-9a-f]+
++.*0x[0-9a-f]+ \(ANDROID_RELA?SZ\)\s+.*
++#...
++.*0x[0-9a-f]+ \(ANDROID_RELR\)\s+0x[0-9a-f]+
++.*0x[0-9a-f]+ \(ANDROID_RELRSZ\)\s+.*
++.*0x[0-9a-f]+ \(ANDROID_RELRENT\)\s+.*
++#pass
 diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs-check.py b/ld/testsuite/ld-elf/pack-dyn-relocs-check.py
 new file mode 100644
-index 00000000..95d481e1
+index 00000000000..4746802aacb
 --- /dev/null
 +++ b/ld/testsuite/ld-elf/pack-dyn-relocs-check.py
-@@ -0,0 +1,368 @@
+@@ -0,0 +1,381 @@
 +#!/usr/bin/env python3
 +## Copyright (C) 2026 Free Software Foundation, Inc.
 +##
@@ -1052,6 +1254,7 @@ index 00000000..95d481e1
 +SHT_RELR = 19
 +SHT_ANDROID_REL = 0x60000001
 +SHT_ANDROID_RELA = 0x60000002
++SHT_ANDROID_RELR = 0x6fffff00
 +
 +DT_RELA = 7
 +DT_RELASZ = 8
@@ -1063,6 +1266,9 @@ index 00000000..95d481e1
 +DT_ANDROID_RELSZ = 0x60000010
 +DT_ANDROID_RELA = 0x60000011
 +DT_ANDROID_RELASZ = 0x60000012
++DT_ANDROID_RELR = 0x6fffe000
++DT_ANDROID_RELRSZ = 0x6fffe001
++DT_ANDROID_RELRENT = 0x6fffe003
 +
 +PT_LOAD = 1
 +
@@ -1207,13 +1413,18 @@ index 00000000..95d481e1
 +
 +def decode_relr(elf, tags):
 +    """Return RELR entries as pseudo-relocations (offset, 0, addend),
-+    where the addend is the value stored at the relocation site."""
++    where the addend is the value stored at the relocation site.
++    Both the standard (SHT_RELR/DT_RELR) and the Android
++    (SHT_ANDROID_RELR/DT_ANDROID_RELR) labelings are accepted; the
++    .relr.dyn contents are the same in both."""
 +    addr = tags.get(DT_RELR)
++    if addr is None:
++        addr = tags.get(DT_ANDROID_RELR)
 +    if addr is None:
 +        return []
 +    sec = None
 +    for s in elf.secs:
-+        if s["type"] == SHT_RELR:
++        if s["type"] in (SHT_RELR, SHT_ANDROID_RELR):
 +            sec = s
 +    if sec is None:
 +        return []
@@ -1235,7 +1446,11 @@ index 00000000..95d481e1
 +                    relocs.append(bit_off)
 +                b >>= 1
 +                bit_off += wsize
-+            current = bit_off
++            # The base of the next run is a full window (63 words on
++            # ELFCLASS64, 31 on ELFCLASS32) past the base of this
++            # bitmap, regardless of which bits were set, matching
++            # bionic's linker, LLD and readelf.
++            current += (63 if elf.is64 else 31) * wsize
 +    out = []
 +    for r in relocs:
 +        voff = elf.vaddr_to_off(r)
@@ -1376,7 +1591,7 @@ index 00000000..95d481e1
 +    main()
 diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs-relr.d b/ld/testsuite/ld-elf/pack-dyn-relocs-relr.d
 new file mode 100644
-index 00000000..579873a7
+index 00000000000..579873a7a22
 --- /dev/null
 +++ b/ld/testsuite/ld-elf/pack-dyn-relocs-relr.d
 @@ -0,0 +1,16 @@
@@ -1398,7 +1613,7 @@ index 00000000..579873a7
 +#pass
 diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs.d b/ld/testsuite/ld-elf/pack-dyn-relocs.d
 new file mode 100644
-index 00000000..8dad28e1
+index 00000000000..8dad28e161d
 --- /dev/null
 +++ b/ld/testsuite/ld-elf/pack-dyn-relocs.d
 @@ -0,0 +1,12 @@
@@ -1416,10 +1631,10 @@ index 00000000..8dad28e1
 +#pass
 diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs.exp b/ld/testsuite/ld-elf/pack-dyn-relocs.exp
 new file mode 100644
-index 00000000..67bac63d
+index 00000000000..1699f6eaa89
 --- /dev/null
 +++ b/ld/testsuite/ld-elf/pack-dyn-relocs.exp
-@@ -0,0 +1,104 @@
+@@ -0,0 +1,124 @@
 +# Expect script for --pack-dyn-relocs tests.
 +#   Copyright (C) 2026 Free Software Foundation, Inc.
 +#
@@ -1523,10 +1738,30 @@ index 00000000..67bac63d
 +    } else {
 +	pass "$testname: packed relocations match plain relocations"
 +    }
++
++    set testname "--pack-dyn-relocs=android+relr --use-android-relr-tags"
++
++    if { ![ld_link $ld tmpdir/pack-dyn-relocs-1-android-relr-tags.so \
++	     "-shared --pack-dyn-relocs=android+relr --use-android-relr-tags \
++	      tmpdir/pack-dyn-relocs-1.o"] } {
++	fail "$testname: link failed"
++	return
++    }
++    pass "$testname: link"
++
++    set status [remote_exec host python3 [list $checker \
++	     tmpdir/pack-dyn-relocs-1-android-relr-tags.so \
++	     tmpdir/pack-dyn-relocs-1-plain.so]]
++    if { [lindex $status 0] != 0 } {
++	send_log "[lindex $status 1]\n"
++	fail "$testname: packed relocations do not match plain relocations"
++    } else {
++	pass "$testname: packed relocations match plain relocations"
++    }
 +}
 diff --git a/ld/testsuite/ld-elf/pack-dyn-relocs.s b/ld/testsuite/ld-elf/pack-dyn-relocs.s
 new file mode 100644
-index 00000000..62cafe2a
+index 00000000000..62cafe2abc6
 --- /dev/null
 +++ b/ld/testsuite/ld-elf/pack-dyn-relocs.s
 @@ -0,0 +1,35 @@
@@ -1566,5 +1801,5 @@ index 00000000..62cafe2a
 +func_ptr:
 +	.dc.a func_start
 -- 
-2.54.0
+2.55.0
 
