@@ -1471,6 +1471,7 @@ if [[ "${host}" = *'-mingw32' ]]; then
 	cp "${workdir}/tools/ndk-patch.bat" "${toolchain_directory}/bin"
 else
 	cp "${workdir}/tools/ndk-patch.sh" "${toolchain_directory}/bin/ndk-patch"
+	cp "${workdir}/tools/update-wrapper.sh" "${toolchain_directory}/bin/update-wrapper"
 fi
 
 # Delete libtool files and other unnecessary files GCC installs
