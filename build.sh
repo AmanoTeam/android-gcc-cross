@@ -198,6 +198,7 @@ declare -ra libraries=(
 	'libm2log'
 	'libm2min'
 	'libm2pim'
+	'libgomp'
 	'libobjc'
 	'libgfortran'
 	'libasan'
