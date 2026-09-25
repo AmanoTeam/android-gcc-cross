@@ -1005,8 +1005,11 @@ for triplet in "${targets[@]}"; do
 	
 	touch "${toolchain_directory}/${triplet}/lib/libandroid-stb.a"
 	
-	echo 'INPUT(libc.so)' > "${toolchain_directory}/${triplet}/lib/libpthread.so"
-	echo 'INPUT(libc.a)' > "${toolchain_directory}/${triplet}/lib/libpthread.a"
+	echo 'INPUT(-lc)' > "${toolchain_directory}/${triplet}/lib/libpthread.so"
+	echo 'INPUT(-lc)' > "${toolchain_directory}/${triplet}/lib/libpthread.a"
+	echo 'INPUT(-lc)' > "${toolchain_directory}/${triplet}/lib/libssp.so"
+	echo 'INPUT(-lc)' > "${toolchain_directory}/${triplet}/lib/libssp.a"
+	echo 'INPUT(-lc)' > "${toolchain_directory}/${triplet}/lib/libssp_nonshared.a"
 	
 	if [ "${triplet}" = 'mipsel-unknown-linux-android' ] || [ "${triplet}" = 'mips64el-unknown-linux-android' ]; then
 		hash_style='sysv'
@@ -1172,12 +1175,12 @@ for triplet in "${targets[@]}"; do
 		--enable-shared \
 		--enable-threads='posix' \
 		--enable-libstdcxx-threads \
-		--enable-libssp \
 		--enable-initfini-array \
 		--enable-libgomp \
 		--enable-libstdcxx-verbose \
 		--enable-tls \
 		--disable-libsanitizer \
+		--disable-libssp \
 		--disable-multilib \
 		--disable-canonical-system-headers \
 		--disable-win32-utf8-manifest \
