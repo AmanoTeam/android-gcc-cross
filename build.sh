@@ -1309,6 +1309,8 @@ for triplet in "${targets[@]}"; do
 		
 		[ -d "${sysroot_directory}" ] || continue
 		
+		cp "${toolchain_directory}/bin/${triplet}-pkg-config" "${toolchain_directory}/bin/${triplet}${version}-pkg-config"
+		
 		cd "${sysroot_directory}/lib"
 		
 		rm --force "${toolchain_directory}/${triplet}${version}/lib/"lib{c,dl,m,z}.a
