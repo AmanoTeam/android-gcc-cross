@@ -108,22 +108,22 @@ jobs:
           'i386-unknown-linux-musl',
           
           # FreeBSD
-          # 'x86_64-unknown-freebsd',
-          # 'aarch64-unknown-freebsd',
-          # 'i386-unknown-freebsd',
+          'x86_64-unknown-freebsd',
+          'aarch64-unknown-freebsd',
+          'i386-unknown-freebsd',
          
           # NetBSD
-          # 'i386-unknown-netbsdelf',
-          # 'x86_64-unknown-netbsd',
+          'i386-unknown-netbsdelf',
+          'x86_64-unknown-netbsd',
           
           # DragonFly BSD
-          # 'x86_64-unknown-dragonfly',
+          'x86_64-unknown-dragonfly',
           
           # Android
-          # 'x86_64-unknown-linux-android',
-          # 'i686-unknown-linux-android21',
-          # 'aarch64-unknown-linux-android',
-          # 'armv7-unknown-linux-androideabi21'
+          'x86_64-unknown-linux-android',
+          'i686-unknown-linux-android21',
+          'aarch64-unknown-linux-android',
+          'armv7-unknown-linux-androideabi21'
         ]
     steps:
     - uses: actions/checkout@main
