@@ -3,9 +3,6 @@
 set -eu
 
 declare -r abi="$(/system/bin/uname -m)"
-declare secondary_abi=""
-
-declare multilib='-m32'
 
 declare api_level='-1'
 
@@ -30,27 +27,7 @@ export PINO_SYSTEM_LIBRARIES='true'
 
 export LD_LIBRARY_PATH=\"%s:\${LD_LIBRARY_PATH}\"
 
-declare -r secondary_target='%s'
-declare -r multilib='%s'
-
-if [[ \" \${@} \" = *\" \${multilib} \"* ]]; then
-	unset PINO_SYSTEM_PREFIX
-	unset PINO_SYSTEM_LIBRARIES
-	
-	declare -a args=()
-	
-	for arg in \"\${@}\"; do
-		if [ \"\${arg}\" = \"\${multilib}\" ]; then
-			continue
-		fi
-		
-		args+=(\"\${arg}\")
-	done
-	
-	exec '%s' \"\${args[@]}\"
-else
-	exec '%s' -march=native \"\${@}\"
-fi
+exec '%s' \"\${@}\"
 
 text
 )"
@@ -89,36 +66,6 @@ declare -ra rc_files=(
 	"${HOME}/.bashrc"
 	"${HOME}/.config/fish/config.fish"
 )
-
-function get_secondary_abi() {
-	
-	local secondary_abi=''
-	
-	case "${1}" in
-		aarch64)
-			secondary_abi='armv7l'
-			;;
-		x86_64)
-			secondary_abi='i686'
-			;;
-		mips64)
-			secondary_abi='mips'
-			;;
-		armv7l)
-			secondary_abi='aarch64'
-			;;
-		i686)
-			secondary_abi='x86_64'
-			;;
-		mips)
-			secondary_abi='mips64'
-			;;
-	esac
-	
-	echo "${secondary_abi}"
-	
-}
-
 
 function get_triplet() {
 	
@@ -161,9 +108,6 @@ fi
 
 triplet="$(get_triplet "${abi}")"
 
-declare -r secondary_abi="$(get_secondary_abi "${abi}")"
-declare -r secondary_triplet="$(get_triplet "${secondary_abi}")"
-
 if [ -z "${triplet}" ]; then
 	echo "fatal error: unknown ABI: ${abi}" 1>&2
 	exit '1'
@@ -175,10 +119,6 @@ fi
 
 if [ "${api_level}" -gt "${max_api_level}" ]; then
 	api_level="${max_api_level}"
-fi
-
-if [[ "${secondary_abi}" = *'64' ]]; then
-	multilib="${multilib/32/64}"
 fi
 
 declare url="https://github.com/AmanoTeam/android-gcc-cross/releases/download/gcc-16/${triplet}.tar.xz"
@@ -236,9 +176,6 @@ rm --force "${bindir}/gcc"
 printf \
 	"${wrapper}" \
 	"${pino_directory}/lib" \
-	"${secondary_triplet}" \
-	"${multilib}" \
-	"${pino_directory}/bin/${secondary_triplet}${api_level}-gcc" \
 	"${pino_directory}/bin/${triplet}${api_level}-gcc" > "${bindir}/gcc"
 
 chmod 700 "${bindir}/gcc"
@@ -279,11 +216,5 @@ echo "- Adding custom DT_RUNPATH to GCC runtime libraries"
 for library in "${pino_directory}/${triplet}${api_level}/lib/gcc/lib"*'.so'; do
 	"${patchelf}" --set-rpath "${pino_directory}/${triplet}${api_level}/lib/gcc" "${library}" 2>/dev/null || true
 done
-
-if [ -n "${secondary_triplet}" ]; then
-	for library in "${pino_directory}/${secondary_triplet}${api_level}/lib/gcc/lib"*'.so'; do
-		"${patchelf}" --set-rpath "${pino_directory}/${secondary_triplet}${api_level}/lib/gcc" "${library}" 2>/dev/null || true
-	done
-fi
 
 echo '- Installation finished!'
