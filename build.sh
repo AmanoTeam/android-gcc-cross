@@ -3,7 +3,7 @@
 declare -r workdir="${PWD}"
 
 git submodule update --init --depth='1'
-git -C "${workdir}/submodules/nz" submodule update --init --depth='1'
+git -C "${workdir}/submodules/nz" submodule update --init --remote --depth='1'
 
 declare -r build="$("${workdir}/submodules/obggcc/tools/config.guess")"
 
