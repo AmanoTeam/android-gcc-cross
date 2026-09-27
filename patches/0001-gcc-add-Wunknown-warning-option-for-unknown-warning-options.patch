@@ -1,0 +1,229 @@
+From 9f44f173885492299cb1d638cc908f9c3ffbb9d8 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Sun, 27 Sep 2026 08:11:49 +0000
+Subject: [PATCH] gcc: add -Wunknown-warning-option for unknown warning options
+
+---
+ gcc/common.opt      |  5 +++++
+ gcc/doc/invoke.texi | 31 ++++++++++++++++++++++++-------
+ gcc/gcc.cc          |  7 ++++---
+ gcc/opts-global.cc  | 45 +++++++--------------------------------------
+ gcc/opts.cc         | 17 ++++++++---------
+ gcc/opts.h          |  1 -
+ gcc/toplev.cc       |  3 ---
+ 7 files changed, 48 insertions(+), 61 deletions(-)
+
+diff --git a/gcc/common.opt b/gcc/common.opt
+index 204c8ae72..3dd384766 100644
+--- a/gcc/common.opt
++++ b/gcc/common.opt
+@@ -931,6 +931,11 @@ Wtsan
+ Common Var(warn_tsan) Init(1) Warning
+ Warn about unsupported features in ThreadSanitizer.
+ 
++Wunknown-warning-option
++Common Driver Var(warn_unknown_warning_option) Init(1) Warning
++Warn about unrecognized warning options, such as -Wfoo, -Wno-foo or
++-Werror=foo, instead of ignoring or rejecting them.
++
+ Xassembler
+ Driver Separate
+ 
+diff --git a/gcc/doc/invoke.texi b/gcc/doc/invoke.texi
+index 81213fca9..fc4f38569 100644
+--- a/gcc/doc/invoke.texi
++++ b/gcc/doc/invoke.texi
+@@ -6656,13 +6656,13 @@ enabled or disabled via pragmas (@pxref{Diagnostic Pragmas}) take effect
+ as if they appeared at the end of the command line.
+ 
+ When an unrecognized warning option is requested (e.g.,
+-@option{-Wunknown-warning}), GCC gives an error stating
+-that the option is not recognized.  However, if the @option{-Wno-} form
+-is used, the behavior is slightly different: no diagnostic is
+-produced for @option{-Wno-unknown-warning} unless other diagnostics
+-are being produced.  This allows the use of new @option{-Wno-} options
+-with old compilers, but if something goes wrong, the compiler
+-warns that an unrecognized option is present.
++@option{-Wunknown-warning}), GCC by default warns about it and
++continues, ignoring the option.  Unrecognized warning options are
++never hard errors, so it is safe to pass @option{-Wno-} forms of
++options that the compiler does not know about.  Use
++@option{-Wno-unknown-warning-option} to disable even these warnings,
++for example when warning options intended for other compilers are
++passed.
+ 
+ The effectiveness of some warnings depends on optimizations also being
+ enabled. For example, @option{-Wsuggest-final-types} is more effective
+@@ -8244,6 +8244,23 @@ variable.  A common situation is an automatic variable that is declared
+ between the controlling expression and the first case label of a @code{switch}
+ statement.
+ 
++@opindex Wunknown-warning-option
++@opindex Wno-unknown-warning-option
++@item -Wunknown-warning-option
++When a command-line warning option is not recognized, warn about it
++and continue.  This is enabled by default.  Unknown arguments of
++@option{-Werror=} and @option{-Wno-error=} are diagnosed as warnings
++as well.  Unrecognized warning options are ignored and are never
++hard errors; these diagnostics only affect whether the warnings are
++noticed, never whether the compilation succeeds or fails.  Since the
++diagnostics are warnings controlled by @option{-Wunknown-warning-option},
++they can be made errors via @option{-Werror=unknown-warning-option}.
++Note that command-line options are processed in order, so
++@option{-Wunknown-warning-option} must precede the unrecognized
++warning options it is expected to diagnose.  Use
++@option{-Wno-unknown-warning-option} to silence the warnings for
++unrecognized warning options entirely.
++
+ @opindex Wunused-but-set-parameter
+ @opindex Wno-unused-but-set-parameter
+ @item -Wunused-but-set-parameter
+diff --git a/gcc/gcc.cc b/gcc/gcc.cc
+index 43b0158ee..2ef540f2d 100644
+--- a/gcc/gcc.cc
++++ b/gcc/gcc.cc
+@@ -3946,11 +3946,12 @@ static bool
+ driver_unknown_option_callback (const struct cl_decoded_option *decoded)
+ {
+   const char *opt = decoded->arg;
+-  if (opt[1] == 'W' && opt[2] == 'n' && opt[3] == 'o' && opt[4] == '-'
++  if (opt[1] == 'W'
+       && !(decoded->errors & CL_ERR_NEGATIVE))
+     {
+-      /* Leave unknown -Wno-* options for the compiler proper, to be
+-	 diagnosed only if there are warnings.  */
++      /* Leave unknown warning options for the compiler proper, which
++	 warns about them with -Wunknown-warning-option and ignores
++	 them otherwise.  They are never errors.  */
+       save_switch (decoded->canonical_option[0],
+ 		   decoded->canonical_option_num_elements - 1,
+ 		   &decoded->canonical_option[1], false, true);
+diff --git a/gcc/opts-global.cc b/gcc/opts-global.cc
+index 6f111ab69..5607d06dd 100644
+--- a/gcc/opts-global.cc
++++ b/gcc/opts-global.cc
+@@ -40,10 +40,6 @@ along with GCC; see the file COPYING3.  If not see
+ #include "asan.h"
+ #include "file-prefix-map.h" /* add_*_prefix_map()  */
+ 
+-typedef const char *const_char_p; /* For DEF_VEC_P.  */
+-
+-static vec<const_char_p> ignored_options;
+-
+ /* Input file names.  */
+ const char **in_fnames;
+ unsigned num_in_fnames;
+@@ -121,36 +117,6 @@ complain_wrong_lang (const struct cl_decoded_option *decoded,
+   free (bad_lang);
+ }
+ 
+-/* Buffer the unknown option described by the string OPT.  Currently,
+-   we only complain about unknown -Wno-* options if they may have
+-   prevented a diagnostic. Otherwise, we just ignore them.  Note that
+-   if we do complain, it is only as a warning, not an error; passing
+-   the compiler an unrecognized -Wno-* option should never change
+-   whether the compilation succeeds or fails.  */
+-
+-static void
+-postpone_unknown_option_warning (const char *opt)
+-{
+-  ignored_options.safe_push (opt);
+-}
+-
+-/* Produce a warning for each option previously buffered.  */
+-
+-void
+-print_ignored_options (void)
+-{
+-  while (!ignored_options.is_empty ())
+-    {
+-      const char *opt;
+-
+-      opt = ignored_options.pop ();
+-      /* Use inform, not warning_at, to avoid promoting these to errors.  */
+-      inform (UNKNOWN_LOCATION,
+-	      "unrecognized command-line option %qs may have been intended "
+-	      "to silence earlier diagnostics", opt);
+-    }
+-}
+-
+ /* Handle an unknown option DECODED, returning true if an error should
+    be given.  */
+ 
+@@ -159,12 +125,15 @@ unknown_option_callback (const struct cl_decoded_option *decoded)
+ {
+   const char *opt = decoded->arg;
+ 
+-  if (opt[1] == 'W' && opt[2] == 'n' && opt[3] == 'o' && opt[4] == '-'
++  if (opt[1] == 'W'
+       && !(decoded->errors & CL_ERR_NEGATIVE))
+     {
+-      /* We don't generate warnings for unknown -Wno-* options unless
+-	 we issue diagnostics.  */
+-      postpone_unknown_option_warning (opt);
++      /* Unknown warning options are never errors; they are simply
++	 ignored.  With -Wunknown-warning-option, which is enabled by
++	 default, a warning is generated for them.  */
++      if (global_options.x_warn_unknown_warning_option)
++	warning_at (UNKNOWN_LOCATION, OPT_Wunknown_warning_option,
++		    "unknown warning option %qs", opt);
+       return false;
+     }
+   else
+diff --git a/gcc/opts.cc b/gcc/opts.cc
+index 6658b6acd..fcc3b905e 100644
+--- a/gcc/opts.cc
++++ b/gcc/opts.cc
+@@ -3783,15 +3783,14 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
+   option_index = find_opt (new_option, lang_mask);
+   if (option_index == OPT_SPECIAL_unknown)
+     {
+-      option_proposer op;
+-      const char *hint = op.suggest_option (new_option);
+-      if (hint)
+-	error_at (loc, "%<-W%serror=%s%>: no option %<-%s%>;"
+-		  " did you mean %<-%s%>?", value ? "" : "no-",
+-		  arg, new_option, hint);
+-      else
+-	error_at (loc, "%<-W%serror=%s%>: no option %<-%s%>",
+-		  value ? "" : "no-", arg, new_option);
++      /* An unknown warning option is never an error; it is ignored,
++	 with a warning if -Wunknown-warning-option is in effect.  */
++      if (opts->x_warn_unknown_warning_option)
++	warning_at (loc, OPT_Wunknown_warning_option,
++		    "unknown warning option %<-W%serror=%s%>",
++		    value ? "" : "no-", arg);
++      XDELETEVEC (new_option);
++      return;
+     }
+   else if (!(cl_options[option_index].flags & CL_WARNING))
+     error_at (loc, "%<-Werror=%s%>: %<-%s%> is not an option that "
+diff --git a/gcc/opts.h b/gcc/opts.h
+index 2d28620ed..d6c132a89 100644
+--- a/gcc/opts.h
++++ b/gcc/opts.h
+@@ -430,7 +430,6 @@ extern void control_warning_option (unsigned int opt_index, int kind,
+ 				    struct gcc_options *opts_set,
+ 				    diagnostics::context *dc);
+ extern char *write_langs (unsigned int mask);
+-extern void print_ignored_options (void);
+ extern void handle_common_deferred_options (void);
+ extern void handle_deferred_dump_options (void);
+ sanitize_code_type parse_sanitizer_options (const char *, location_t, int,
+diff --git a/gcc/toplev.cc b/gcc/toplev.cc
+index 682459220..ca6631424 100644
+--- a/gcc/toplev.cc
++++ b/gcc/toplev.cc
+@@ -2397,9 +2397,6 @@ toplev::main (int argc, char **argv)
+ 	}
+     }
+ 
+-  if (warningcount || errorcount || werrorcount)
+-    print_ignored_options ();
+-
+   /* Invoke registered plugin callbacks if any.  Some plugins could
+      emit some diagnostics here.  */
+   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
+-- 
+2.55.0
+

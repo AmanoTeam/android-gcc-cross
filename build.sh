@@ -615,6 +615,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Ignore-pragma-weak-when-the-declaration-is-private-o.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-c-Accept-_Static_assert-as-a-compatibility-extension.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-c-Accept-__thread-before-static-extern-as-a-pedantic-extension.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-gcc-add-Wunknown-warning-option-for-unknown-warning-options.patch"
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Enable-automatic-linking-of-libandroid-stb.patch"
 fi
