@@ -53,7 +53,7 @@ defines_crt_pad_segment = -D__ASSEMBLY__
 
 # -Wno-prio-ctor-dtor: GCC 16 warns on crtbegin_so.c's reserved priorities.
 CRT_CFLAGS := -I$(BIONIC_DIR)/libc -I$(CRT_SRC) \
-  -O2 -fpic -c -Wa,--noexecstack -Wno-prio-ctor-dtor
+  -O2 -fPIC -c -Wa,--noexecstack -Wno-prio-ctor-dtor
 
 # one gcc -c per object. (1)=target (2)=api (3)=crt name.
 define CRT_RULE
