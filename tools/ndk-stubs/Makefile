@@ -73,7 +73,7 @@ API_MAP     := $(CURDIR)/api-map.json
 sysroot_apis = $(shell ls -d $(OUT)/$(1)*[0-9] 2>/dev/null | sed 's|.*$(1)||' | sort -n)
 apis_of = $(if $(APIS),$(APIS),$(call sysroot_apis,$(1)))
 
-CFLAGS := -O2 -fPIC -fno-builtin -fno-unwind-tables
+CFLAGS := -O2 -fPIC -fno-builtin -fno-stack-protector -fno-unwind-tables
 
 define STUB_GEN_RULE
 $$(GEN)/$(1)$(2)/$(3).c: $(map_$(3)) $$(STUBGEN) $$(SYMBOLFILE)

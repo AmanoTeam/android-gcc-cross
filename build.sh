@@ -1161,7 +1161,6 @@ for triplet in "${targets[@]}"; do
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \
-		--enable-default-ssp \
 		--enable-gnu-indirect-function \
 		--enable-languages="${languages}" \
 		--enable-libstdcxx-backtrace \
@@ -1190,6 +1189,7 @@ for triplet in "${targets[@]}"; do
 		--disable-libstdcxx-pch \
 		--disable-werror \
 		--disable-default-semantic-interposition \
+		--disable-default-ssp \
 		--without-static-standard-libraries \
 		${extra_configure_flags} \
 		LDFLAGS="-L${toolchain_directory}/lib ${linkflags}"
@@ -1201,7 +1201,7 @@ for triplet in "${targets[@]}"; do
 		args+="${environment}"
 	fi
 	
-	declare target_cflags="-O2 -D_FORTIFY_SOURCE=3"
+	declare target_cflags="-O2 -D_FORTIFY_SOURCE=3 -fstack-protector-strong"
 	declare target_cxxflags="${target_cflags} -D_ABIN32=2"
 	
 	env ${args} make \

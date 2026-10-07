@@ -26,7 +26,7 @@ defines_crtend_so       = -D__ASSEMBLY__
 defines_crt_pad_segment = -D__ASSEMBLY__
 
 CRT_CFLAGS := -I$(BIONIC_DIR)/libc -I$(CRT_SRC) \
-  -O2 -fPIC -c -Wa,--noexecstack -Wno-prio-ctor-dtor
+  -O2 -fPIC -fno-stack-protector -c -Wa,--noexecstack -Wno-prio-ctor-dtor
 
 define CRT_RULE
 $$(OUT)/$(1)$(2)/lib/$(3).o: $$(CRT_SRC)/$(src_$(3))
