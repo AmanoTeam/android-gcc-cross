@@ -1,7 +1,7 @@
 # Compiler and tools
 CC      := gcc
 AR      := ar
-CFLAGS  := -O2 -Dhidden=__LIBC_HIDDEN__ -Dcomplex=_Complex -fvisibility=hidden -fno-stack-protector
+CFLAGS  := -O2 -D_GNU_SOURCE -Dhidden=__LIBC_HIDDEN__ -Dcomplex=_Complex -fvisibility=hidden -fno-stack-protector
 ARFLAGS := rcs
 
 # Directories
