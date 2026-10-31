@@ -1246,6 +1246,9 @@ for triplet in "${targets[@]}"; do
 	echo 'INPUT(libestdc++.a)' > './libstdc++.a'
 	echo 'INPUT(libegcc.so)' > './libgcc_s.so.1'
 	
+	echo 'INPUT(-lestdc++)' > './libc++.so'
+	echo 'INPUT(-lestdc++)' > './libc++.a'
+	
 	echo 'INPUT (libgcc.a libgcc_eh.a)' > './libunwind.a'
 	echo 'INPUT (libegcc.so libgcc_eh.a)' > './libunwind.so'
 	
