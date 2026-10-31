@@ -1,4 +1,4 @@
-From 82e2cfe07e97503ca19cc190046dc9634789c7bc Mon Sep 17 00:00:00 2001
+From cb248befda7841daf2a99768bcc7e8cecf44d9c2 Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sat, 1 Aug 2026 21:14:59 +0000
 Subject: [PATCH] ld: Add --pack-dyn-relocs and --use-android-relr-tags support
@@ -124,7 +124,7 @@ ld/
 	.exp,.s,-1.c,-check.py}: New tests.
 ---
  bfd/elf-bfd.h                                 |   7 +
- bfd/elf.c                                     |  28 +-
+ bfd/elf.c                                     |  30 +-
  bfd/elf32-i386.c                              |   4 +-
  bfd/elf64-x86-64.c                            |   4 +-
  bfd/elflink.c                                 | 509 +++++++++++++++++-
@@ -143,7 +143,7 @@ ld/
  ld/testsuite/ld-elf/pack-dyn-relocs.d         |  12 +
  ld/testsuite/ld-elf/pack-dyn-relocs.exp       | 124 +++++
  ld/testsuite/ld-elf/pack-dyn-relocs.s         |  35 ++
- 20 files changed, 1320 insertions(+), 12 deletions(-)
+ 20 files changed, 1321 insertions(+), 13 deletions(-)
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-1.c
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-android-relr-tags.d
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs-check.py
@@ -153,7 +153,7 @@ ld/
  create mode 100644 ld/testsuite/ld-elf/pack-dyn-relocs.s
 
 diff --git a/bfd/elf-bfd.h b/bfd/elf-bfd.h
-index 6e21dcac80c..246b68a7557 100644
+index c51d41c8eb4..92ef6fa3606 100644
 --- a/bfd/elf-bfd.h
 +++ b/bfd/elf-bfd.h
 @@ -783,6 +783,13 @@ struct elf_link_hash_table
@@ -171,10 +171,10 @@ index 6e21dcac80c..246b68a7557 100644
  
  /* Returns TRUE if the hash table is a struct elf_link_hash_table.  */
 diff --git a/bfd/elf.c b/bfd/elf.c
-index 2cae97a6dd3..8e2158c1df9 100644
+index e6699a5ffc9..38a0571f7f5 100644
 --- a/bfd/elf.c
 +++ b/bfd/elf.c
-@@ -1654,6 +1654,9 @@ _bfd_elf_print_private_bfd_data (bfd *abfd, void *farg)
+@@ -1655,6 +1655,9 @@ _bfd_elf_print_private_bfd_data (bfd *abfd, void *farg)
  	    case DT_RELR: name = "RELR"; break;
  	    case DT_RELRSZ: name = "RELRSZ"; break;
  	    case DT_RELRENT: name = "RELRENT"; break;
@@ -184,23 +184,25 @@ index 2cae97a6dd3..8e2158c1df9 100644
  	    case DT_PLTREL: name = "PLTREL"; break;
  	    case DT_DEBUG: name = "DEBUG"; break;
  	    case DT_TEXTREL: name = "TEXTREL"; break;
-@@ -2805,6 +2808,7 @@ bfd_section_from_shdr (bfd *abfd, unsigned int shindex)
+@@ -2803,6 +2806,7 @@ bfd_section_from_shdr (bfd *abfd, unsigned int shindex)
      case SHT_REL:
      case SHT_RELA:
      case SHT_RELR:
 +    case SHT_ANDROID_RELR:
-       /* *These* do a lot of work -- but build no sections!  */
+       /* *These* do a lot of work -- but usually build no sections!  */
        {
  	asection *target_sect;
-@@ -2851,6 +2855,7 @@ bfd_section_from_shdr (bfd *abfd, unsigned int shindex)
+@@ -2842,7 +2846,8 @@ bfd_section_from_shdr (bfd *abfd, unsigned int shindex)
+ 	if (((abfd->flags & (DYNAMIC | EXEC_P)) != 0
  	     && (hdr->sh_flags & SHF_ALLOC) != 0)
  	    || (hdr->sh_flags & SHF_COMPRESSED) != 0
- 	    || hdr->sh_type == SHT_RELR
-+	    || hdr->sh_type == SHT_ANDROID_RELR
- 	    || hdr->sh_link == SHN_UNDEF
- 	    || hdr->sh_link != elf_onesymtab (abfd)
- 	    || hdr->sh_info == SHN_UNDEF
-@@ -4339,6 +4344,19 @@ assign_section_numbers (bfd *abfd, struct bfd_link_info *link_info)
+-	    || hdr->sh_type == SHT_RELR)
++	    || hdr->sh_type == SHT_RELR
++	    || hdr->sh_type == SHT_ANDROID_RELR)
+ 	  bad_field = "";
+ 	else if (hdr->sh_link == SHN_UNDEF
+ 		 || hdr->sh_link != elf_onesymtab (abfd))
+@@ -4347,6 +4352,19 @@ assign_section_numbers (bfd *abfd, struct bfd_link_info *link_info)
  
        switch (d->this_hdr.sh_type)
  	{
@@ -220,7 +222,7 @@ index 2cae97a6dd3..8e2158c1df9 100644
  	case SHT_REL:
  	case SHT_RELA:
  	  /* sh_link is the section index of the symbol table.
-@@ -8462,7 +8480,15 @@ _bfd_elf_copy_private_section_data (bfd *ibfd,
+@@ -8470,7 +8488,15 @@ _bfd_elf_copy_private_section_data (bfd *ibfd,
       SHF_MASKOS and SHF_MASKPROC.  */
    if (elf_section_type (osec) == SHT_PROGBITS
        || elf_section_type (osec) == SHT_NOTE
@@ -238,10 +240,10 @@ index 2cae97a6dd3..8e2158c1df9 100644
  
    /* For objcopy and relocatable link, copy the ELF section type from
 diff --git a/bfd/elf32-i386.c b/bfd/elf32-i386.c
-index 36a957d03f1..03beebcdb83 100644
+index 1f7d9736bb8..f14418944c3 100644
 --- a/bfd/elf32-i386.c
 +++ b/bfd/elf32-i386.c
-@@ -4566,7 +4566,9 @@ elf_i386_add_glibc_version_dependency
+@@ -4551,7 +4551,9 @@ elf_i386_add_glibc_version_dependency
    bool auto_version[4] = { false, false, false, false };
    struct elf_x86_link_hash_table *htab;
  
@@ -253,10 +255,10 @@ index 36a957d03f1..03beebcdb83 100644
        version[i] = "GLIBC_ABI_DT_RELR";
        i++;
 diff --git a/bfd/elf64-x86-64.c b/bfd/elf64-x86-64.c
-index c52839d7be2..5e747d05fe0 100644
+index 948cc2d48ce..2325ff2e3d6 100644
 --- a/bfd/elf64-x86-64.c
 +++ b/bfd/elf64-x86-64.c
-@@ -6318,7 +6318,9 @@ elf_x86_64_add_glibc_version_dependency
+@@ -6303,7 +6303,9 @@ elf_x86_64_add_glibc_version_dependency
    bool auto_version[4] = { false, false, false, false };
    struct elf_x86_link_hash_table *htab;
  
@@ -268,10 +270,10 @@ index c52839d7be2..5e747d05fe0 100644
        version[i] = "GLIBC_ABI_DT_RELR";
        i++;
 diff --git a/bfd/elflink.c b/bfd/elflink.c
-index d5956b8bd2f..a435961caf4 100644
+index 1eef868be49..0d3903f8fed 100644
 --- a/bfd/elflink.c
 +++ b/bfd/elflink.c
-@@ -2454,7 +2454,12 @@ _bfd_elf_link_add_glibc_version_dependency
+@@ -2455,7 +2455,12 @@ _bfd_elf_link_add_glibc_version_dependency
  void
  _bfd_elf_link_add_dt_relr_dependency (struct elf_find_verdep_info *rinfo)
  {
@@ -285,7 +287,7 @@ index d5956b8bd2f..a435961caf4 100644
      {
        static const char *const version[] =
  	{
-@@ -3870,7 +3875,8 @@ _bfd_elf_add_dynamic_entry (struct bfd_link_info *info,
+@@ -3863,7 +3868,8 @@ _bfd_elf_add_dynamic_entry (struct bfd_link_info *info,
    if (! is_elf_hash_table (&hash_table->root))
      return false;
  
@@ -295,7 +297,7 @@ index d5956b8bd2f..a435961caf4 100644
      hash_table->dynamic_relocs = true;
  
    obed = get_elf_backend_data (hash_table->dynobj);
-@@ -12653,6 +12659,326 @@ elf_final_link_free (bfd *obfd, struct elf_final_link_info *flinfo)
+@@ -12650,6 +12656,326 @@ elf_final_link_free (bfd *obfd, struct elf_final_link_info *flinfo)
      }
  }
  
@@ -622,7 +624,7 @@ index d5956b8bd2f..a435961caf4 100644
  /* Do the final step of an ELF link.  */
  
  bool
-@@ -12973,6 +13299,72 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -12970,6 +13296,72 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
    if (! bfd_link_relocatable (info) && merged)
      elf_link_hash_traverse (htab, _bfd_elf_link_sec_merge_syms, obfd);
  
@@ -695,7 +697,7 @@ index d5956b8bd2f..a435961caf4 100644
    /* Figure out the file positions for everything but the symbol table
       and the relocs.  We set symcount to force assign_section_numbers
       to create a symbol table.  */
-@@ -13547,8 +13939,18 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13544,8 +13936,18 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
      }
  
    relativecount = 0;
@@ -716,7 +718,7 @@ index d5956b8bd2f..a435961caf4 100644
  
    relr_entsize = 0;
    if (htab->srelrdyn != NULL
-@@ -13574,6 +13976,46 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13571,6 +13973,46 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
        o = htab->dynamic;
        BFD_ASSERT (o != NULL);
  
@@ -763,7 +765,7 @@ index d5956b8bd2f..a435961caf4 100644
        dyncon = o->contents;
        dynconend = PTR_ADD (o->contents, o->size);
        for (; dyncon < dynconend; dyncon += obed->s->sizeof_dyn)
-@@ -13612,18 +14054,20 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13609,18 +14051,20 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
  		  if (dynconend - dyncon >= 3 * obed->s->sizeof_dyn)
  		    {
  		      asection *s = htab->srelrdyn;
@@ -787,7 +789,7 @@ index d5956b8bd2f..a435961caf4 100644
  		      dyn.d_un.d_val = relr_entsize;
  		      relr_entsize = 0;
  		      break;
-@@ -13735,6 +14179,25 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13732,6 +14176,25 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
  	      dyn.d_un.d_ptr = o->output_section->vma + o->output_offset;
  	      break;
  
@@ -813,7 +815,7 @@ index d5956b8bd2f..a435961caf4 100644
  	    case DT_REL:
  	    case DT_RELA:
  	    case DT_RELSZ:
-@@ -13873,6 +14336,19 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
+@@ -13870,6 +14333,19 @@ _bfd_elf_final_link (bfd *obfd, struct bfd_link_info *info)
  		goto error_return;
  	    }
  	}
@@ -833,7 +835,7 @@ index d5956b8bd2f..a435961caf4 100644
      }
  
    if (!info->resolve_section_groups)
-@@ -15843,7 +16319,24 @@ _bfd_elf_add_dynamic_tags (struct bfd_link_info *info, bool need_dynamic_reloc)
+@@ -15841,7 +16317,24 @@ _bfd_elf_add_dynamic_tags (struct bfd_link_info *info, bool need_dynamic_reloc)
  
        if (need_dynamic_reloc)
  	{
@@ -860,10 +862,10 @@ index d5956b8bd2f..a435961caf4 100644
  	      if (!add_dynamic_entry (DT_RELA, 0)
  		  || !add_dynamic_entry (DT_RELASZ, 0)
 diff --git a/binutils/readelf.c b/binutils/readelf.c
-index b86bf3eb294..5fe54f36699 100644
+index 13741f627d7..c14146ff2ea 100644
 --- a/binutils/readelf.c
 +++ b/binutils/readelf.c
-@@ -1865,7 +1865,8 @@ count_relr_relocations (Filedata *          filedata,
+@@ -1882,7 +1882,8 @@ count_relr_relocations (Filedata *          filedata,
    int         entsize;
  
    if (section == NULL
@@ -873,7 +875,7 @@ index b86bf3eb294..5fe54f36699 100644
        || section->sh_size == 0)
      return 0;
  
-@@ -3320,6 +3321,13 @@ get_dynamic_type (Filedata * filedata, unsigned long type)
+@@ -3337,6 +3338,13 @@ get_dynamic_type (Filedata * filedata, unsigned long type)
      case DT_RELR:	return "RELR";
      case DT_RELRSZ:	return "RELRSZ";
      case DT_RELRENT:	return "RELRENT";
@@ -887,7 +889,7 @@ index b86bf3eb294..5fe54f36699 100644
      case DT_PLTREL:	return "PLTREL";
      case DT_DEBUG:	return "DEBUG";
      case DT_TEXTREL:	return "TEXTREL";
-@@ -9533,6 +9541,7 @@ rel_type_from_sh_type (unsigned int sh_type)
+@@ -9550,6 +9558,7 @@ rel_type_from_sh_type (unsigned int sh_type)
      case SHT_RELA: return reltype_rela;
      case SHT_REL:  return reltype_rel;
      case SHT_RELR: return reltype_relr;
@@ -895,7 +897,7 @@ index b86bf3eb294..5fe54f36699 100644
      default:       return reltype_unknown;
      }
  }
-@@ -13074,6 +13083,32 @@ the .dynstr section doesn't match the DT_STRTAB and DT_STRSZ tags\n"));
+@@ -13091,6 +13100,32 @@ the .dynstr section doesn't match the DT_STRTAB and DT_STRSZ tags\n"));
  	    }
  	  break;
  
@@ -982,10 +984,10 @@ index 6b99f0075bf..414afd6f860 100644
  #define DT_HIPROC	0x7fffffff
  
 diff --git a/ld/NEWS b/ld/NEWS
-index dab32bf648c..3aa490a9cc6 100644
+index b8292ec754f..543423f6960 100644
 --- a/ld/NEWS
 +++ b/ld/NEWS
-@@ -18,6 +18,20 @@
+@@ -33,6 +33,20 @@
  
  Changes in 2.47:
  
@@ -1061,10 +1063,10 @@ index 8576c282a03..d92d129f544 100644
        free ((char *) ldelf_emit_note_fdo_package_metadata);
        ldelf_emit_note_fdo_package_metadata = NULL;
 diff --git a/ld/ld.texi b/ld/ld.texi
-index 90c84c8d3c1..6b9a1b2dc79 100644
+index 2416a83cc7a..e211404e000 100644
 --- a/ld/ld.texi
 +++ b/ld/ld.texi
-@@ -3342,6 +3342,45 @@ the classic ELF @code{.hash} and new style GNU @code{.gnu.hash}
+@@ -3386,6 +3386,45 @@ the classic ELF @code{.hash} and new style GNU @code{.gnu.hash}
  hash tables.  The default depends upon how the linker was configured,
  but for most Linux based systems it will be @code{both}.
  
@@ -1111,10 +1113,10 @@ index 90c84c8d3c1..6b9a1b2dc79 100644
  @kindex --compress-debug-sections=zlib
  @kindex --compress-debug-sections=zlib-gnu
 diff --git a/ld/ldlex.h b/ld/ldlex.h
-index b4f1bffd2a7..4cb63adf399 100644
+index 1f6e6e5d387..bfd8cab69a1 100644
 --- a/ld/ldlex.h
 +++ b/ld/ldlex.h
-@@ -288,6 +288,9 @@ enum option_values
+@@ -289,6 +289,9 @@ enum option_values
    OPTION_EH_FRAME_HDR,
    OPTION_NO_EH_FRAME_HDR,
    OPTION_HASH_STYLE,
@@ -1801,5 +1803,5 @@ index 00000000000..62cafe2abc6
 +func_ptr:
 +	.dc.a func_start
 -- 
-2.55.0
+2.56.0
 
