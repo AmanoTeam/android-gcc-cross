@@ -87,6 +87,9 @@ declare -r patchelf_directory="${build_directory}/patchelf-master"
 declare -r elf_cleaner_tarball="${build_directory}/elf_cleaner.tar.gz"
 declare -r elf_cleaner_directory="${build_directory}/termux-elf-cleaner-master"
 
+declare -r coreutils_tarball="${build_directory}/coreutils.tar.xz"
+declare -r coreutils_directory="${build_directory}/coreutils-9.12"
+
 declare -r nz_directory="${workdir}/submodules/nz"
 declare -r nz_prefix="${build_directory}/nz"
 
@@ -552,6 +555,23 @@ if ! [ -f "${elf_cleaner_tarball}" ]; then
 		--file="${elf_cleaner_tarball}"
 fi
 
+if ! [ -f "${coreutils_tarball}" ]; then
+	curl \
+		--url 'https://ftp.gnu.org/gnu/coreutils/coreutils-9.12.tar.xz' \
+		--retry '30' \
+		--retry-delay '0' \
+		--retry-all-errors \
+		--retry-max-time '0' \
+		--location \
+		--silent \
+		--output "${coreutils_tarball}"
+	
+	tar \
+		--directory="$(dirname "${coreutils_directory}")" \
+		--extract \
+		--file="${coreutils_tarball}"
+fi
+
 export PATH="${build_directory}:${PATH}"
 
 if ! [ -f "${gcc_tarball}" ]; then
@@ -757,6 +777,19 @@ cd "${yasm_directory}/build"
 make all --jobs='1'
 make install
 
+[ -d "${coreutils_directory}/build" ] || mkdir "${coreutils_directory}/build"
+
+cd "${coreutils_directory}/build"
+
+CC= CXX= AR= RANLIB= ../configure \
+	--prefix="${build_directory}" \
+	CFLAGS="${ccflags}" \
+	CXXFLAGS="${ccflags}" \
+	LDFLAGS="${linkflags}"
+
+make all --jobs='1'
+make install
+
 [ -d "${zstd_directory}/.build" ] || mkdir "${zstd_directory}/.build"
 
 cd "${zstd_directory}/.build"
@@ -906,8 +939,9 @@ make \
 	FLAVOR='PINO' \
 	all
 
-# We prefer symbolic links over hard links.
-cp "${workdir}/submodules/obggcc/tools/ln.sh" "${build_directory}/ln"
+printf '%s\n' '#!/bin/bash' "${build_directory}/bin/ln --symbolic --relative \"\${@}\"" > "${build_directory}/ln"
+
+chmod +x "${build_directory}/ln"
 
 if [[ "${host}" = 'arm'*'-android'* ]] || [[ "${host}" = 'i686-'*'-android'* ]] || [[ "${host}" = 'mipsel-'*'-android'* ]]; then
 	export \
