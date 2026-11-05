@@ -156,7 +156,7 @@ jobs:
     - name: Install required dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install build-essential autoconf libtool
+        sudo apt-get install build-essential autoconf libtool gperf
     - name: Restore from cache
       uses: actions/cache@main
       with:

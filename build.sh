@@ -44,6 +44,9 @@ declare -r environment="LD_LIBRARY_PATH=${toolchain_directory}/lib PATH=${PATH}:
 
 declare -r revision="$(git rev-parse --short HEAD)"
 
+declare -r libiconv_tarball="${build_directory}/libiconv.tar.gz"
+declare -r libiconv_directory="${build_directory}/libiconv-master"
+
 declare -r gmp_tarball="${build_directory}/gmp.tar.xz"
 declare -r gmp_directory="${build_directory}/gmp"
 
@@ -254,6 +257,54 @@ if [[ "${host}" = *'-android'* ]]; then
 fi
 
 source "${workdir}/submodules/obggcc/utils.sh"
+
+if ! [ -f "${libiconv_tarball}" ]; then
+	curl \
+		--url 'https://github.com/arthenica/libiconv/archive/refs/heads/master.tar.gz' \
+		--retry '30' \
+		--retry-delay '0' \
+		--retry-all-errors \
+		--retry-max-time '0' \
+		--show-error \
+		--location \
+		--silent \
+		--output "${libiconv_tarball}"
+
+	tar \
+		--directory="$(dirname "${libiconv_directory}")" \
+		--extract \
+		--file="${libiconv_tarball}"
+
+	cd "${libiconv_directory}"
+
+	sed \
+		--in-place \
+		's|git://git.savannah.gnu.org/gnulib.git|https://github.com/coreutils/gnulib|' \
+		.gitmodules
+
+	./autopull.sh --one-time
+
+	sed \
+		--in-place \
+		--regexp-extended \
+		's/ man\/[^ ]+\.html//g; s/^AUTOMAKE = automake-.*/AUTOMAKE = automake/; s/^ACLOCAL = aclocal-.*/ACLOCAL = aclocal/' \
+		Makefile.devel
+
+	sed \
+		--in-place \
+		--regexp-extended \
+		's/^AUTOMAKE = automake-.*/AUTOMAKE = automake/; s/^ACLOCAL = aclocal-.*/ACLOCAL = aclocal/' \
+		libcharset/Makefile.devel
+
+	sed \
+		--in-place \
+		's/autoconf\/aclocal.m4/aclocal.m4/g; s/--include autoconf//g' \
+		libcharset/Makefile.devel
+
+	CC='gcc' ./autogen.sh
+
+	echo -e 'all:\ninstall:' > man/Makefile.in
+fi
 
 if ! [ -f "${gmp_tarball}" ]; then
 	curl \
@@ -682,6 +733,8 @@ sed \
 	"${mpc_directory}/configure" \
 	"${mpfr_directory}/configure" \
 	"${gmp_directory}/configure" \
+	"${libiconv_directory}/configure" \
+	"${libiconv_directory}/libcharset/configure" \
 	"${gcc_directory}/libsanitizer/configure"
 
 # Avoid using absolute hardcoded install_name values on macOS
@@ -691,7 +744,9 @@ sed \
 	"${isl_directory}/configure" \
 	"${mpc_directory}/configure" \
 	"${mpfr_directory}/configure" \
-	"${gmp_directory}/configure"
+	"${gmp_directory}/configure" \
+	"${libiconv_directory}/configure" \
+	"${libiconv_directory}/libcharset/configure"
 
 # Force GCC and binutils to prefix host tools with the target triplet even in native builds
 sed \
@@ -705,6 +760,24 @@ declare disable_assembly='--disable-assembly'
 if [[ "${host}" != 'mips64el-'* ]]; then
 	disable_assembly=''
 fi
+
+[ -d "${libiconv_directory}/build" ] || mkdir "${libiconv_directory}/build"
+
+cd "${libiconv_directory}/build"
+
+../configure \
+	--build="${build}" \
+	--host="${host}" \
+	--prefix="${toolchain_directory}" \
+	--enable-shared \
+	--disable-static \
+	--disable-nls \
+	CFLAGS="${ccflags}" \
+	CXXFLAGS="${ccflags}" \
+	LDFLAGS="${linkflags}"
+
+make all --jobs
+make install-lib
 
 [ -d "${gmp_directory}/build" ] || mkdir "${gmp_directory}/build"
 
@@ -1287,7 +1360,6 @@ for triplet in "${targets[@]}"; do
 		--without-static-standard-libraries \
 		${extra_configure_flags} \
 		LDFLAGS="-L${toolchain_directory}/lib ${linkflags}"
-		
 	
 	declare args=''
 	
