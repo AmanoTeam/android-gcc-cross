@@ -59,6 +59,9 @@ declare -r isl_directory="${build_directory}/isl-master"
 declare -r binutils_tarball="${build_directory}/binutils.tar.xz"
 declare -r binutils_directory="${build_directory}/binutils"
 
+declare -r gdb_tarball="${build_directory}/gdb.tar.xz"
+declare -r gdb_directory="${build_directory}/gdb"
+
 declare -r gold_tarball="${build_directory}/gold.tar.xz"
 declare -r gold_directory="${build_directory}/gold"
 
@@ -400,6 +403,40 @@ if ! [ -f "${binutils_tarball}" ]; then
 	if [[ "${host}" = *'android' ]] then
 		patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/patches/0001-gas-decrease-input-buffer-size.patch"
 	fi
+fi
+
+if ! [ -f "${gdb_tarball}" ]; then
+	curl \
+		--url 'https://github.com/AmanoTeam/binutils-snapshots/releases/latest/download/gdb.tar.xz' \
+		--retry '30' \
+		--retry-delay '0' \
+		--retry-all-errors \
+		--retry-max-time '0' \
+		--location \
+		--silent \
+		--output "${gdb_tarball}"
+	
+	tar \
+		--directory="$(dirname "${gdb_directory}")" \
+		--extract \
+		--file="${gdb_tarball}"
+	
+	if [[ "${host}" = *'-darwin'* ]]; then
+		sed \
+			--in-place \
+			's/$$ORIGIN/@loader_path/g' \
+			"${workdir}/patches/0001-Add-relative-RPATHs-to-GDB-host-tools.patch"
+	fi
+	
+	if [[ "${host}" = *'bsd'* ]] || [[ "${host}" = *'dragonfly' ]] then
+		sed \
+			--in-place \
+			's/-Xlinker -rpath/-Xlinker -z -Xlinker origin -Xlinker -rpath/g' \
+			"${workdir}/patches/0001-Add-relative-RPATHs-to-GDB-host-tools.patch"
+	fi
+	
+	patch --directory="${gdb_directory}" --strip='1' --input="${workdir}/patches/0001-Add-relative-RPATHs-to-GDB-host-tools.patch"
+	patch --directory="${gdb_directory}" --strip='1' --input="${workdir}/patches/0001-GDB-fixes.patch"
 fi
 
 if ! [ -f "${gold_tarball}" ]; then
@@ -1006,7 +1043,6 @@ tar \
 
 for triplet in "${targets[@]}"; do
 	declare extra_configure_flags=''
-	declare extra_binutils_flags=''
 	declare base_version='14'
 	declare abi64='0'
 	declare hash_style='both'
@@ -1096,10 +1132,39 @@ for triplet in "${targets[@]}"; do
 		--with-sysroot="${toolchain_directory}/${triplet}" \
 		--with-zstd="${toolchain_directory}" \
 		--with-system-zlib \
-		${extra_binutils_flags} \
 		CFLAGS="-I${toolchain_directory}/include ${ccflags}" \
 		CXXFLAGS="-I${toolchain_directory}/include ${ccflags}" \
 		LDFLAGS="-L${toolchain_directory}/lib ${linkflags}"
+	
+	make all --jobs="${max_jobs}"
+	make install
+	
+	[ -d "${gdb_directory}/build" ] || mkdir "${gdb_directory}/build"
+	
+	cd "${gdb_directory}/build"
+	rm --force --recursive ./*
+	
+	declare gdb_ldflags=''
+	
+	if [[ "${host}" = *'-linux-gnu'* ]]; then
+		gdb_ldflags+=' -lrt'
+	fi
+	
+	../configure \
+		--host="${host}" \
+		--target="${triplet}" \
+		--prefix="${toolchain_directory}" \
+		--enable-gdb \
+		--disable-gprofng \
+		--disable-binutils \
+		--disable-sim \
+		--without-static-standard-libraries \
+		--with-sysroot="${toolchain_directory}/${triplet}" \
+		--with-zstd="${toolchain_directory}" \
+		--with-system-zlib \
+		CFLAGS="-I${toolchain_directory}/include ${ccflags}" \
+		CXXFLAGS="-I${toolchain_directory}/include ${ccflags}" \
+		LDFLAGS="-L${toolchain_directory}/lib ${linkflags}${gdb_ldflags}"
 	
 	make all --jobs="${max_jobs}"
 	make install
