@@ -662,12 +662,12 @@ fi
 
 export PATH="${build_directory}:${PATH}"
 
+if [ "${gcc_major}" != '17' ]; then
+	gcc_url="https://github.com/gcc-mirror/gcc/archive/releases/gcc-${gcc_major}.tar.gz"
+	gcc_directory="${build_directory}/gcc-releases-gcc-${gcc_major}"
+fi
+
 if ! [ -f "${gcc_tarball}" ]; then
-	if [ "${gcc_major}" != '17' ]; then
-		gcc_url="https://github.com/gcc-mirror/gcc/archive/releases/gcc-${gcc_major}.tar.gz"
-		gcc_directory="${build_directory}/gcc-releases-gcc-${gcc_major}"
-	fi
-	
 	curl \
 		--url "${gcc_url}" \
 		--retry '30' \
@@ -1228,6 +1228,8 @@ for triplet in "${targets[@]}"; do
 		--target="${triplet}" \
 		--prefix="${toolchain_directory}" \
 		--enable-gdb \
+		--program-prefix="${triplet}-" \
+		--disable-gdbserver \
 		--disable-gprofng \
 		--disable-binutils \
 		--disable-sim \
@@ -1682,7 +1684,123 @@ find \
 	-name '*.py' -delete -o \
 	-name '*.json' -delete
 
-cd "${workdir}"
+[ -d "${libiconv_directory}/build" ] || mkdir "${libiconv_directory}/build"
+
+cd "${libiconv_directory}/build"
+
+for triplet in "${targets[@]}"; do
+	cd "${libiconv_directory}/build"
+
+	declare iconv_prefix="${build_directory}/iconv-${triplet}"
+	declare base_version='14'
+	
+	if [[ "${triplet}" = *'64'* ]]; then
+		base_version='21'
+	fi
+	
+	rm --force --recursive ./*
+	
+	env ${args} ../configure \
+		--build="${build}" \
+		--host="${triplet}" \
+		--prefix="${iconv_prefix}" \
+		--disable-shared \
+		--enable-static \
+		--disable-nls \
+		CC="${triplet}${base_version}-gcc" \
+		CFLAGS="${ccflags}"
+	
+	env ${args} make all --jobs="${max_jobs}"
+	env ${args} make install
+	
+	[ -d "${gdb_directory}/build-gdbserver" ] || mkdir "${gdb_directory}/build-gdbserver"
+	
+	cd "${gdb_directory}/build-gdbserver"
+	
+	rm --force --recursive ./*
+	
+	env ${args} ../configure \
+		--build="${build}" \
+		--host="${triplet}" \
+		--target="${triplet}" \
+		--prefix="${toolchain_directory}" \
+		--bindir="${toolchain_directory}/${triplet}/lib" \
+		--with-libiconv-prefix="${iconv_prefix}" \
+		--enable-gdbserver \
+		--disable-gdb \
+		--disable-binutils \
+		--disable-sim \
+		--disable-gprofng \
+		--disable-inprocess-agent \
+		--disable-werror \
+		CC="${triplet}${base_version}-gcc" \
+		CXX="${triplet}${base_version}-g++" \
+		AR="${triplet}-ar" \
+		RANLIB="${triplet}-ranlib" \
+		CFLAGS="${ccflags} -I${iconv_prefix}/include" \
+		CXXFLAGS="${ccflags} -I${iconv_prefix}/include" \
+		LDFLAGS="-static-libstdc++ -L${iconv_prefix}/lib ${linkflags}"
+	
+	env ${args} make all-gdbserver --jobs="${max_jobs}"
+	env ${args} make install-gdbserver
+	
+	if [ "${base_version}" = '14' ]; then
+		base_version='16'
+		
+		rm --force --recursive ./*
+	
+		env ${args} ../configure \
+			--build="${build}" \
+			--host="${triplet}" \
+			--target="${triplet}" \
+			--prefix="${toolchain_directory}" \
+			--bindir="${toolchain_directory}/${triplet}${base_version}/lib" \
+			--with-libiconv-prefix="${iconv_prefix}" \
+			--enable-gdbserver \
+			--disable-gdb \
+			--disable-binutils \
+			--disable-sim \
+			--disable-gprofng \
+			--disable-inprocess-agent \
+			--disable-werror \
+			CC="${triplet}${base_version}-gcc" \
+			CXX="${triplet}${base_version}-g++" \
+			AR="${triplet}-ar" \
+			RANLIB="${triplet}-ranlib" \
+			CFLAGS="${ccflags} -I${iconv_prefix}/include" \
+			CXXFLAGS="${ccflags} -I${iconv_prefix}/include" \
+			LDFLAGS="-static-libstdc++ -L${iconv_prefix}/lib ${linkflags}"
+		
+		env ${args} make all-gdbserver --jobs="${max_jobs}"
+		env ${args} make install-gdbserver
+	fi
+	
+	for version in "${versions[@]}"; do
+		declare sysroot_directory="${toolchain_directory}/${triplet}${version}"
+		
+		[ -d "${sysroot_directory}" ] || continue
+		
+		if (( version >= 16 )) && [[ "${triplet}" != *'64'* ]]; then
+			if (( version == 16 )); then
+				continue
+			fi
+		
+			ln \
+				--symbolic \
+				--relative \
+				--force \
+				"${toolchain_directory}/${triplet}16/lib/gdbserver" \
+				"${sysroot_directory}/lib"
+		else
+			ln \
+				--symbolic \
+				--relative \
+				--force \
+				"${toolchain_directory}/${triplet}/lib/gdbserver" \
+				"${sysroot_directory}/lib"
+		fi
+	done
+done
 
 # Bundle both libstdc++ and libgcc within host tools
 if ! (( native )) && [[ "${host}" != *'-darwin'* ]]; then

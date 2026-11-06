@@ -56,7 +56,7 @@ jobs:
         
         while read file; do
             logs+="${file} "
-        done <<< $(find "/tmp/"*"/build" -wholename '*/config.log')
+        done <<< $(find "${PINO_BUILD_DIRECTORY}/"*"/build" -wholename '*/config.log')
         
         tar --create --file=- ${logs} | xz --threads='0' --compress -9 > '/tmp/logs.tar.xz'
     - name: Upload logs
@@ -71,7 +71,7 @@ jobs:
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       run: |
         declare tarball_filename='/tmp/x86_64-linux-gnu.tar.xz'
-        tar --directory='/tmp' --create --file=- 'android-gcc-cross' | xz --threads='0' --compress -9 > "${tarball_filename}"
+        tar --directory='${{ env.PINO_BUILD_DIRECTORY }}' --create --file=- 'android-gcc-cross' | xz --threads='0' --compress -9 > "${tarball_filename}"
         sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
     - name: Cache artifact
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
@@ -283,7 +283,7 @@ jobs:
         
         while read file; do
             logs+="${file} "
-        done <<< $(find "/tmp/"*"/build" -wholename '*.log' -o -wholename '*.yaml' -o -wholename '*Makefile')
+        done <<< $(find "${PINO_BUILD_DIRECTORY}/"*"/build" -wholename '*.log' -o -wholename '*.yaml' -o -wholename '*Makefile')
         
         tar --create --file=- ${logs} | xz --threads='0' --compress -9 > '/tmp/logs.tar.xz'
     - name: Upload logs
@@ -307,7 +307,7 @@ jobs:
                 -mmt="$(nproc)"
         else
             declare tarball_filename='/tmp/${{ env.CROSS_COMPILE_TRIPLET }}.tar.xz'
-            tar --directory='/tmp' --create --file=- 'android-gcc-cross' | xz --threads='0' --extreme --memlimit-compress='100%' --compress -9 > "${tarball_filename}"
+            tar --directory='${{ env.PINO_BUILD_DIRECTORY }}' --create --file=- 'android-gcc-cross' | xz --threads='0' --extreme --memlimit-compress='100%' --compress -9 > "${tarball_filename}"
         fi
         sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
     - name: Upload artifact

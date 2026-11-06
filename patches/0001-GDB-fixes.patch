@@ -1,26 +1,32 @@
-From 95680f6d75fa8b5ea5053e61c3105fbed8be22e3 Mon Sep 17 00:00:00 2001
+From 1a0d11de801cfc4cbcfbc0fd51d413c5fd88dc5d Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Thu, 5 Nov 2026 21:54:41 +0000
 Subject: [PATCH] GDB fixes
 
 ---
- gdb/Makefile.in          |   1 +
- gdb/aarch64-linux-tdep.c |  22 ++++----
- gdb/maint.c              |  16 ++++++
- gdb/nat/gdb_ptrace.h     |  18 +++++++
- gdb/nat/linux-btrace.c   |   7 +++
- gdb/pthread_once.c       | 105 +++++++++++++++++++++++++++++++++++++++
- gdbserver/Makefile.in    |   2 +
- gnulib/configure         |   1 +
- gnulib/import/m4/glob.m4 |   1 +
- 9 files changed, 162 insertions(+), 11 deletions(-)
+ gdb/Makefile.in             |   1 +
+ gdb/aarch64-linux-tdep.c    |  22 ++++----
+ gdb/maint.c                 |  16 ++++++
+ gdb/nat/gdb_ptrace.h        |  18 +++++++
+ gdb/nat/linux-btrace.c      |   7 +++
+ gdb/nat/linux-namespaces.c  |   3 +-
+ gdb/nat/linux-personality.c |   5 ++++
+ gdb/pthread_once.c          | 105 ++++++++++++++++++++++++++++++++++++
+ gdbserver/Makefile.in       |   2 +
+ gdbserver/configure         |  14 -----
+ gdbserver/configure.ac      |  20 ++-----
+ gnulib/configure            |   1 +
+ gnulib/import/canonicalize-lgpl.c |   3 +-
+ gnulib/import/getprogname.h |   3 +-
+ gnulib/import/m4/glob.m4    |   1 +
+ 15 files changed, 176 insertions(+), 45 deletions(-)
  create mode 100644 gdb/pthread_once.c
 
 diff --git a/gdb/Makefile.in b/gdb/Makefile.in
-index 8cd12460000..37b5a3e6559 100644
+index 41dbb81..cd54337 100644
 --- a/gdb/Makefile.in
 +++ b/gdb/Makefile.in
-@@ -1175,6 +1175,7 @@ COMMON_SFILES = \
+@@ -1176,6 +1176,7 @@ COMMON_SFILES = \
  	progspace.c \
  	progspace-and-thread.c \
  	prologue-value.c \
@@ -29,7 +35,7 @@ index 8cd12460000..37b5a3e6559 100644
  	record-btrace.c \
  	record-full.c \
 diff --git a/gdb/aarch64-linux-tdep.c b/gdb/aarch64-linux-tdep.c
-index 77c2679042c..f40f47c4847 100644
+index 85e6175..24c9375 100644
 --- a/gdb/aarch64-linux-tdep.c
 +++ b/gdb/aarch64-linux-tdep.c
 @@ -2728,7 +2728,7 @@ aarch64_linux_report_signal_info (struct gdbarch *gdbarch,
@@ -98,7 +104,7 @@ index 77c2679042c..f40f47c4847 100644
        uiout->text ("\n");
        uiout->text (_("Fault address unavailable"));
 diff --git a/gdb/maint.c b/gdb/maint.c
-index 22954f624ef..40fa8b531b2 100644
+index f5711d9..e3547cd 100644
 --- a/gdb/maint.c
 +++ b/gdb/maint.c
 @@ -51,6 +51,22 @@
@@ -125,7 +131,7 @@ index 22954f624ef..40fa8b531b2 100644
  
  #ifndef _WIN32
 diff --git a/gdb/nat/gdb_ptrace.h b/gdb/nat/gdb_ptrace.h
-index e0607164260..fb780e1cdd4 100644
+index e060716..fb780e1 100644
 --- a/gdb/nat/gdb_ptrace.h
 +++ b/gdb/nat/gdb_ptrace.h
 @@ -121,6 +121,24 @@
@@ -154,7 +160,7 @@ index e0607164260..fb780e1cdd4 100644
     arguments.  Since we never use the fifth argument, define a ptrace
     macro that calls the real ptrace with the last argument set to
 diff --git a/gdb/nat/linux-btrace.c b/gdb/nat/linux-btrace.c
-index 2e0c2eedfbb..2f5bc64ba60 100644
+index 2e0c2ee..2f5bc64 100644
 --- a/gdb/nat/linux-btrace.c
 +++ b/gdb/nat/linux-btrace.c
 @@ -35,6 +35,13 @@
@@ -171,9 +177,38 @@ index 2e0c2eedfbb..2f5bc64ba60 100644
  #include "nat/gdb_ptrace.h"
  #include <sys/types.h>
  #include <signal.h>
+diff --git a/gdb/nat/linux-namespaces.c b/gdb/nat/linux-namespaces.c
+index 793c1a7..5232dfe 100644
+--- a/gdb/nat/linux-namespaces.c
++++ b/gdb/nat/linux-namespaces.c
+@@ -51,7 +51,8 @@ do_fork (void)
+ static inline int
+ do_setns (int fd, int nstype)
+ {
+-#ifdef HAVE_SETNS
++#if defined HAVE_SETNS \
++  && !(defined __BIONIC__ && defined __ANDROID_API__ && __ANDROID_API__ < 17)
+   return setns (fd, nstype);
+ #elif defined __NR_setns
+   return syscall (__NR_setns, fd, nstype);
+diff --git a/gdb/nat/linux-personality.c b/gdb/nat/linux-personality.c
+--- a/gdb/nat/linux-personality.c
++++ b/gdb/nat/linux-personality.c
+@@ -25,6 +25,11 @@
+ #  define ADDR_NO_RANDOMIZE 0x0040000
+ # endif /* ! HAVE_DECL_ADDR_NO_RANDOMIZE */
+ 
++#if defined __BIONIC__ && defined __ANDROID_API__ && __ANDROID_API__ < 21
++/* personality() is not provided by bionic before API level 21.  */
++# define personality(x) (-1)
++#endif
++
+ /* See comment on nat/linux-personality.h.  */
+ 
+ maybe_disable_address_space_randomization::
 diff --git a/gdb/pthread_once.c b/gdb/pthread_once.c
 new file mode 100644
-index 00000000000..53ef7a3becc
+index 0000000..53ef7a3
 --- /dev/null
 +++ b/gdb/pthread_once.c
 @@ -0,0 +1,105 @@
@@ -283,7 +318,7 @@ index 00000000000..53ef7a3becc
 +
 +#endif /* __linux__ */
 diff --git a/gdbserver/Makefile.in b/gdbserver/Makefile.in
-index aac8742a923..b0a214ce56c 100644
+index aac8742..b0a214c 100644
 --- a/gdbserver/Makefile.in
 +++ b/gdbserver/Makefile.in
 @@ -187,6 +187,7 @@ SFILES = \
@@ -302,8 +337,71 @@ index aac8742a923..b0a214ce56c 100644
  	regcache.o \
  	remote-utils.o \
  	server.o \
+diff --git a/gdbserver/configure b/gdbserver/configure
+index e00e1e1..e8fef1e 100755
+--- a/gdbserver/configure
++++ b/gdbserver/configure
+@@ -13269,19 +13269,6 @@ _ACEOF
+ fi
+ 
+ 
+-case "${target}" in
+-  *-android*)
+-    # Starting with NDK version 9, <elf.h> actually includes definitions
+-    # of Elf32_auxv_t and Elf64_auxv_t. But sadly, <elf.h> includes
+-    # <sys/exec_elf.h> which defines some of the ELF types incorrectly,
+-    # leading to conflicts with the definitions from <linux/elf.h>.
+-    # This makes it impossible for us to include both <elf.h> and
+-    # <linux/elf.h>, which means that, in practice, we do not have
+-    # access to Elf32_auxv_t and Elf64_auxv_t on this platform.
+-    # Therefore, do not try to auto-detect availability, as it would
+-    # get it wrong on this platform.
+-    ;;
+-  *)
+     ac_fn_c_check_type "$LINENO" "Elf32_auxv_t" "ac_cv_type_Elf32_auxv_t" "#include <elf.h>
+ 
+ "
+@@ -13305,7 +13292,6 @@ _ACEOF
+ 
+ fi
+ 
+-esac
+ 
+ 
+ 
+diff --git a/gdbserver/configure.ac b/gdbserver/configure.ac
+index 16a2520..51951de 100644
+--- a/gdbserver/configure.ac
++++ b/gdbserver/configure.ac
+@@ -109,23 +109,9 @@ AC_CHECK_TYPES(socklen_t, [], [],
+ #endif
+ ])
+ 
+-case "${target}" in
+-  *-android*)
+-    # Starting with NDK version 9, <elf.h> actually includes definitions
+-    # of Elf32_auxv_t and Elf64_auxv_t. But sadly, <elf.h> includes
+-    # <sys/exec_elf.h> which defines some of the ELF types incorrectly,
+-    # leading to conflicts with the definitions from <linux/elf.h>.
+-    # This makes it impossible for us to include both <elf.h> and
+-    # <linux/elf.h>, which means that, in practice, we do not have
+-    # access to Elf32_auxv_t and Elf64_auxv_t on this platform.
+-    # Therefore, do not try to auto-detect availability, as it would
+-    # get it wrong on this platform.
+-    ;;
+-  *)
+-    AC_CHECK_TYPES([Elf32_auxv_t, Elf64_auxv_t], [], [],
+-    #include <elf.h>
+-    )
+-esac
++AC_CHECK_TYPES([Elf32_auxv_t, Elf64_auxv_t], [], [],
++#include <elf.h>
++)
+ 
+ ACX_PKGVERSION([GDB])
+ ACX_BUGURL([http://www.gnu.org/software/gdb/bugs/])
 diff --git a/gnulib/configure b/gnulib/configure
-index de2f5c4cec1..56091b5dfdd 100755
+index de2f5c4..56091b5 100755
 --- a/gnulib/configure
 +++ b/gnulib/configure
 @@ -26969,6 +26969,7 @@ $as_echo "#define GNULIB_TEST_GETTIMEOFDAY 1" >>confdefs.h
@@ -314,8 +412,35 @@ index de2f5c4cec1..56091b5dfdd 100755
    else
  
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for GNU glob interface version 1 or 2" >&5
+diff --git a/gnulib/import/canonicalize-lgpl.c b/gnulib/import/canonicalize-lgpl.c
+--- a/gnulib/import/canonicalize-lgpl.c
++++ b/gnulib/import/canonicalize-lgpl.c
+@@ -100,7 +100,8 @@ file_accessible (char const *file)
+ static bool
+ file_accessible (char const *file)
+ {
+-# if defined _LIBC || HAVE_FACCESSAT
++# if (defined _LIBC || HAVE_FACCESSAT) \
++  && !(defined __BIONIC__ && defined __ANDROID_API__ && __ANDROID_API__ < 21)
+   return __faccessat (AT_FDCWD, file, F_OK, AT_EACCESS) == 0;
+ # else
+   struct stat st;
+diff --git a/gnulib/import/getprogname.h b/gnulib/import/getprogname.h
+index 9a35e58..e84efd9 100644
+--- a/gnulib/import/getprogname.h
++++ b/gnulib/import/getprogname.h
+@@ -25,7 +25,8 @@ extern "C" {
+ 
+ /* Return the base name of the executing program.
+    On native Windows this will usually end in ".exe" or ".EXE". */
+-#ifndef HAVE_GETPROGNAME
++#if !defined HAVE_GETPROGNAME \
++    || (defined __BIONIC__ && defined __ANDROID_API__ && __ANDROID_API__ < 21)
+ extern char const *getprogname (void)
+ # ifdef HAVE_DECL_PROGRAM_INVOCATION_NAME
+   _GL_ATTRIBUTE_PURE
 diff --git a/gnulib/import/m4/glob.m4 b/gnulib/import/m4/glob.m4
-index f59b84ff057..d6404adb48c 100644
+index f59b84f..d6404ad 100644
 --- a/gnulib/import/m4/glob.m4
 +++ b/gnulib/import/m4/glob.m4
 @@ -15,6 +15,7 @@ AC_DEFUN([gl_GLOB],
