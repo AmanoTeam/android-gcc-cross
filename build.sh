@@ -113,10 +113,10 @@ declare -ra targets=(
 	# 'mips64el-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
 	
-	'armv7-unknown-linux-androideabi'
+	# 'armv7-unknown-linux-androideabi'
 	'aarch64-unknown-linux-android'
-	'x86_64-unknown-linux-android'
-	'i686-unknown-linux-android'
+	# 'x86_64-unknown-linux-android'
+	# 'i686-unknown-linux-android'
 	
 	# 'riscv64-unknown-linux-android'
 )
@@ -662,12 +662,12 @@ fi
 
 export PATH="${build_directory}:${PATH}"
 
+if [ "${gcc_major}" != '17' ]; then
+	gcc_url="https://github.com/gcc-mirror/gcc/archive/releases/gcc-${gcc_major}.tar.gz"
+	gcc_directory="${build_directory}/gcc-releases-gcc-${gcc_major}"
+fi
+
 if ! [ -f "${gcc_tarball}" ]; then
-	if [ "${gcc_major}" != '17' ]; then
-		gcc_url="https://github.com/gcc-mirror/gcc/archive/releases/gcc-${gcc_major}.tar.gz"
-		gcc_directory="${build_directory}/gcc-releases-gcc-${gcc_major}"
-	fi
-	
 	curl \
 		--url "${gcc_url}" \
 		--retry '30' \
@@ -1228,6 +1228,7 @@ for triplet in "${targets[@]}"; do
 		--target="${triplet}" \
 		--prefix="${toolchain_directory}" \
 		--enable-gdb \
+		--disable-gdbserver \
 		--disable-gprofng \
 		--disable-binutils \
 		--disable-sim \
@@ -1682,7 +1683,88 @@ find \
 	-name '*.py' -delete -o \
 	-name '*.json' -delete
 
-cd "${workdir}"
+export \
+	ac_cv_func_getpwent='no' \
+	ac_cv_func_setpwent='no' \
+	ac_cv_func_endpwent='no' \
+	ac_cv_func_posix_spawn='no' \
+	ac_cv_func_posix_spawnp='no' \
+	ac_cv_func_getrandom='no' \
+	ac_cv_func_glob='no' \
+	ac_cv_func_glob_pattern_p='no' \
+	ac_cv_header_glob_h='no' \
+	am_cv_func_iconv='yes' \
+	am_cv_lib_iconv='yes'
+
+[ -d "${libiconv_directory}/build" ] || mkdir "${libiconv_directory}/build"
+
+cd "${libiconv_directory}/build"
+
+for triplet in "${targets[@]}"; do
+	declare iconv_prefix="${build_directory}/iconv-${triplet}21"
+	
+	rm --force --recursive ./*
+	
+	env ${args} ../configure \
+		--build="${build}" \
+		--host="${triplet}" \
+		--prefix="${iconv_prefix}" \
+		--disable-shared \
+		--enable-static \
+		--disable-nls \
+		CC="${triplet}21-gcc" \
+		CFLAGS="${ccflags} -fPIC"
+	
+	env ${args} make all --jobs="${max_jobs}"
+	env ${args} make install
+	
+	[ -d "${gdb_directory}/build-gdbserver" ] || mkdir "${gdb_directory}/build-gdbserver"
+	
+	cd "${gdb_directory}/build-gdbserver"
+	
+	rm --force --recursive ./*
+	
+	env ${args} ../configure \
+		--build="${build}" \
+		--host="${triplet}" \
+		--target="${triplet}" \
+		--prefix="${toolchain_directory}" \
+		--bindir="${toolchain_directory}/${triplet}/lib" \
+		--with-libiconv-prefix="${iconv_prefix}" \
+		--enable-gdbserver \
+		--disable-gdb \
+		--disable-binutils \
+		--disable-sim \
+		--disable-gprofng \
+		--disable-inprocess-agent \
+		--disable-werror \
+		CC="${triplet}21-gcc" \
+		CXX="${triplet}21-g++" \
+		AR="${triplet}-ar" \
+		RANLIB="${triplet}-ranlib" \
+		CFLAGS="${ccflags} -I${iconv_prefix}/include" \
+		CXXFLAGS="${ccflags} -I${iconv_prefix}/include" \
+		LDFLAGS="-static-libstdc++ -L${iconv_prefix}/lib ${linkflags}"
+	
+	env ${args} make all-gdbserver --jobs="${max_jobs}" \
+		CFLAGS="${ccflags} -I${iconv_prefix}/include" \
+		CXXFLAGS="${ccflags} -I${iconv_prefix}/include" \
+		LDFLAGS="-static-libstdc++ -L${iconv_prefix}/lib ${linkflags}"
+	env ${args} make install-gdbserver
+	
+	for version in "${versions[@]}"; do
+		declare sysroot_directory="${toolchain_directory}/${triplet}${version}"
+		
+		[ -d "${sysroot_directory}" ] || continue
+		
+		ln \
+			--symbolic \
+			--relative \
+			--force \
+			"${toolchain_directory}/${triplet}/lib/gdbserver" \
+			"${sysroot_directory}/lib"
+	done
+done
 
 # Bundle both libstdc++ and libgcc within host tools
 if ! (( native )) && [[ "${host}" != *'-darwin'* ]]; then
