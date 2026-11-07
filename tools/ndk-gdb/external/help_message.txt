@@ -1,0 +1,37 @@
+usage: ndkgdb [options]
+
+options:
+  -v, --verbose          enable verbose mode
+  -f, --force            kill existing debug session if it exists
+  --port PORT            override the port used on the host (default: 5039)
+  --delay DELAY          delay in seconds to wait after starting activity
+                         (default: 0.25, higher values may be needed on
+                         slower devices)
+  -p, --project PROJECT  specify application project path
+  --lldb                 use lldb
+  --no-lldb              do not use lldb
+
+target selection:
+  --attach [PKG_NAME]    attach to application (default)
+                         autodetects PKG_NAME if not specified
+  --launch [ACTIVITY]    launch application activity
+                         launches main activity if ACTIVITY not specified
+  --launch-list          list all launchable activity names from manifest
+
+device selection:
+  -a                     directs commands to all interfaces
+  -d                     directs commands to the only connected USB device
+  -e                     directs commands to the only connected emulator
+  -s SERIAL              directs commands to device/emulator with the given
+                         serial
+
+debugging options:
+  -x, --exec EXEC_FILE   execute gdb commands in EXEC_FILE after connection
+  --nowait               do not wait for debugger to attach (may miss early
+                         JNI breakpoints)
+  -t, --tui              use GDB's tui mode
+
+other:
+  --adb ADB              use specific adb command
+  --version              show version information and exit
+  -h, --help             show this help message and exit
