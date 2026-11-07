@@ -1725,8 +1725,8 @@ for triplet in "${targets[@]}"; do
 		--disable-gprofng \
 		--disable-inprocess-agent \
 		--disable-werror \
-		CC="${triplet}21-gcc" \
-		CXX="${triplet}21-g++" \
+		CC="${triplet}37-gcc" \
+		CXX="${triplet}37-g++" \
 		AR="${triplet}-ar" \
 		RANLIB="${triplet}-ranlib" \
 		CFLAGS="${ccflags} -I${iconv_prefix}/include" \
