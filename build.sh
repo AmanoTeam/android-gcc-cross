@@ -1683,19 +1683,6 @@ find \
 	-name '*.py' -delete -o \
 	-name '*.json' -delete
 
-export \
-	ac_cv_func_getpwent='no' \
-	ac_cv_func_setpwent='no' \
-	ac_cv_func_endpwent='no' \
-	ac_cv_func_posix_spawn='no' \
-	ac_cv_func_posix_spawnp='no' \
-	ac_cv_func_getrandom='no' \
-	ac_cv_func_glob='no' \
-	ac_cv_func_glob_pattern_p='no' \
-	ac_cv_header_glob_h='no' \
-	am_cv_func_iconv='yes' \
-	am_cv_lib_iconv='yes'
-
 [ -d "${libiconv_directory}/build" ] || mkdir "${libiconv_directory}/build"
 
 cd "${libiconv_directory}/build"
@@ -1746,10 +1733,7 @@ for triplet in "${targets[@]}"; do
 		CXXFLAGS="${ccflags} -I${iconv_prefix}/include" \
 		LDFLAGS="-static-libstdc++ -L${iconv_prefix}/lib ${linkflags}"
 	
-	env ${args} make all-gdbserver --jobs="${max_jobs}" \
-		CFLAGS="${ccflags} -I${iconv_prefix}/include" \
-		CXXFLAGS="${ccflags} -I${iconv_prefix}/include" \
-		LDFLAGS="-static-libstdc++ -L${iconv_prefix}/lib ${linkflags}"
+	env ${args} make all-gdbserver --jobs="${max_jobs}"
 	env ${args} make install-gdbserver
 	
 	for version in "${versions[@]}"; do
