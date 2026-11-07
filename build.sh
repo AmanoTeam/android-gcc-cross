@@ -113,10 +113,10 @@ declare -ra targets=(
 	# 'mips64el-unknown-linux-android'
 	# 'armv5-unknown-linux-androideabi'
 	
-	# 'armv7-unknown-linux-androideabi'
+	'armv7-unknown-linux-androideabi'
 	'aarch64-unknown-linux-android'
-	# 'x86_64-unknown-linux-android'
-	# 'i686-unknown-linux-android'
+	'x86_64-unknown-linux-android'
+	'i686-unknown-linux-android'
 	
 	# 'riscv64-unknown-linux-android'
 )
@@ -1731,7 +1731,7 @@ for triplet in "${targets[@]}"; do
 		RANLIB="${triplet}-ranlib" \
 		CFLAGS="${ccflags} -I${iconv_prefix}/include" \
 		CXXFLAGS="${ccflags} -I${iconv_prefix}/include" \
-		LDFLAGS="-static-libstdc++ -L${iconv_prefix}/lib ${linkflags}"
+		LDFLAGS="-static -L${iconv_prefix}/lib ${linkflags}"
 	
 	env ${args} make all-gdbserver --jobs="${max_jobs}"
 	env ${args} make install-gdbserver
