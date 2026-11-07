@@ -1690,6 +1690,8 @@ cd "${libiconv_directory}/build"
 for triplet in "${targets[@]}"; do
 	declare iconv_prefix="${build_directory}/iconv-${triplet}21"
 	
+	cd "${libiconv_directory}/build"
+	
 	rm --force --recursive ./*
 	
 	env ${args} ../configure \
