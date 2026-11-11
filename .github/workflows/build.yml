@@ -15,7 +15,7 @@ permissions: write-all
 env: 
     PINO_BUILD_DIRECTORY: /var/tmp
     PINO_BUILD_PARALLEL_LEVEL: 20
-    PINO_RELEASE: 16
+    PINO_RELEASE: 17
 
 jobs:
   native-build:
@@ -36,6 +36,10 @@ jobs:
         export PATH="${CMAKE_HOME}/bin:${PATH}"
         
         echo "PATH=${PATH}" >> "${GITHUB_ENV}"
+    - name: Install required dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install build-essential autoconf libtool gperf
     - name: Check for cache
       id: check-cache
       uses: actions/cache@main

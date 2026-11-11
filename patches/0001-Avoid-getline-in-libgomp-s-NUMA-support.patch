@@ -1,0 +1,62 @@
+From 98e930629c1f9226bb1c9d93c8a87ddff48f4b9c Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 16:20:23 +0000
+Subject: [PATCH] Avoid getline in libgomp's NUMA support
+
+getline is only available on Android >= API 18, so the min-API-14
+targets fail to build libgomp with an implicit declaration error.
+Read /sys/devices/system/node/online with fgets instead.
+---
+ libgomp/config/linux/numa.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/libgomp/config/linux/numa.c b/libgomp/config/linux/numa.c
+index 82711f6e8..9ddfc2ced 100644
+--- a/libgomp/config/linux/numa.c
++++ b/libgomp/config/linux/numa.c
+@@ -87,12 +87,12 @@ retry:
+   /* Obtain numa nodes.  */
+ 
+   num = 0;
+-  char *lineptr = NULL;
+-  size_t nline = 0;
++  /* Avoid getline, which is only available on Android >= API 18.  */
++  char line[4096];
+   FILE *f = fopen ("/sys/devices/system/node/online", "r");
+   if (f == NULL)
+     goto fail;
+-  if (getline (&lineptr, &nline, f) <= 0)
++  if (fgets (line, sizeof (line), f) == NULL || strchr (line, '\n') == NULL)
+     {
+       fclose (f);
+       goto fail;
+@@ -108,7 +108,7 @@ retry:
+     goto fail;
+   for (int i = 0; i < num_remap; i++)
+     remap[i] = UNSET_REMAP;
+-  char *q = lineptr;
++  char *q = line;
+   while (*q && *q != '\n')
+     {
+       unsigned nfirst, nlast;
+@@ -143,9 +143,6 @@ retry:
+       if (*q == ',')
+ 	++q;
+     }
+-  free (lineptr);
+-  lineptr = NULL;
+-
+   /* Fill distance data.  */
+   numa_distances = (int *) gomp_malloc (sizeof (*numa_distances) * num * num);
+ 
+@@ -186,7 +183,6 @@ retry:
+   goto retry;
+ 
+ fail:
+-  free (lineptr);
+   free (remap);
+   free (numa_distances);
+   __atomic_store_n (&num_numa_nodes, -2, MEMMODEL_RELAXED);
+-- 
+2.56.1
+

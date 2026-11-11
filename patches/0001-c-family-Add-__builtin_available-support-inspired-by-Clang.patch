@@ -1,6 +1,6 @@
-From 27e5d663e4e3e5b76eed06e22cb34634cd21eace Mon Sep 17 00:00:00 2001
+From c4b801ccaa4178426673bd01202377043c357d55 Mon Sep 17 00:00:00 2001
 From: root
- <root@runnervm5mmn9.vbe0po14bteuxnpsttwp1nmvne.bx.internal.cloudapp.net>
+ <rootroot@runnervm5mmn9.vbe0po14bteuxnpsttwp1nmvne.bx.internal.cloudapp.net>
 Date: Tue, 14 Jul 2026 08:15:46 +0000
 Subject: [PATCH] c-family: Add __builtin_available support inspired by Clang
 
@@ -167,21 +167,21 @@ gcc/testsuite/ChangeLog:
  create mode 100644 gcc/testsuite/objc.dg/builtin-available-1.m
 
 diff --git a/gcc/Makefile.in b/gcc/Makefile.in
-index e60a4af9e0b..ecd1e8e04a5 100644
+index 6013c785b..4978813c4 100644
 --- a/gcc/Makefile.in
 +++ b/gcc/Makefile.in
-@@ -1329,7 +1329,7 @@ C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
+@@ -1340,7 +1340,7 @@ C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
    c-family/c-semantics.o c-family/c-ada-spec.o \
    c-family/c-ubsan.o c-family/known-headers.o \
    c-family/c-attribs.o c-family/c-warn.o c-family/c-spellcheck.o \
--  c-family/c-type-mismatch.o
-+  c-family/c-type-mismatch.o c-family/c-availability.o
+-  c-family/c-type-mismatch.o attr-handlers.o
++  c-family/c-type-mismatch.o c-family/c-availability.o attr-handlers.o
  
  # Analyzer object files
  ANALYZER_OBJS = \
 diff --git a/gcc/c-family/c-availability.cc b/gcc/c-family/c-availability.cc
 new file mode 100644
-index 00000000000..d6151c7de4d
+index 000000000..d6151c7de
 --- /dev/null
 +++ b/gcc/c-family/c-availability.cc
 @@ -0,0 +1,367 @@
@@ -554,7 +554,7 @@ index 00000000000..d6151c7de4d
 +#include "gt-c-family-c-availability.h"
 diff --git a/gcc/c-family/c-availability.h b/gcc/c-family/c-availability.h
 new file mode 100644
-index 00000000000..c540445d9ad
+index 000000000..c540445d9
 --- /dev/null
 +++ b/gcc/c-family/c-availability.h
 @@ -0,0 +1,116 @@
@@ -675,7 +675,7 @@ index 00000000000..c540445d9ad
 +
 +#endif /* GCC_C_AVAILABILITY_H */
 diff --git a/gcc/c-family/c-common.cc b/gcc/c-family/c-common.cc
-index de057411d6b..ad515428c47 100644
+index 4d96a669d..12728128e 100644
 --- a/gcc/c-family/c-common.cc
 +++ b/gcc/c-family/c-common.cc
 @@ -433,6 +433,7 @@ const struct c_common_resword c_common_reswords[] =
@@ -683,28 +683,28 @@ index de057411d6b..ad515428c47 100644
    { "__builtin_addressof", RID_ADDRESSOF, D_CXXONLY },
    { "__builtin_assoc_barrier", RID_BUILTIN_ASSOC_BARRIER, 0 },
 +  { "__builtin_available",    RID_BUILTIN_AVAILABLE, 0 },
+   { "__builtin_bitreverseg", RID_BUILTIN_BITREVERSEG, 0 },
    { "__builtin_bit_cast", RID_BUILTIN_BIT_CAST, D_CXXONLY },
-   { "__builtin_call_with_static_chain",
-     RID_BUILTIN_CALL_WITH_STATIC_CHAIN, D_CONLY },
+   { "__builtin_bswapg", RID_BUILTIN_BSWAPG, 0 },
 diff --git a/gcc/c-family/c-common.h b/gcc/c-family/c-common.h
-index 89517e2a80c..1833a7fadf6 100644
+index c572b637a..0c081f0c0 100644
 --- a/gcc/c-family/c-common.h
 +++ b/gcc/c-family/c-common.h
 @@ -111,7 +111,7 @@ enum rid
    RID_TYPES_COMPATIBLE_P,      RID_BUILTIN_COMPLEX,	   RID_BUILTIN_SHUFFLE,
    RID_BUILTIN_SHUFFLEVECTOR,   RID_BUILTIN_CONVERTVECTOR,  RID_BUILTIN_TGMATH,
    RID_BUILTIN_HAS_ATTRIBUTE,   RID_BUILTIN_ASSOC_BARRIER,  RID_BUILTIN_STDC,
--  RID_BUILTIN_COUNTED_BY_REF,
-+  RID_BUILTIN_COUNTED_BY_REF,  RID_BUILTIN_AVAILABLE,
+-  RID_BUILTIN_COUNTED_BY_REF,  RID_BUILTIN_BSWAPG,
++  RID_BUILTIN_COUNTED_BY_REF,  RID_BUILTIN_BSWAPG,  RID_BUILTIN_AVAILABLE,
+   RID_BUILTIN_BITREVERSEG,     RID_BUILTIN_CLMULG,
    RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128, RID_DFLOAT64X,
  
-   /* TS 18661-3 keywords, in the same sequence as the TI_* values.  */
 diff --git a/gcc/c/c-decl.cc b/gcc/c/c-decl.cc
-index 2929db0e7fe..b90a90705cd 100644
+index 51555f338..312bc5b7c 100644
 --- a/gcc/c/c-decl.cc
 +++ b/gcc/c/c-decl.cc
-@@ -11937,6 +11937,7 @@ names_builtin_p (const char *name)
-     case RID_BUILTIN_ASSOC_BARRIER:
+@@ -11948,6 +11948,7 @@ names_builtin_p (const char *name)
+     case RID_BUILTIN_CLMULG:
      case RID_BUILTIN_CONVERTVECTOR:
      case RID_BUILTIN_HAS_ATTRIBUTE:
 +    case RID_BUILTIN_AVAILABLE:
@@ -712,7 +712,7 @@ index 2929db0e7fe..b90a90705cd 100644
      case RID_BUILTIN_SHUFFLEVECTOR:
      case RID_BUILTIN_STDC:
 diff --git a/gcc/c/c-parser.cc b/gcc/c/c-parser.cc
-index 4cf2d885166..98d20304a67 100644
+index 74c41e0e6..3a439e322 100644
 --- a/gcc/c/c-parser.cc
 +++ b/gcc/c/c-parser.cc
 @@ -52,6 +52,9 @@ along with GCC; see the file COPYING3.  If not see
@@ -725,7 +725,7 @@ index 4cf2d885166..98d20304a67 100644
  #include "plugin.h"
  #include "omp-general.h"
  #include "omp-offload.h"
-@@ -11647,6 +11650,212 @@ enum tgmath_parm_kind
+@@ -11677,6 +11680,212 @@ enum tgmath_parm_kind
      tgmath_fixed, tgmath_real, tgmath_complex
    };
  
@@ -938,7 +938,7 @@ index 4cf2d885166..98d20304a67 100644
  /* Helper function for c_parser_postfix_expression.  Parse predefined
     identifiers.  */
  
-@@ -11951,6 +12160,13 @@ c_parser_postfix_expression (c_parser *parser)
+@@ -11981,6 +12190,13 @@ c_parser_postfix_expression (c_parser *parser)
      case CPP_KEYWORD:
        switch (c_parser_peek_token (parser)->keyword)
  	{
@@ -953,7 +953,7 @@ index 4cf2d885166..98d20304a67 100644
  	case RID_PRETTY_FUNCTION_NAME:
  	case RID_C99_FUNCTION_NAME:
 diff --git a/gcc/c/config-lang.in b/gcc/c/config-lang.in
-index 64f77ab43e7..86b72e892a4 100644
+index 64f77ab43..86b72e892 100644
 --- a/gcc/c/config-lang.in
 +++ b/gcc/c/config-lang.in
 @@ -29,4 +29,4 @@ compilers="cc1\$(exeext)"
@@ -963,7 +963,7 @@ index 64f77ab43e7..86b72e892a4 100644
 -gtfiles="\$(srcdir)/c/c-lang.cc \$(srcdir)/c/c-tree.h \$(srcdir)/c/c-decl.cc \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-common.h \$(srcdir)/c-family/c-objc.h \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.h \$(srcdir)/c-family/c-pragma.cc \$(srcdir)/c-family/c-format.cc \$(srcdir)/c/c-objc-common.cc \$(srcdir)/c/c-parser.h \$(srcdir)/c/c-parser.cc \$(srcdir)/c/c-lang.h"
 +gtfiles="\$(srcdir)/c/c-lang.cc \$(srcdir)/c/c-tree.h \$(srcdir)/c/c-decl.cc \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-common.h \$(srcdir)/c-family/c-objc.h \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.h \$(srcdir)/c-family/c-pragma.cc \$(srcdir)/c-family/c-format.cc \$(srcdir)/c-family/c-availability.cc \$(srcdir)/c/c-objc-common.cc \$(srcdir)/c/c-parser.h \$(srcdir)/c/c-parser.cc \$(srcdir)/c/c-lang.h"
 diff --git a/gcc/config/darwin-protos.h b/gcc/config/darwin-protos.h
-index 59f4020334e..452873fa825 100644
+index 59f402033..452873fa8 100644
 --- a/gcc/config/darwin-protos.h
 +++ b/gcc/config/darwin-protos.h
 @@ -129,6 +129,11 @@ extern void darwin_patch_builtins (void);
@@ -979,10 +979,10 @@ index 59f4020334e..452873fa825 100644
     components (e.g. as, ld, dsymutil) and we have to alter the allowable
     output in response to which version and source is in use.  */
 diff --git a/gcc/config/darwin.cc b/gcc/config/darwin.cc
-index 6008ee7304e..1a7fb642c5c 100644
+index 53599db37..18cbff582 100644
 --- a/gcc/config/darwin.cc
 +++ b/gcc/config/darwin.cc
-@@ -3698,6 +3698,58 @@ darwin_rename_builtins (void)
+@@ -3731,6 +3731,58 @@ darwin_rename_builtins (void)
  {
  }
  
@@ -1042,10 +1042,10 @@ index 6008ee7304e..1a7fb642c5c 100644
  
  bool
 diff --git a/gcc/config/darwin.h b/gcc/config/darwin.h
-index 53a7b5980e6..a0f89973d92 100644
+index fa073bc87..a052d5f06 100644
 --- a/gcc/config/darwin.h
 +++ b/gcc/config/darwin.h
-@@ -1259,6 +1259,16 @@ void add_framework_path (char *);
+@@ -1250,6 +1250,16 @@ void add_framework_path (char *);
  #define TARGET_N_FORMAT_TYPES 1
  #define TARGET_FORMAT_TYPES darwin_additional_format_types
  
@@ -1063,10 +1063,10 @@ index 53a7b5980e6..a0f89973d92 100644
  extern void darwin_driver_init (unsigned int *,struct cl_decoded_option **);
  #define GCC_DRIVER_HOST_INITIALIZATION \
 diff --git a/gcc/config/linux-android.h b/gcc/config/linux-android.h
-index 26a9fe15904..137198f40f9 100644
+index f76740314..97e466a4d 100644
 --- a/gcc/config/linux-android.h
 +++ b/gcc/config/linux-android.h
-@@ -119,3 +119,21 @@ extern void android_override_options(void);
+@@ -116,3 +116,21 @@ extern void android_override_options(void);
  
  #define ANDROID_ENDFILE_SPEC \
    "%{shared: crtend_so%O%s;: crtend_android%O%s} crt_pad_segment%O%s"
@@ -1089,7 +1089,7 @@ index 26a9fe15904..137198f40f9 100644
 +   default hook returning 0 gives the correct behavior in
 +   c_build_builtin_available.  */
 diff --git a/gcc/config/linux-protos.h b/gcc/config/linux-protos.h
-index 9d393276166..1a446115bb2 100644
+index 9d3932761..1a446115b 100644
 --- a/gcc/config/linux-protos.h
 +++ b/gcc/config/linux-protos.h
 @@ -23,3 +23,10 @@ extern bool linux_libc_has_function (enum function_class fn_class, tree);
@@ -1104,7 +1104,7 @@ index 9d393276166..1a446115bb2 100644
 +extern bool android_availability_min_version (unsigned *, unsigned *, unsigned *);
 +extern int android_availability_platform_id (void);
 diff --git a/gcc/config/linux.cc b/gcc/config/linux.cc
-index a8e975fcae5..1745ce51464 100644
+index a8e975fca..1745ce514 100644
 --- a/gcc/config/linux.cc
 +++ b/gcc/config/linux.cc
 @@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
@@ -1171,7 +1171,7 @@ index a8e975fcae5..1745ce51464 100644
 +}
 +
 diff --git a/gcc/cp/config-lang.in b/gcc/cp/config-lang.in
-index 845430f35a4..e295c359f24 100644
+index 845430f35..e295c359f 100644
 --- a/gcc/cp/config-lang.in
 +++ b/gcc/cp/config-lang.in
 @@ -38,6 +38,7 @@ gtfiles="\
@@ -1183,10 +1183,10 @@ index 845430f35a4..e295c359f24 100644
  \$(srcdir)/cp/contracts.cc \
  \$(srcdir)/cp/constraint.cc \$(srcdir)/cp/coroutines.cc \
 diff --git a/gcc/cp/cp-objcp-common.h b/gcc/cp/cp-objcp-common.h
-index 2999b36a5dd..e79cedd932a 100644
+index acd6f97ac..0a4258ca2 100644
 --- a/gcc/cp/cp-objcp-common.h
 +++ b/gcc/cp/cp-objcp-common.h
-@@ -110,6 +110,9 @@ extern tree cxx_simulate_record_decl (location_t, const char *,
+@@ -111,6 +111,9 @@ extern qualifier_set cp_type_quals_as_set (const_tree type);
  #undef  LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL
  #define LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL \
    cxx_simulate_builtin_function_decl
@@ -1197,10 +1197,10 @@ index 2999b36a5dd..e79cedd932a 100644
  #define LANG_HOOKS_TYPE_HASH_EQ	cxx_type_hash_eq
  #undef	LANG_HOOKS_COPY_LANG_QUALIFIERS
 diff --git a/gcc/cp/cp-tree.h b/gcc/cp/cp-tree.h
-index fb096587266..0658f6017ea 100644
+index 8c6d0ea37..9287b545a 100644
 --- a/gcc/cp/cp-tree.h
 +++ b/gcc/cp/cp-tree.h
-@@ -7679,6 +7679,7 @@ extern tmpl_spec_kind current_tmpl_spec_kind	(int);
+@@ -7710,6 +7710,7 @@ extern tmpl_spec_kind current_tmpl_spec_kind	(int);
  extern tree cxx_builtin_function		(tree decl);
  extern tree cxx_builtin_function_ext_scope	(tree decl);
  extern tree cxx_simulate_builtin_function_decl	(tree);
@@ -1209,10 +1209,10 @@ index fb096587266..0658f6017ea 100644
  extern void warn_extern_redeclared_static	(tree, tree);
  extern tree cxx_comdat_group			(tree);
 diff --git a/gcc/cp/decl.cc b/gcc/cp/decl.cc
-index 9b10899f5c2..e785cc8fc7e 100644
+index a53ae4a00..80c3aa3dd 100644
 --- a/gcc/cp/decl.cc
 +++ b/gcc/cp/decl.cc
-@@ -6036,6 +6036,18 @@ cxx_simulate_builtin_function_decl (tree decl)
+@@ -6125,6 +6125,18 @@ cxx_simulate_builtin_function_decl (tree decl)
    return pushdecl (decl);
  }
  
@@ -1232,7 +1232,7 @@ index 9b10899f5c2..e785cc8fc7e 100644
     function.  Not called directly.  */
  
 diff --git a/gcc/cp/parser.cc b/gcc/cp/parser.cc
-index d52f5c97039..fb2aa93ca76 100644
+index f1e2207d8..497dfaf0b 100644
 --- a/gcc/cp/parser.cc
 +++ b/gcc/cp/parser.cc
 @@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
@@ -1251,7 +1251,7 @@ index d52f5c97039..fb2aa93ca76 100644
  #include "tree-iterator.h"
  #include "cp-name-hint.h"
  #include "memmodel.h"
-@@ -8415,6 +8417,181 @@ literal_integer_zerop (const_tree expr)
+@@ -8501,6 +8503,181 @@ literal_integer_zerop (const_tree expr)
  
     Returns a representation of the expression.  */
  
@@ -1433,7 +1433,7 @@ index d52f5c97039..fb2aa93ca76 100644
  static cp_expr
  cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
                                bool member_access_only_p, bool decltype_p,
-@@ -8798,6 +8975,16 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
+@@ -8928,6 +9105,16 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
  	break;
        }
  
@@ -1451,10 +1451,10 @@ index d52f5c97039..fb2aa93ca76 100644
      default_:
        {
 diff --git a/gcc/doc/tm.texi b/gcc/doc/tm.texi
-index 5edddd7f36e..a5724f7bfc7 100644
+index 65cf4c640..6a634300f 100644
 --- a/gcc/doc/tm.texi
 +++ b/gcc/doc/tm.texi
-@@ -1073,10 +1073,41 @@ are zero or sign extended depending on if it is
+@@ -1082,10 +1082,41 @@ are zero or sign extended depending on if it is
  
  @deftypefn {Target Hook} machine_mode TARGET_C_MODE_FOR_FLOATING_TYPE (enum tree_index @var{ti})
  Return machine mode for a C floating point type which is indicated by
@@ -1501,10 +1501,10 @@ index 5edddd7f36e..a5724f7bfc7 100644
  
  @deftypefn {Target Hook} machine_mode TARGET_PROMOTE_FUNCTION_MODE (const_tree @var{type}, machine_mode @var{mode}, int *@var{punsignedp}, const_tree @var{funtype}, int @var{for_return})
 diff --git a/gcc/doc/tm.texi.in b/gcc/doc/tm.texi.in
-index 274bb899d0c..2aea1b0b9f4 100644
+index 6b8203c5b..844fdb36d 100644
 --- a/gcc/doc/tm.texi.in
 +++ b/gcc/doc/tm.texi.in
-@@ -976,6 +976,12 @@ applied.
+@@ -985,6 +985,12 @@ applied.
  
  @hook TARGET_C_MODE_FOR_FLOATING_TYPE
  
@@ -1518,7 +1518,7 @@ index 274bb899d0c..2aea1b0b9f4 100644
  
  @defmac PARM_BOUNDARY
 diff --git a/gcc/langhooks-def.h b/gcc/langhooks-def.h
-index fc409ec08b9..a4bca11b6ac 100644
+index 76cc9474b..9b284e388 100644
 --- a/gcc/langhooks-def.h
 +++ b/gcc/langhooks-def.h
 @@ -68,6 +68,7 @@ extern size_t lhd_tree_size (enum tree_code);
@@ -1537,7 +1537,7 @@ index fc409ec08b9..a4bca11b6ac 100644
  #define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
  #define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
  #define LANG_HOOKS_INIT_TS		lhd_do_nothing
-@@ -400,6 +402,7 @@ extern void lhd_end_section (void);
+@@ -403,6 +405,7 @@ extern void lhd_end_section (void);
    LANG_HOOKS_BUILTIN_FUNCTION, \
    LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE, \
    LANG_HOOKS_SIMULATE_BUILTIN_FUNCTION_DECL, \
@@ -1546,10 +1546,10 @@ index fc409ec08b9..a4bca11b6ac 100644
    LANG_HOOKS_EXPR_TO_DECL, \
    LANG_HOOKS_EH_PERSONALITY, \
 diff --git a/gcc/langhooks.cc b/gcc/langhooks.cc
-index e2c7735596e..97bde052b7c 100644
+index d7413a877..9cd0faf7d 100644
 --- a/gcc/langhooks.cc
 +++ b/gcc/langhooks.cc
-@@ -846,6 +846,18 @@ lhd_builtin_function (tree decl)
+@@ -848,6 +848,18 @@ lhd_builtin_function (tree decl)
    return decl;
  }
  
@@ -1569,10 +1569,10 @@ index e2c7735596e..97bde052b7c 100644
  
  tree
 diff --git a/gcc/langhooks.h b/gcc/langhooks.h
-index 6eb5c1602f8..dd215cb2b33 100644
+index c1b08862b..5e192a88c 100644
 --- a/gcc/langhooks.h
 +++ b/gcc/langhooks.h
-@@ -614,6 +614,18 @@ struct lang_hooks
+@@ -633,6 +633,18 @@ struct lang_hooks
       to a pragma) rather than providing them in the source language itself.  */
    tree (*simulate_builtin_function_decl) (tree decl);
  
@@ -1592,7 +1592,7 @@ index 6eb5c1602f8..dd215cb2b33 100644
    void (*init_ts) (void);
  
 diff --git a/gcc/objc/config-lang.in b/gcc/objc/config-lang.in
-index 0ee34484a4a..9eb91acce8f 100644
+index 0ee34484a..9eb91acce 100644
 --- a/gcc/objc/config-lang.in
 +++ b/gcc/objc/config-lang.in
 @@ -35,4 +35,4 @@ lang_requires="c"
@@ -1602,10 +1602,10 @@ index 0ee34484a4a..9eb91acce8f 100644
 -gtfiles="\$(srcdir)/objc/objc-map.h \$(srcdir)/c-family/c-objc.h \$(srcdir)/objc/objc-act.h \$(srcdir)/objc/objc-act.cc \$(srcdir)/objc/objc-runtime-shared-support.cc \$(srcdir)/objc/objc-gnu-runtime-abi-01.cc \$(srcdir)/objc/objc-next-runtime-abi-01.cc \$(srcdir)/objc/objc-next-runtime-abi-02.cc \$(srcdir)/c/c-parser.h \$(srcdir)/c/c-parser.cc \$(srcdir)/c/c-tree.h \$(srcdir)/c/c-decl.cc \$(srcdir)/c/c-lang.h \$(srcdir)/c/c-objc-common.cc \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-common.h \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.h \$(srcdir)/c-family/c-pragma.cc \$(srcdir)/c-family/c-format.cc"
 +gtfiles="\$(srcdir)/objc/objc-map.h \$(srcdir)/c-family/c-objc.h \$(srcdir)/objc/objc-act.h \$(srcdir)/objc/objc-act.cc \$(srcdir)/objc/objc-runtime-shared-support.cc \$(srcdir)/objc/objc-gnu-runtime-abi-01.cc \$(srcdir)/objc/objc-next-runtime-abi-01.cc \$(srcdir)/objc/objc-next-runtime-abi-02.cc \$(srcdir)/c/c-parser.h \$(srcdir)/c/c-parser.cc \$(srcdir)/c/c-tree.h \$(srcdir)/c/c-decl.cc \$(srcdir)/c/c-lang.h \$(srcdir)/c/c-objc-common.cc \$(srcdir)/c-family/c-common.cc \$(srcdir)/c-family/c-common.h \$(srcdir)/c-family/c-cppbuiltin.cc \$(srcdir)/c-family/c-pragma.h \$(srcdir)/c-family/c-pragma.cc \$(srcdir)/c-family/c-format.cc \$(srcdir)/c-family/c-availability.cc"
 diff --git a/gcc/target.def b/gcc/target.def
-index a9fcce7850f..df76deb5811 100644
+index 877bd166b..4ca96ea54 100644
 --- a/gcc/target.def
 +++ b/gcc/target.def
-@@ -6604,13 +6604,53 @@ are zero or sign extended depending on if it is\n\
+@@ -6736,13 +6736,53 @@ are zero or sign extended depending on if it is\n\
  
  DEFHOOK
  (mode_for_floating_type,
@@ -1665,10 +1665,10 @@ index a9fcce7850f..df76deb5811 100644
  
  /* Functions specific to the C++ frontend.  */
 diff --git a/gcc/targhooks.cc b/gcc/targhooks.cc
-index 5f1eac75122..7c781f53a76 100644
+index 727a0f2ba..723c0fa84 100644
 --- a/gcc/targhooks.cc
 +++ b/gcc/targhooks.cc
-@@ -328,6 +328,33 @@ default_mode_for_floating_type (enum tree_index ti)
+@@ -327,6 +327,33 @@ default_mode_for_floating_type (enum tree_index ti)
    return DFmode;
  }
  
@@ -1703,12 +1703,12 @@ index 5f1eac75122..7c781f53a76 100644
  tree
  default_cxx_guard_type (void)
 diff --git a/gcc/targhooks.h b/gcc/targhooks.h
-index 9582233e69f..7d854e1f355 100644
+index d5f4548fc..c8763760c 100644
 --- a/gcc/targhooks.h
 +++ b/gcc/targhooks.h
-@@ -321,4 +321,9 @@ extern rtx default_memtag_set_tag (rtx, rtx, rtx);
- extern rtx default_memtag_extract_tag (rtx, rtx);
+@@ -327,4 +327,9 @@ extern rtx default_memtag_extract_tag (rtx, rtx);
  extern rtx default_memtag_untagged_pointer (rtx, rtx);
+ extern int default_reassociation_width (tree_code, machine_mode);
  
 +/* Default TARGET_AVAILABILITY_* hooks for __builtin_available.  */
 +extern const char *default_availability_platform_name (void);
@@ -1718,7 +1718,7 @@ index 9582233e69f..7d854e1f355 100644
  #endif /* GCC_TARGHOOKS_H */
 diff --git a/gcc/testsuite/g++.dg/builtin-available-1.C b/gcc/testsuite/g++.dg/builtin-available-1.C
 new file mode 100644
-index 00000000000..b48b38a0604
+index 000000000..b48b38a06
 --- /dev/null
 +++ b/gcc/testsuite/g++.dg/builtin-available-1.C
 @@ -0,0 +1,41 @@
@@ -1765,7 +1765,7 @@ index 00000000000..b48b38a0604
 +}
 diff --git a/gcc/testsuite/g++.dg/builtin-available-android-1.C b/gcc/testsuite/g++.dg/builtin-available-android-1.C
 new file mode 100644
-index 00000000000..2be6985fc02
+index 000000000..2be6985fc
 --- /dev/null
 +++ b/gcc/testsuite/g++.dg/builtin-available-android-1.C
 @@ -0,0 +1,47 @@
@@ -1818,7 +1818,7 @@ index 00000000000..2be6985fc02
 +}
 diff --git a/gcc/testsuite/gcc.dg/builtin-available-1.c b/gcc/testsuite/gcc.dg/builtin-available-1.c
 new file mode 100644
-index 00000000000..0566598009f
+index 000000000..056659800
 --- /dev/null
 +++ b/gcc/testsuite/gcc.dg/builtin-available-1.c
 @@ -0,0 +1,85 @@
@@ -1909,7 +1909,7 @@ index 00000000000..0566598009f
 +}
 diff --git a/gcc/testsuite/gcc.dg/builtin-available-android-1.c b/gcc/testsuite/gcc.dg/builtin-available-android-1.c
 new file mode 100644
-index 00000000000..b9acf602ce7
+index 000000000..b9acf602c
 --- /dev/null
 +++ b/gcc/testsuite/gcc.dg/builtin-available-android-1.c
 @@ -0,0 +1,48 @@
@@ -1963,7 +1963,7 @@ index 00000000000..b9acf602ce7
 +}
 diff --git a/gcc/testsuite/gcc.dg/builtin-available-has-builtin.c b/gcc/testsuite/gcc.dg/builtin-available-has-builtin.c
 new file mode 100644
-index 00000000000..02490e87d9a
+index 000000000..02490e87d
 --- /dev/null
 +++ b/gcc/testsuite/gcc.dg/builtin-available-has-builtin.c
 @@ -0,0 +1,9 @@
@@ -1978,7 +1978,7 @@ index 00000000000..02490e87d9a
 +int x;
 diff --git a/gcc/testsuite/obj-c++.dg/builtin-available-1.mm b/gcc/testsuite/obj-c++.dg/builtin-available-1.mm
 new file mode 100644
-index 00000000000..a7f684832de
+index 000000000..a7f684832
 --- /dev/null
 +++ b/gcc/testsuite/obj-c++.dg/builtin-available-1.mm
 @@ -0,0 +1,13 @@
@@ -1997,7 +1997,7 @@ index 00000000000..a7f684832de
 +}
 diff --git a/gcc/testsuite/objc.dg/builtin-available-1.m b/gcc/testsuite/objc.dg/builtin-available-1.m
 new file mode 100644
-index 00000000000..47b79b7b7e1
+index 000000000..47b79b7b7
 --- /dev/null
 +++ b/gcc/testsuite/objc.dg/builtin-available-1.m
 @@ -0,0 +1,13 @@
@@ -2015,5 +2015,5 @@ index 00000000000..47b79b7b7e1
 +  return __builtin_available (macos 14.0, macos 15.0, *); /* { dg-error "version for 'macos' already specified" } */
 +}
 -- 
-2.54.0
+2.56.1
 

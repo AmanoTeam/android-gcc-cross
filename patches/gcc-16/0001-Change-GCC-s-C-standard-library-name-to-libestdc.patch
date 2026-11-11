@@ -1,0 +1,102 @@
+From c8b1a9b7d73942f0fd3e378758fefb205f66b8d0 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Wed, 22 Oct 2025 02:33:38 -0300
+Subject: [PATCH] Change GCC's C++ standard library name to libestdc++
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Android includes its own version of libstdc++ (/system/lib/libstdc++.so), which is not the GNU C++ standard library, but rather a minimal implementation with very limited functionality:
+
+- https://developer.android.com/ndk/guides/cpp-support#system
+
+Normally, having two libraries with the same name wouldn’t be an issue. But on Android, the dynamic linker loads libraries from /system/lib first. So a binary linked against the GNU libstdc++ could end up loading Android’s version at runtime.
+---
+ gcc/cp/g++spec.cc            | 2 +-
+ libsanitizer/configure       | 2 +-
+ libstdc++-v3/configure       | 4 ++--
+ libstdc++-v3/configure.ac    | 4 ++--
+ libstdc++-v3/src/Makefile.in | 4 ++--
+ 5 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/gcc/cp/g++spec.cc b/gcc/cp/g++spec.cc
+index 165a91d45..3f936f020 100644
+--- a/gcc/cp/g++spec.cc
++++ b/gcc/cp/g++spec.cc
+@@ -42,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
+ #endif
+ 
+ #ifndef LIBSTDCXX
+-#define LIBSTDCXX "stdc++"
++#define LIBSTDCXX "estdc++"
+ #endif
+ #ifndef LIBSTDCXX_PROFILE
+ #define LIBSTDCXX_PROFILE LIBSTDCXX
+diff --git a/libsanitizer/configure b/libsanitizer/configure
+index d4d987d2a..209f4dcdd 100755
+--- a/libsanitizer/configure
++++ b/libsanitizer/configure
+@@ -4234,7 +4234,7 @@ esac
+     -I\$(top_builddir)/../libstdc++-v3/include/\$(target_noncanonical) \
+     -I\$(top_srcdir)/../libstdc++-v3/libsupc++"
+   LIBSTDCXX_RAW_CXX_LDFLAGS="\
+-    \$(top_builddir)/../libstdc++-v3/src/libstdc++.la"
++    \$(top_builddir)/../libstdc++-v3/src/libestdc++.la"
+ 
+ 
+ 
+diff --git a/libstdc++-v3/configure b/libstdc++-v3/configure
+index 42b638f09..24cb3175e 100755
+--- a/libstdc++-v3/configure
++++ b/libstdc++-v3/configure
+@@ -16173,8 +16173,8 @@ fi
+ lt_prog_compiler_pic_CXX="$glibcxx_compiler_pic_flag $glibcxx_compiler_shared_flag"
+ pic_mode='default'
+ 
+-# Eliminate -lstdc++ addition to postdeps for cross compiles.
+-postdeps_CXX=`echo " $postdeps_CXX " | sed 's, -lstdc++ ,,g'`
++# Eliminate -lestdc++ addition to postdeps for cross compiles.
++postdeps_CXX=`echo " $postdeps_CXX " | sed 's, -lestdc++ ,,g'`
+ 
+ # Possibly disable most of the library.
+ ## TODO: Consider skipping unncessary tests altogether in this case, rather
+diff --git a/libstdc++-v3/configure.ac b/libstdc++-v3/configure.ac
+index b9d49c3e4..6d7e656e6 100644
+--- a/libstdc++-v3/configure.ac
++++ b/libstdc++-v3/configure.ac
+@@ -154,8 +154,8 @@ AC_SUBST(glibcxx_compiler_shared_flag)
+ lt_prog_compiler_pic_CXX="$glibcxx_compiler_pic_flag $glibcxx_compiler_shared_flag"
+ pic_mode='default'
+ 
+-# Eliminate -lstdc++ addition to postdeps for cross compiles.
+-postdeps_CXX=`echo " $postdeps_CXX " | sed 's, -lstdc++ ,,g'`
++# Eliminate -lestdc++ addition to postdeps for cross compiles.
++postdeps_CXX=`echo " $postdeps_CXX " | sed 's, -lestdc++ ,,g'`
+ 
+ # Possibly disable most of the library.
+ ## TODO: Consider skipping unncessary tests altogether in this case, rather
+diff --git a/libstdc++-v3/src/Makefile.in b/libstdc++-v3/src/Makefile.in
+index f0ad019a7..beec22709 100644
+--- a/libstdc++-v3/src/Makefile.in
++++ b/libstdc++-v3/src/Makefile.in
+@@ -497,7 +497,7 @@ AM_CPPFLAGS = $(GLIBCXX_INCLUDES) $(CPPFLAGS)
+ SUBDIRS = c++98 c++11 c++17 c++20 c++23 c++26 \
+ 	$(filesystem_dir) $(backtrace_dir) $(experimental_dir)
+ 
+-@VTV_CYGMIN_FALSE@toolexeclib_LTLIBRARIES = libstdc++.la
++@VTV_CYGMIN_FALSE@toolexeclib_LTLIBRARIES = libestdc++.la
+ 
+ # Cross compiler support.
+ @VTV_CYGMIN_TRUE@toolexeclib_LTLIBRARIES = libvtv.la libstdc++.la
+@@ -763,7 +763,7 @@ clean-toolexeclibLTLIBRARIES:
+ 	  rm -f $${locs}; \
+ 	}
+ 
+-libstdc++.la: $(libstdc___la_OBJECTS) $(libstdc___la_DEPENDENCIES) $(EXTRA_libstdc___la_DEPENDENCIES) 
++libestdc++.la: $(libstdc___la_OBJECTS) $(libstdc___la_DEPENDENCIES) $(EXTRA_libstdc___la_DEPENDENCIES) 
+ 	$(AM_V_GEN)$(libstdc___la_LINK) $(am_libstdc___la_rpath) $(libstdc___la_OBJECTS) $(libstdc___la_LIBADD) $(LIBS)
+ 
+ libvtv.la: $(libvtv_la_OBJECTS) $(libvtv_la_DEPENDENCIES) $(EXTRA_libvtv_la_DEPENDENCIES) 
+-- 
+2.50.1
+

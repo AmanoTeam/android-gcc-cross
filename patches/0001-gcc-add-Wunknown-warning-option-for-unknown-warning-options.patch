@@ -1,4 +1,4 @@
-From 9f44f173885492299cb1d638cc908f9c3ffbb9d8 Mon Sep 17 00:00:00 2001
+From 60013edd2adb6fb8d84a0aab0f68aa750fad489c Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sun, 27 Sep 2026 08:11:49 +0000
 Subject: [PATCH] gcc: add -Wunknown-warning-option for unknown warning options
@@ -14,12 +14,12 @@ Subject: [PATCH] gcc: add -Wunknown-warning-option for unknown warning options
  7 files changed, 48 insertions(+), 61 deletions(-)
 
 diff --git a/gcc/common.opt b/gcc/common.opt
-index 204c8ae72..3dd384766 100644
+index 9849231bc..87f6a0401 100644
 --- a/gcc/common.opt
 +++ b/gcc/common.opt
-@@ -931,6 +931,11 @@ Wtsan
- Common Var(warn_tsan) Init(1) Warning
- Warn about unsupported features in ThreadSanitizer.
+@@ -935,6 +935,11 @@ Wzero-init-padding-bits=
+ Common Joined RejectNegative Enum(zero_init_padding_bits_kind) Var(warn_zero_init_padding_bits) Init(ZERO_INIT_PADDING_BITS_STANDARD) Warning
+ -Wzero-init-padding-bits=[standard|unions|all]	Warn about initializers that might not zero padding bits.
  
 +Wunknown-warning-option
 +Common Driver Var(warn_unknown_warning_option) Init(1) Warning
@@ -30,10 +30,10 @@ index 204c8ae72..3dd384766 100644
  Driver Separate
  
 diff --git a/gcc/doc/invoke.texi b/gcc/doc/invoke.texi
-index 81213fca9..fc4f38569 100644
+index ef9cb025c..682f1f49f 100644
 --- a/gcc/doc/invoke.texi
 +++ b/gcc/doc/invoke.texi
-@@ -6656,13 +6656,13 @@ enabled or disabled via pragmas (@pxref{Diagnostic Pragmas}) take effect
+@@ -6747,13 +6747,13 @@ enabled or disabled via pragmas (@pxref{Diagnostic Pragmas}) take effect
  as if they appeared at the end of the command line.
  
  When an unrecognized warning option is requested (e.g.,
@@ -54,7 +54,7 @@ index 81213fca9..fc4f38569 100644
  
  The effectiveness of some warnings depends on optimizations also being
  enabled. For example, @option{-Wsuggest-final-types} is more effective
-@@ -8244,6 +8244,23 @@ variable.  A common situation is an automatic variable that is declared
+@@ -8334,6 +8334,23 @@ variable.  A common situation is an automatic variable that is declared
  between the controlling expression and the first case label of a @code{switch}
  statement.
  
@@ -79,10 +79,10 @@ index 81213fca9..fc4f38569 100644
  @opindex Wno-unused-but-set-parameter
  @item -Wunused-but-set-parameter
 diff --git a/gcc/gcc.cc b/gcc/gcc.cc
-index 43b0158ee..2ef540f2d 100644
+index 973a34023..94cae3b75 100644
 --- a/gcc/gcc.cc
 +++ b/gcc/gcc.cc
-@@ -3946,11 +3946,12 @@ static bool
+@@ -3996,11 +3996,12 @@ static bool
  driver_unknown_option_callback (const struct cl_decoded_option *decoded)
  {
    const char *opt = decoded->arg;
@@ -99,7 +99,7 @@ index 43b0158ee..2ef540f2d 100644
  		   decoded->canonical_option_num_elements - 1,
  		   &decoded->canonical_option[1], false, true);
 diff --git a/gcc/opts-global.cc b/gcc/opts-global.cc
-index 6f111ab69..5607d06dd 100644
+index 30fad240d..7aa196f17 100644
 --- a/gcc/opts-global.cc
 +++ b/gcc/opts-global.cc
 @@ -40,10 +40,6 @@ along with GCC; see the file COPYING3.  If not see
@@ -171,10 +171,10 @@ index 6f111ab69..5607d06dd 100644
      }
    else
 diff --git a/gcc/opts.cc b/gcc/opts.cc
-index 6658b6acd..fcc3b905e 100644
+index 74c9d7cc6..53c0d14b7 100644
 --- a/gcc/opts.cc
 +++ b/gcc/opts.cc
-@@ -3783,15 +3783,14 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
+@@ -3784,15 +3784,14 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
    option_index = find_opt (new_option, lang_mask);
    if (option_index == OPT_SPECIAL_unknown)
      {
@@ -199,7 +199,7 @@ index 6658b6acd..fcc3b905e 100644
    else if (!(cl_options[option_index].flags & CL_WARNING))
      error_at (loc, "%<-Werror=%s%>: %<-%s%> is not an option that "
 diff --git a/gcc/opts.h b/gcc/opts.h
-index 2d28620ed..d6c132a89 100644
+index e637963b6..3faef2cb4 100644
 --- a/gcc/opts.h
 +++ b/gcc/opts.h
 @@ -430,7 +430,6 @@ extern void control_warning_option (unsigned int opt_index, int kind,
@@ -211,10 +211,10 @@ index 2d28620ed..d6c132a89 100644
  extern void handle_deferred_dump_options (void);
  sanitize_code_type parse_sanitizer_options (const char *, location_t, int,
 diff --git a/gcc/toplev.cc b/gcc/toplev.cc
-index 682459220..ca6631424 100644
+index 30f5a3d00..7b75b8f3e 100644
 --- a/gcc/toplev.cc
 +++ b/gcc/toplev.cc
-@@ -2397,9 +2397,6 @@ toplev::main (int argc, char **argv)
+@@ -2404,9 +2404,6 @@ toplev::main (int argc, char **argv)
  	}
      }
  
@@ -225,5 +225,5 @@ index 682459220..ca6631424 100644
       emit some diagnostics here.  */
    invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
 -- 
-2.55.0
+2.56.1
 

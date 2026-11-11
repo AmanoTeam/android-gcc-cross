@@ -1,0 +1,415 @@
+From a3ecacba7c589512d7cd5ca3b52a707fed545657 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Thu, 19 Feb 2026 00:06:34 -0300
+Subject: [PATCH] Disable SONAME versioning for all target libraries
+
+---
+ gcc/config/mingw/mingw32.h           | 3 ++-
+ libatomic/Makefile.in                | 2 +-
+ libffi/Makefile.in                   | 2 +-
+ libgcc/config/i386/t-slibgcc-cygming | 4 ++--
+ libgcc/config/t-slibgcc              | 2 +-
+ libgcobol/Makefile.in                | 2 +-
+ libgfortran/Makefile.in              | 3 +--
+ libgm2/libm2cor/Makefile.in          | 2 +-
+ libgm2/libm2iso/Makefile.in          | 2 +-
+ libgm2/libm2log/Makefile.in          | 2 +-
+ libgm2/libm2min/Makefile.in          | 2 +-
+ libgm2/libm2pim/Makefile.in          | 2 +-
+ libgo/Makefile.in                    | 2 +-
+ libgomp/Makefile.in                  | 6 +++---
+ libitm/Makefile.in                   | 2 +-
+ libobjc/Makefile.in                  | 4 ++--
+ libphobos/libdruntime/Makefile.in    | 2 +-
+ libphobos/src/Makefile.in            | 2 +-
+ libquadmath/Makefile.in              | 3 +--
+ libsanitizer/asan/Makefile.in        | 3 +--
+ libsanitizer/hwasan/Makefile.in      | 3 +--
+ libsanitizer/lsan/Makefile.in        | 3 +--
+ libsanitizer/tsan/Makefile.in        | 3 +--
+ libsanitizer/ubsan/Makefile.in       | 3 +--
+ libssp/Makefile.in                   | 3 +--
+ libstdc++-v3/src/Makefile.in         | 3 +--
+ 26 files changed, 31 insertions(+), 39 deletions(-)
+
+diff --git a/gcc/config/mingw/mingw32.h b/gcc/config/mingw/mingw32.h
+index 1d319b77b..ac803f52b 100644
+--- a/gcc/config/mingw/mingw32.h
++++ b/gcc/config/mingw/mingw32.h
+@@ -332,5 +332,6 @@ do {						         \
+ #else
+ #define LIBGCC_EH_EXTN "_sjlj"
+ #endif
+-#define LIBGCC_SONAME "libgcc_s" LIBGCC_EH_EXTN "-1.dll"
++#define LIBGCC_SONAME "libgcc_s" LIBGCC_EH_EXTN ".dll"
++#define LIBGCC_SONAME "libgcc_s.dll"
+ 
+diff --git a/libatomic/Makefile.in b/libatomic/Makefile.in
+index 39299cb0f..968535489 100644
+--- a/libatomic/Makefile.in
++++ b/libatomic/Makefile.in
+@@ -429,7 +429,7 @@ noinst_LTLIBRARIES = libatomic_convenience.la
+ @LIBAT_BUILD_VERSIONED_SHLIB_FALSE@libatomic_version_dep = 
+ @LIBAT_BUILD_VERSIONED_SHLIB_GNU_TRUE@@LIBAT_BUILD_VERSIONED_SHLIB_TRUE@libatomic_version_dep = $(top_srcdir)/libatomic.map
+ @LIBAT_BUILD_VERSIONED_SHLIB_SUN_TRUE@@LIBAT_BUILD_VERSIONED_SHLIB_TRUE@libatomic_version_dep = libatomic.map-sun
+-libatomic_version_info = -version-info $(libtool_VERSION)
++libatomic_version_info = -avoid-version
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libatomic_darwin_rpath =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wc,-nodefaultrpaths \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wl,-rpath,@loader_path
+diff --git a/libffi/Makefile.in b/libffi/Makefile.in
+index 35c903548..b1b908c84 100644
+--- a/libffi/Makefile.in
++++ b/libffi/Makefile.in
+@@ -600,7 +600,7 @@ AM_CFLAGS = -Wall -g -fexceptions $(CET_FLAGS) $(am__append_2)
+ @LIBFFI_BUILD_VERSIONED_SHLIB_FALSE@libffi_version_dep = 
+ @LIBFFI_BUILD_VERSIONED_SHLIB_GNU_TRUE@@LIBFFI_BUILD_VERSIONED_SHLIB_TRUE@libffi_version_dep = libffi.map
+ @LIBFFI_BUILD_VERSIONED_SHLIB_SUN_TRUE@@LIBFFI_BUILD_VERSIONED_SHLIB_TRUE@libffi_version_dep = libffi.map-sun
+-libffi_version_info = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
++libffi_version_info = -avoid-version
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libffi_darwin_rpath = -Wl,-rpath,@loader_path
+ libffi_la_LDFLAGS = -no-undefined $(libffi_version_info) \
+ 	$(libffi_version_script) $(LTLDFLAGS) $(AM_LTLDFLAGS) \
+diff --git a/libgcc/config/i386/t-slibgcc-cygming b/libgcc/config/i386/t-slibgcc-cygming
+index 6871498cf..cc71a2dcb 100644
+--- a/libgcc/config/i386/t-slibgcc-cygming
++++ b/libgcc/config/i386/t-slibgcc-cygming
+@@ -10,7 +10,7 @@
+ SHLIB_EXT = .dll
+ SHLIB_IMPLIB = @shlib_base_name@.a
+ SHLIB_SOVERSION = 1
+-SHLIB_SONAME = @shlib_base_name@_$(EH_MODEL)-$(SHLIB_SOVERSION)$(SHLIB_EXT)
++SHLIB_SONAME = @shlib_base_name@_$(EH_MODEL)$(SHLIB_EXT)
+ SHLIB_MAP = @shlib_map_file@
+ SHLIB_OBJS = @shlib_objs@
+ SHLIB_DIR = @multilib_dir@/shlib
+@@ -58,5 +58,5 @@ SHLIB_INSTALL = \
+ SHLIB_MKMAP = $(srcdir)/mkmap-flat.awk
+ # We'd like to use SHLIB_SONAME here too, but shlib_base_name
+ # does not get substituted before mkmap-flat.awk is run.
+-SHLIB_MKMAP_OPTS = -v pe_dll=libgcc_s_$(EH_MODEL)-$(SHLIB_SOVERSION)$(SHLIB_EXT)
++SHLIB_MKMAP_OPTS = -v pe_dll=libgcc_s_$(EH_MODEL)$(SHLIB_EXT)
+ SHLIB_MAPFILES = libgcc-std.ver $(srcdir)/config/i386/libgcc-cygming.ver
+diff --git a/libgcc/config/t-slibgcc b/libgcc/config/t-slibgcc
+index f30c06f08..d78f38879 100644
+--- a/libgcc/config/t-slibgcc
++++ b/libgcc/config/t-slibgcc
+@@ -21,7 +21,7 @@
+ SHLIB_EXT = .so
+ SHLIB_SOLINK = @shlib_base_name@.so
+ SHLIB_SOVERSION = 1
+-SHLIB_SONAME = @shlib_base_name@.so.$(SHLIB_SOVERSION)
++SHLIB_SONAME = libgcc$(SHLIB_EXT)
+ SHLIB_MAP = @shlib_map_file@
+ SHLIB_OBJS = @shlib_objs@
+ SHLIB_DIR = @multilib_dir@
+diff --git a/libgcobol/Makefile.in b/libgcobol/Makefile.in
+index 687fda2a5..2832d5480 100644
+--- a/libgcobol/Makefile.in
++++ b/libgcobol/Makefile.in
+@@ -464,7 +464,7 @@ gcc_version := $(shell @get_gcc_base_ver@ $(top_srcdir)/../gcc/BASE-VER)
+ 
+ # We want to link with the c++ runtime.
+ @BUILD_LIBGCOBOL_TRUE@libgcobol_la_LINK = $(CXXLINK) $(libgcobol_la_LDFLAGS)
+-@BUILD_LIBGCOBOL_TRUE@version_arg = -version-info $(LIBGCOBOL_VERSION)
++@BUILD_LIBGCOBOL_TRUE@version_arg = -avoid-version
+ @BUILD_LIBGCOBOL_TRUE@libgcobol_la_LDFLAGS = $(LTLDFLAGS) $(LIBQUADLIB) $(LTLIBICONV) \
+ @BUILD_LIBGCOBOL_TRUE@	$(extra_ldflags_libgcobol) $(LIBS) $(LIBXML2_LIBS) $(version_arg)
+ 
+diff --git a/libgfortran/Makefile.in b/libgfortran/Makefile.in
+index 63c880cdd..f626145d2 100644
+--- a/libgfortran/Makefile.in
++++ b/libgfortran/Makefile.in
+@@ -958,8 +958,7 @@ LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS)) \
+ toolexeclib_LTLIBRARIES = libgfortran.la
+ toolexeclib_DATA = libgfortran.spec
+ libgfortran_la_LINK = $(LINK) $(libgfortran_la_LDFLAGS)
+-libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+-	$(LTLDFLAGS) $(LIBQUADLIB) ../libbacktrace/libbacktrace.la \
++libgfortran_la_LDFLAGS = -avoid-version $(LTLDFLAGS) $(LIBQUADLIB) ../libbacktrace/libbacktrace.la \
+ 	$(HWCAP_LDFLAGS) \
+ 	$(LIBM) $(extra_darwin_ldflags_libgfortran) \
+ 	$(version_arg) -Wc,-shared-libgcc
+diff --git a/libgm2/libm2cor/Makefile.in b/libgm2/libm2cor/Makefile.in
+index 19efef15b..58453efc5 100644
+--- a/libgm2/libm2cor/Makefile.in
++++ b/libgm2/libm2cor/Makefile.in
+@@ -489,7 +489,7 @@ FLAGS_TO_PASS = $(AM_MAKEFLAGS)
+ @BUILD_CORLIB_TRUE@@TARGET_DARWIN_FALSE@	$(am__append_1)
+ @BUILD_CORLIB_TRUE@@TARGET_DARWIN_TRUE@libm2cor_la_link_flags = -Wl,-undefined,dynamic_lookup \
+ @BUILD_CORLIB_TRUE@@TARGET_DARWIN_TRUE@	$(am__append_1)
+-@BUILD_CORLIB_TRUE@libm2cor_la_LINK = $(LINK) -version-info $(libtool_VERSION) $(libm2cor_la_link_flags)
++@BUILD_CORLIB_TRUE@libm2cor_la_LINK = $(LINK) -avoid-version $(libm2cor_la_link_flags)
+ @BUILD_CORLIB_TRUE@BUILT_SOURCES = SYSTEM.def
+ @BUILD_CORLIB_TRUE@CLEANFILES = SYSTEM.def
+ @BUILD_CORLIB_TRUE@M2LIBDIR = /m2/m2cor/
+diff --git a/libgm2/libm2iso/Makefile.in b/libgm2/libm2iso/Makefile.in
+index d6b143eaf..d676da717 100644
+--- a/libgm2/libm2iso/Makefile.in
++++ b/libgm2/libm2iso/Makefile.in
+@@ -604,7 +604,7 @@ FLAGS_TO_PASS = $(AM_MAKEFLAGS)
+ @BUILD_ISOLIB_TRUE@@TARGET_DARWIN_FALSE@	$(am__append_1)
+ @BUILD_ISOLIB_TRUE@@TARGET_DARWIN_TRUE@libm2iso_la_link_flags = -Wl,-undefined,dynamic_lookup \
+ @BUILD_ISOLIB_TRUE@@TARGET_DARWIN_TRUE@	$(am__append_1)
+-@BUILD_ISOLIB_TRUE@libm2iso_la_LINK = $(LINK) -version-info $(libtool_VERSION) $(libm2iso_la_link_flags) -lm
++@BUILD_ISOLIB_TRUE@libm2iso_la_LINK = $(LINK) -avoid-version $(libm2iso_la_link_flags) -lm
+ @BUILD_ISOLIB_TRUE@CLEANFILES = SYSTEM.def
+ @BUILD_ISOLIB_TRUE@BUILT_SOURCES = SYSTEM.def
+ @BUILD_ISOLIB_TRUE@M2LIBDIR = /m2/m2iso/
+diff --git a/libgm2/libm2log/Makefile.in b/libgm2/libm2log/Makefile.in
+index 93dcc6639..d3b7f3119 100644
+--- a/libgm2/libm2log/Makefile.in
++++ b/libgm2/libm2log/Makefile.in
+@@ -496,7 +496,7 @@ FLAGS_TO_PASS = $(AM_MAKEFLAGS)
+ @BUILD_LOGLIB_TRUE@@TARGET_DARWIN_FALSE@	$(am__append_1)
+ @BUILD_LOGLIB_TRUE@@TARGET_DARWIN_TRUE@libm2log_la_link_flags = -Wl,-undefined,dynamic_lookup \
+ @BUILD_LOGLIB_TRUE@@TARGET_DARWIN_TRUE@	$(am__append_1)
+-@BUILD_LOGLIB_TRUE@libm2log_la_LINK = $(LINK) -version-info $(libtool_VERSION) $(libm2log_la_link_flags) -lm
++@BUILD_LOGLIB_TRUE@libm2log_la_LINK = $(LINK) -avoid-version $(libm2log_la_link_flags) -lm
+ @BUILD_LOGLIB_TRUE@BUILT_SOURCES = ../libm2pim/SYSTEM.def
+ @BUILD_LOGLIB_TRUE@M2LIBDIR = /m2/m2log/
+ all: $(BUILT_SOURCES)
+diff --git a/libgm2/libm2min/Makefile.in b/libgm2/libm2min/Makefile.in
+index 2c6bb9a77..7f9b7cc59 100644
+--- a/libgm2/libm2min/Makefile.in
++++ b/libgm2/libm2min/Makefile.in
+@@ -459,7 +459,7 @@ libm2min_la_M2FLAGS = \
+ @TARGET_DARWIN_TRUE@libm2min_la_link_flags =  \
+ @TARGET_DARWIN_TRUE@	-Wl,-undefined,dynamic_lookup \
+ @TARGET_DARWIN_TRUE@	$(am__append_1)
+-libm2min_la_LINK = $(LINK) -version-info $(libtool_VERSION) $(libm2min_la_link_flags)
++libm2min_la_LINK = $(LINK) -avoid-version $(libm2min_la_link_flags)
+ BUILT_SOURCES = SYSTEM.def
+ CLEANFILES = SYSTEM.def
+ M2LIBDIR = /m2/m2min/
+diff --git a/libgm2/libm2pim/Makefile.in b/libgm2/libm2pim/Makefile.in
+index 33b97bf65..be906bbf3 100644
+--- a/libgm2/libm2pim/Makefile.in
++++ b/libgm2/libm2pim/Makefile.in
+@@ -581,7 +581,7 @@ FLAGS_TO_PASS = $(AM_MAKEFLAGS)
+ @BUILD_PIMLIB_TRUE@@TARGET_DARWIN_FALSE@	$(am__append_1)
+ @BUILD_PIMLIB_TRUE@@TARGET_DARWIN_TRUE@libm2pim_la_link_flags = -Wl,-undefined,dynamic_lookup \
+ @BUILD_PIMLIB_TRUE@@TARGET_DARWIN_TRUE@	$(am__append_1)
+-@BUILD_PIMLIB_TRUE@libm2pim_la_LINK = $(LINK) -version-info $(libtool_VERSION) $(libm2pim_la_link_flags) -lm
++@BUILD_PIMLIB_TRUE@libm2pim_la_LINK = $(LINK) -avoid-version $(libm2pim_la_link_flags) -lm
+ @BUILD_PIMLIB_TRUE@BUILT_SOURCES = SYSTEM.def
+ @BUILD_PIMLIB_TRUE@CLEANFILES = SYSTEM.def
+ @BUILD_PIMLIB_TRUE@M2LIBDIR = /m2/m2pim/
+diff --git a/libgo/Makefile.in b/libgo/Makefile.in
+index 6e194d084..5bf866838 100644
+--- a/libgo/Makefile.in
++++ b/libgo/Makefile.in
+@@ -973,7 +973,7 @@ libgo_go_objs = \
+ 	$(golangorg_x_sys_cpu_gccgo_x86_lo)
+ 
+ libgo_ldflags = \
+-	-version-info $(libtool_VERSION) $(PTHREAD_CFLAGS) $(AM_LDFLAGS) \
++	-avoid-version $(PTHREAD_CFLAGS) $(AM_LDFLAGS) \
+ 	$(OSLDFLAGS)
+ 
+ libgo_libadd = \
+diff --git a/libgomp/Makefile.in b/libgomp/Makefile.in
+index 07827630e..b0044611e 100644
+--- a/libgomp/Makefile.in
++++ b/libgomp/Makefile.in
+@@ -540,7 +540,7 @@ nodist_toolexeclib_HEADERS = libgomp.spec
+ @LIBGOMP_BUILD_VERSIONED_SHLIB_FALSE@libgomp_version_dep = 
+ @LIBGOMP_BUILD_VERSIONED_SHLIB_GNU_TRUE@@LIBGOMP_BUILD_VERSIONED_SHLIB_TRUE@libgomp_version_dep = libgomp.ver
+ @LIBGOMP_BUILD_VERSIONED_SHLIB_SUN_TRUE@@LIBGOMP_BUILD_VERSIONED_SHLIB_TRUE@libgomp_version_dep = libgomp.ver-sun
+-libgomp_version_info = -version-info $(libtool_VERSION)
++libgomp_version_info = -avoid-version
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libgomp_darwin_rpath =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wc,-nodefaultrpaths \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wl,-rpath,@loader_path
+@@ -562,7 +562,7 @@ libgomp_la_SOURCES = alloc.c atomic.c barrier.c critical.c env.c \
+ 	target-cxa-dso-dtor.c $(am__append_3)
+ 
+ # Nvidia PTX OpenACC plugin.
+-@PLUGIN_NVPTX_TRUE@libgomp_plugin_nvptx_version_info = -version-info $(libtool_VERSION)
++@PLUGIN_NVPTX_TRUE@libgomp_plugin_nvptx_version_info = -avoid-version
+ @PLUGIN_NVPTX_TRUE@libgomp_plugin_nvptx_la_SOURCES = plugin/plugin-nvptx.c
+ @PLUGIN_NVPTX_TRUE@libgomp_plugin_nvptx_la_CPPFLAGS = $(AM_CPPFLAGS)
+ @PLUGIN_NVPTX_TRUE@libgomp_plugin_nvptx_la_LDFLAGS = $(libgomp_plugin_nvptx_version_info) \
+@@ -585,7 +585,7 @@ libgomp_la_SOURCES = alloc.c atomic.c barrier.c critical.c env.c \
+ #libgomp_plugin_nvptx_la_LIBADD += -lcuda
+ 
+ # AMD GCN plugin
+-@PLUGIN_GCN_TRUE@libgomp_plugin_gcn_version_info = -version-info $(libtool_VERSION)
++@PLUGIN_GCN_TRUE@libgomp_plugin_gcn_version_info = -avoid-version
+ @PLUGIN_GCN_TRUE@libgomp_plugin_gcn_la_SOURCES = plugin/plugin-gcn.c simple-allocator.c \
+ @PLUGIN_GCN_TRUE@				plugin/mutex.c
+ 
+diff --git a/libitm/Makefile.in b/libitm/Makefile.in
+index cbca70267..67337a719 100644
+--- a/libitm/Makefile.in
++++ b/libitm/Makefile.in
+@@ -477,7 +477,7 @@ nodist_toolexeclib_HEADERS = libitm.spec
+ @LIBITM_BUILD_VERSIONED_SHLIB_FALSE@libitm_version_dep = 
+ @LIBITM_BUILD_VERSIONED_SHLIB_GNU_TRUE@@LIBITM_BUILD_VERSIONED_SHLIB_TRUE@libitm_version_dep = $(top_srcdir)/libitm.map
+ @LIBITM_BUILD_VERSIONED_SHLIB_SUN_TRUE@@LIBITM_BUILD_VERSIONED_SHLIB_TRUE@libitm_version_dep = libitm.map-sun
+-libitm_version_info = -version-info $(libtool_VERSION)
++libitm_version_info = -avoid-version
+ 
+ # Force link with C, not C++.  For now, while we're using C++ we don't
+ # want or need libstdc++.
+diff --git a/libobjc/Makefile.in b/libobjc/Makefile.in
+index 8129ed07a..e3b271c57 100644
+--- a/libobjc/Makefile.in
++++ b/libobjc/Makefile.in
+@@ -264,13 +264,13 @@ LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
+ libobjc$(libsuffix).la: $(OBJS)
+ 	$(LIBTOOL_LINK) $(CC) -o $@ $(OBJS) \
+ 		-Wc,-shared-libgcc -rpath $(toolexeclibdir) \
+-		-version-info $(LIBOBJC_VERSION) $(extra_ldflags_libobjc) \
++		-avoid-version $(extra_ldflags_libobjc) \
+ 		$(LTLDFLAGS)
+ 
+ libobjc_gc$(libsuffix).la: $(OBJS_GC)
+ 	$(LIBTOOL_LINK) $(CC) -o $@ $(OBJS_GC) $(OBJC_BOEHM_GC_LIBS) \
+ 		-Wc,-shared-libgcc -rpath $(toolexeclibdir) \
+-		-version-info $(LIBOBJC_GC_VERSION) $(extra_ldflags_libobjc) \
++		-avoid-version $(extra_ldflags_libobjc) \
+ 		$(LTLDFLAGS)
+ 
+ info:
+diff --git a/libphobos/libdruntime/Makefile.in b/libphobos/libdruntime/Makefile.in
+index 1b5b4e6e8..fa8dd2ae8 100644
+--- a/libphobos/libdruntime/Makefile.in
++++ b/libphobos/libdruntime/Makefile.in
+@@ -835,7 +835,7 @@ libgdruntime_la_SOURCES = $(ALL_DRUNTIME_SOURCES)
+ libgdruntime_la_LIBTOOLFLAGS = 
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libgdruntime_darwin_rpath = -Wl,-rpath,@loader_path
+ libgdruntime_la_LDFLAGS = -Wc,-nophoboslib,-dstartfiles,-B../src,-Bgcc \
+-    -version-info $(libtool_VERSION) $(libgdruntime_darwin_rpath)
++    -avoid-version $(libgdruntime_darwin_rpath)
+ 
+ libgdruntime_la_LIBADD = $(LIBATOMIC) $(LIBBACKTRACE)
+ libgdruntime_la_DEPENDENCIES = $(DRTSTUFF)
+diff --git a/libphobos/src/Makefile.in b/libphobos/src/Makefile.in
+index 960ca98cc..7fa01bd0f 100644
+--- a/libphobos/src/Makefile.in
++++ b/libphobos/src/Makefile.in
+@@ -544,7 +544,7 @@ libgphobos_la_SOURCES = $(ALL_PHOBOS_SOURCES)
+ libgphobos_la_LIBTOOLFLAGS = 
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libgphobos_darwin_rpath = -Wl,-rpath,@loader_path
+ libgphobos_la_LDFLAGS = -Wc,-nophoboslib,-dstartfiles,-B../libdruntime/gcc \
+-    -version-info $(libtool_VERSION) $(libgphobos_darwin_rpath)
++    -avoid-version $(libgphobos_darwin_rpath)
+ 
+ @ENABLE_LIBDRUNTIME_ONLY_FALSE@libgphobos_la_LIBADD = \
+ @ENABLE_LIBDRUNTIME_ONLY_FALSE@    ../libdruntime/libgdruntime_convenience.la $(LIBZ)
+diff --git a/libquadmath/Makefile.in b/libquadmath/Makefile.in
+index ef7c3640b..8796644f1 100644
+--- a/libquadmath/Makefile.in
++++ b/libquadmath/Makefile.in
+@@ -469,8 +469,7 @@ AUTOMAKE_OPTIONS = foreign info-in-builddir
+ @BUILD_LIBQUADMATH_TRUE@libquadmath_la_LIBADD = 
+ @BUILD_LIBQUADMATH_TRUE@@ENABLE_DARWIN_AT_RPATH_TRUE@libquadmath_darwin_rpath = -Wc,-nodefaultrpaths \
+ @BUILD_LIBQUADMATH_TRUE@@ENABLE_DARWIN_AT_RPATH_TRUE@	-Wl,-rpath,@loader_path
+-@BUILD_LIBQUADMATH_TRUE@libquadmath_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+-@BUILD_LIBQUADMATH_TRUE@	$(version_arg) $(lt_host_flags) $(LIBM) $(libquadmath_darwin_rpath)
++@BUILD_LIBQUADMATH_TRUE@libquadmath_la_LDFLAGS = -avoid-version $(version_arg) $(lt_host_flags) $(LIBM) $(libquadmath_darwin_rpath)
+ 
+ @BUILD_LIBQUADMATH_TRUE@libquadmath_la_DEPENDENCIES = $(version_dep) $(libquadmath_la_LIBADD)
+ @BUILD_LIBQUADMATH_TRUE@nodist_libsubinclude_HEADERS = quadmath.h quadmath_weak.h
+diff --git a/libsanitizer/asan/Makefile.in b/libsanitizer/asan/Makefile.in
+index 36d34fb5b..7c1548335 100644
+--- a/libsanitizer/asan/Makefile.in
++++ b/libsanitizer/asan/Makefile.in
+@@ -470,8 +470,7 @@ libasan_la_LIBADD =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libasan_darwin_rpath =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wc,-nodefaultrpaths \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wl,-rpath,@loader_path
+-libasan_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+-	$(link_libasan) $(libasan_darwin_rpath)
++libasan_la_LDFLAGS = -avoid-version $(link_libasan) $(libasan_darwin_rpath)
+ 
+ 
+ # Work around what appears to be a GNU make bug handling MAKEFLAGS
+diff --git a/libsanitizer/hwasan/Makefile.in b/libsanitizer/hwasan/Makefile.in
+index 9c44a14d3..cf382254a 100644
+--- a/libsanitizer/hwasan/Makefile.in
++++ b/libsanitizer/hwasan/Makefile.in
+@@ -452,8 +452,7 @@ libhwasan_la_LIBADD =  \
+ 	$(top_builddir)/lsan/libsanitizer_lsan.la $(am__append_1) \
+ 	$(am__append_2) $(LIBSTDCXX_RAW_CXX_LDFLAGS)
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libhwasan_darwin_rpath = -nodefaultrpaths -Wl,-rpath,@loader_path/
+-libhwasan_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+-	$(link_libhwasan) $(libhwasan_darwin_rpath)
++libhwasan_la_LDFLAGS = -avoid-version $(link_libhwasan) $(libhwasan_darwin_rpath)
+ 
+ 
+ # Work around what appears to be a GNU make bug handling MAKEFLAGS
+diff --git a/libsanitizer/lsan/Makefile.in b/libsanitizer/lsan/Makefile.in
+index 64e0cca3a..da20150e7 100644
+--- a/libsanitizer/lsan/Makefile.in
++++ b/libsanitizer/lsan/Makefile.in
+@@ -420,8 +420,7 @@ liblsan_la_LIBADD =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@liblsan_darwin_rpath =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wc,-nodefaultrpaths \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wl,-rpath,@loader_path
+-liblsan_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+-	$(link_liblsan) $(liblsan_darwin_rpath)
++liblsan_la_LDFLAGS = -avoid-version $(link_liblsan) $(liblsan_darwin_rpath)
+ 
+ 
+ # Work around what appears to be a GNU make bug handling MAKEFLAGS
+diff --git a/libsanitizer/tsan/Makefile.in b/libsanitizer/tsan/Makefile.in
+index 5eadf0dc7..a7a3eec6d 100644
+--- a/libsanitizer/tsan/Makefile.in
++++ b/libsanitizer/tsan/Makefile.in
+@@ -470,8 +470,7 @@ libtsan_la_DEPENDENCIES =  \
+ 	$(top_builddir)/interception/libinterception.la \
+ 	$(TSAN_TARGET_DEPENDENT_OBJECTS) $(am__append_2)
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libtsan_darwin_rpath = -nodefaultrpaths -Wl,-rpath,@loader_path/
+-libtsan_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+-	$(link_libtsan) $(libtsan_darwin_rpath)
++libtsan_la_LDFLAGS = -avoid-version $(link_libtsan) $(libtsan_darwin_rpath)
+ 
+ 
+ # Work around what appears to be a GNU make bug handling MAKEFLAGS
+diff --git a/libsanitizer/ubsan/Makefile.in b/libsanitizer/ubsan/Makefile.in
+index 0b1e98e7a..8694e4fd3 100644
+--- a/libsanitizer/ubsan/Makefile.in
++++ b/libsanitizer/ubsan/Makefile.in
+@@ -407,8 +407,7 @@ libubsan_la_LIBADD =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libubsan_darwin_rpath =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wc,-nodefaultrpaths \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wl,-rpath,@loader_path
+-libubsan_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+-	$(link_libubsan) $(libubsan_darwin_rpath)
++libubsan_la_LDFLAGS = -avoid-version $(link_libubsan) $(libubsan_darwin_rpath)
+ 
+ 
+ # Work around what appears to be a GNU make bug handling MAKEFLAGS
+diff --git a/libssp/Makefile.in b/libssp/Makefile.in
+index 8d8be3e5f..cb06da8f6 100644
+--- a/libssp/Makefile.in
++++ b/libssp/Makefile.in
+@@ -382,8 +382,7 @@ libssp_la_DEPENDENCIES = $(version_dep) $(libssp_la_LIBADD)
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libssp_darwin_rpath =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wc,-nodefaultrpaths \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wl,-rpath,@loader_path
+-libssp_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
+-		    $(version_arg) $(lt_host_flags) $(libssp_darwin_rpath)
++libssp_la_LDFLAGS = -avoid-version $(version_arg) $(lt_host_flags) $(libssp_darwin_rpath)
+ 
+ libssp_nonshared_la_SOURCES = \
+ 	ssp-local.c
+diff --git a/libstdc++-v3/src/Makefile.in b/libstdc++-v3/src/Makefile.in
+index f0ad019a7..14bab5470 100644
+--- a/libstdc++-v3/src/Makefile.in
++++ b/libstdc++-v3/src/Makefile.in
+@@ -568,8 +568,7 @@ libstdc___la_DEPENDENCIES = \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@libstdc___darwin_rpath =  \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wc,-nodefaultrpaths \
+ @ENABLE_DARWIN_AT_RPATH_TRUE@	-Wl,-rpath,@loader_path
+-libstdc___la_LDFLAGS = \
+-	-version-info $(libtool_VERSION) ${version_arg} -lm $(libstdc___darwin_rpath)
++libstdc___la_LDFLAGS = -avoid-version ${version_arg} -lm $(libstdc___darwin_rpath)
+ 
+ libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS) $(lt_host_flags)
+ @GLIBCXX_LDBL_ALT128_COMPAT_FALSE@@GLIBCXX_LDBL_COMPAT_TRUE@LTCXXCOMPILE64 = $(LTCXXCOMPILE)
+-- 
+2.52.0
+

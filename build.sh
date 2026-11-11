@@ -698,27 +698,64 @@ if ! [ -f "${gcc_tarball}" ]; then
 	fi
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-support-for-the-Android-operating-system.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-c-family-Add-__builtin_available-support-inspired-by-Clang.patch"
+	
+	if (( gcc_major <= 16 )); then
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/gcc-16/0001-c-family-Add-__builtin_available-support-inspired-by-Clang.patch"
+	else
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-c-family-Add-__builtin_available-support-inspired-by-Clang.patch"
+	fi
+	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-version-guards-for-some-libstdc-header-definitions.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Force-disable-TLS-support-in-libstdc.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Disable-locale-support-for-Android-5.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Unconditionally-define-all-limits.h-macros.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-enable-default-semantic-interposition.patch"
+	
+	if (( gcc_major <= 16 )); then
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/gcc-16/0001-Add-enable-default-semantic-interposition.patch"
+	else
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-enable-default-semantic-interposition.patch"
+	fi
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Avoid-relying-on-dynamic-shadow-when-building-libsan.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Skip-FILE64_FLAGS-for-Android-MIPS-targets.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Disable-SONAME-versioning-for-all-target-libraries.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Change-GCC-s-C-standard-library-name-to-libestdc.patch"
+	
+	if (( gcc_major <= 16 )); then
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/gcc-16/0001-Disable-SONAME-versioning-for-all-target-libraries.patch"
+	else
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Disable-SONAME-versioning-for-all-target-libraries.patch"
+	fi
+	
+	if (( gcc_major <= 16 )); then
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/gcc-16/0001-Change-GCC-s-C-standard-library-name-to-libestdc.patch"
+	else
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Change-GCC-s-C-standard-library-name-to-libestdc.patch"
+	fi
+	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Rename-GCC-s-libgcc-library-to-libegcc.patch"
 	
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0002-Fix-libsanitizer-build-on-older-platforms.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0007-Add-relative-RPATHs-to-GCC-host-tools.patch"
+	if (( gcc_major >= 17 )); then
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Avoid-getline-in-libgomp-s-NUMA-support.patch"
+	fi
+	
+	if (( gcc_major <= 16 )); then
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/gcc-${gcc_major}/0002-Fix-libsanitizer-build-on-older-platforms.patch"
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/gcc-${gcc_major}/0007-Add-relative-RPATHs-to-GCC-host-tools.patch"
+	else
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0002-Fix-libsanitizer-build-on-older-platforms.patch"
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0007-Add-relative-RPATHs-to-GCC-host-tools.patch"
+	fi
+	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-AArch64-enable-libquadmath.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Prevent-libstdc-from-trying-to-implement-math-stubs.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Ignore-pragma-weak-when-the-declaration-is-private-o.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-c-Accept-_Static_assert-as-a-compatibility-extension.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-c-Accept-__thread-before-static-extern-as-a-pedantic-extension.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-gcc-add-Wunknown-warning-option-for-unknown-warning-options.patch"
+	
+	if (( gcc_major <= 16 )); then
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/gcc-16/0001-gcc-add-Wunknown-warning-option-for-unknown-warning-options.patch"
+	else
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-gcc-add-Wunknown-warning-option-for-unknown-warning-options.patch"
+	fi
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Enable-automatic-linking-of-libandroid-stb.patch"
 fi
@@ -783,6 +820,7 @@ make install-lib
 
 cd "${gmp_directory}/build"
 
+if ! [ -f Makefile ]; then
 ../configure \
 	--build="${build}" \
 	--host="${host}" \
@@ -793,6 +831,7 @@ cd "${gmp_directory}/build"
 	CFLAGS="${ccflags}" \
 	CXXFLAGS="${ccflags}" \
 	LDFLAGS="${linkflags}"
+fi
 
 make all --jobs
 make install
@@ -1969,3 +2008,4 @@ ln \
 	"${toolchain_directory}/build"
 
 cp "${workdir}/README.md" "${toolchain_directory}"
+

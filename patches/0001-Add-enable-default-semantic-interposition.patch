@@ -1,10 +1,9 @@
-From 71428e85cc114adb8a49c003cf05be2b283402b6 Mon Sep 17 00:00:00 2001
+From d54d3c994328c01cb32b1ca431644241ea8c536f Mon Sep 17 00:00:00 2001
 From: Kartatz <105828205+Kartatz@users.noreply.github.com>
 Date: Sun, 16 Aug 2026 05:15:44 +0000
 Subject: [PATCH] Add --enable-default-semantic-interposition
 
 https://gcc.gnu.org/pipermail/gcc-patches/2021-June/572018.html
-
 ---
  gcc/common.opt       |  2 +-
  gcc/config.in        |  6 ++++++
@@ -16,10 +15,10 @@ https://gcc.gnu.org/pipermail/gcc-patches/2021-June/572018.html
  7 files changed, 52 insertions(+), 3 deletions(-)
 
 diff --git a/gcc/common.opt b/gcc/common.opt
-index 204c8ae72..ba9c3b2d6 100644
+index c40606570..9849231bc 100644
 --- a/gcc/common.opt
 +++ b/gcc/common.opt
-@@ -2923,7 +2923,7 @@ Common Var(flag_sel_sched_reschedule_pipelined) Init(0) Optimization Undocumente
+@@ -2950,7 +2950,7 @@ Common Var(flag_sel_sched_reschedule_pipelined) Init(0) Optimization Undocumente
  Reschedule pipelined regions without pipelining.
  
  fsemantic-interposition
@@ -29,7 +28,7 @@ index 204c8ae72..ba9c3b2d6 100644
  
  ; sched_stalled_insns means that insns can be moved prematurely from the queue
 diff --git a/gcc/config.in b/gcc/config.in
-index a4fd5e0c1..ccb6ebc41 100644
+index 241c29968..a471e1d93 100644
 --- a/gcc/config.in
 +++ b/gcc/config.in
 @@ -156,6 +156,12 @@
@@ -46,7 +45,7 @@ index a4fd5e0c1..ccb6ebc41 100644
     */
  #ifndef USED_FOR_TARGET
 diff --git a/gcc/configure b/gcc/configure
-index 4a90e86ed..aa7eeaf31 100755
+index b8074c8f3..a7d90627c 100755
 --- a/gcc/configure
 +++ b/gcc/configure
 @@ -635,6 +635,7 @@ LIBOBJS
@@ -57,7 +56,7 @@ index 4a90e86ed..aa7eeaf31 100755
  LD_PICFLAG
  PICFLAG
  libgccjit_version
-@@ -1069,6 +1070,7 @@ with_diagnostics_color
+@@ -1073,6 +1074,7 @@ with_diagnostics_color
  with_diagnostics_urls
  enable_versioned_jit
  enable_default_pie
@@ -65,7 +64,7 @@ index 4a90e86ed..aa7eeaf31 100755
  enable_cet
  enable_s390_excess_float_precision
  enable_x86_64_mfentry
-@@ -1846,6 +1848,8 @@ Optional Features:
+@@ -1855,6 +1857,8 @@ Optional Features:
                            disable libquadmath support for Fortran
    --enable-versioned-jit  enable versioned libgccjit build
    --enable-default-pie    enable Position Independent Executable as default
@@ -74,25 +73,25 @@ index 4a90e86ed..aa7eeaf31 100755
    --enable-cet            enable Intel CET in host libraries [default=auto]
    --enable-s390-excess-float-precision
                            on s390 targets, evaluate float with double
-@@ -21975,7 +21979,7 @@ else
+@@ -22056,7 +22060,7 @@ else
    lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
    lt_status=$lt_dlunknown
    cat > conftest.$ac_ext <<_LT_EOF
--#line 21978 "configure"
-+#line 21982 "configure"
+-#line 22059 "configure"
++#line 22063 "configure"
  #include "confdefs.h"
  
  #if HAVE_DLFCN_H
-@@ -22081,7 +22085,7 @@ else
+@@ -22162,7 +22166,7 @@ else
    lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
    lt_status=$lt_dlunknown
    cat > conftest.$ac_ext <<_LT_EOF
--#line 22084 "configure"
-+#line 22088 "configure"
+-#line 22165 "configure"
++#line 22169 "configure"
  #include "confdefs.h"
  
  #if HAVE_DLFCN_H
-@@ -34858,6 +34862,21 @@ fi
+@@ -34984,6 +34988,21 @@ fi
  
  
  
@@ -115,10 +114,10 @@ index 4a90e86ed..aa7eeaf31 100755
   # Check whether --enable-cet was given.
  if test "${enable_cet+set}" = set; then :
 diff --git a/gcc/configure.ac b/gcc/configure.ac
-index abf5e4f4e..0fd6be09a 100644
+index 490083859..ac2ec1bb7 100644
 --- a/gcc/configure.ac
 +++ b/gcc/configure.ac
-@@ -7748,6 +7748,18 @@ fi
+@@ -7737,6 +7737,18 @@ fi
  
  AC_SUBST([LD_PICFLAG])
  
@@ -138,10 +137,10 @@ index abf5e4f4e..0fd6be09a 100644
  GCC_CET_HOST_FLAGS(CET_HOST_FLAGS)
  case x$enable_languages in
 diff --git a/gcc/defaults.h b/gcc/defaults.h
-index 6364216d9..69558fa66 100644
+index 76a922a28..5822259a6 100644
 --- a/gcc/defaults.h
 +++ b/gcc/defaults.h
-@@ -1222,6 +1222,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+@@ -1217,6 +1217,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
  # define DEFAULT_FLAG_PIE 0
  #endif
  
@@ -155,10 +154,10 @@ index 6364216d9..69558fa66 100644
  #define SWITCHABLE_TARGET 0
  #endif
 diff --git a/gcc/doc/install.texi b/gcc/doc/install.texi
-index 001d16fe6..f755af576 100644
+index f24968af1..2e1b3750c 100644
 --- a/gcc/doc/install.texi
 +++ b/gcc/doc/install.texi
-@@ -2236,6 +2236,9 @@ mips-linux and s390-linux.
+@@ -2264,6 +2264,9 @@ and mips-linux.
  @item --enable-default-pie
  Turn on @option{-fPIE} and @option{-pie} by default.
  
@@ -169,10 +168,10 @@ index 001d16fe6..f755af576 100644
  This option enables @option{-msecure-plt} by default for powerpc-linux.
  @ifnothtml
 diff --git a/gcc/opts.cc b/gcc/opts.cc
-index 6658b6acd..b340c20bc 100644
+index ec98edc9a..74c9d7cc6 100644
 --- a/gcc/opts.cc
 +++ b/gcc/opts.cc
-@@ -1222,6 +1222,9 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
+@@ -1224,6 +1224,9 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
  		"%<-fhardened%> because it was specified on the command "
  		"line");
  
@@ -183,5 +182,5 @@ index 6658b6acd..b340c20bc 100644
      {
        /* Inlining does not work if not optimizing,
 -- 
-2.54.0
+2.56.1
 
