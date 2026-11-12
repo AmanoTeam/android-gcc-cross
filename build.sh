@@ -745,6 +745,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 	
 	if (( gcc_major >= 17 )); then
 		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Avoid-getline-in-libgomp-s-NUMA-support.patch"
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-aarch64-Include-climits-for-LLONG_MAX.patch"
 	fi
 	
 	if (( gcc_major <= 16 )); then

@@ -1,0 +1,26 @@
+From 7c3a1be9c9b2f1380f596c22e8a83251f60c5a5b Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Thu, 12 Nov 2026 01:12:00 +0000
+Subject: [PATCH] aarch64: Include climits for LLONG_MAX
+
+The prefetch range builtin expansion uses LLONG_MAX, which relies on
+<climits> being pulled in transitively. This fails to build with host
+toolchains providing stricter headers, such as our own bootstrap
+cross-compiler.
+---
+ gcc/config/aarch64/aarch64-builtins.cc | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gcc/config/aarch64/aarch64-builtins.cc b/gcc/config/aarch64/aarch64-builtins.cc
+index 482f1e871f6..3a51ce64ee9 100644
+--- a/gcc/config/aarch64/aarch64-builtins.cc
++++ b/gcc/config/aarch64/aarch64-builtins.cc
+@@ -21,6 +21,7 @@
+ #define IN_TARGET_CODE 1
+ 
+ #include "config.h"
+ #include "system.h"
++#include <climits>
+ #include "coretypes.h"
+ #include "tm.h"
+ #include "function.h"
