@@ -1710,9 +1710,9 @@ cp "${binutils_llvm_wrapper}" "${toolchain_directory}/bin/llvm-objcopy${exe}"
 
 declare rust_host=''
 
-if [ "${host}" = 'x86_64-pc-linux-gnu' ]; then
+if [[ "${host}" = 'x86_64-'*'-linux-gnu' ]]; then
 	rust_host='x86_64-unknown-linux-gnu'
-elif [ "${host}" = 'aarch64-pc-linux-gnu' ]; then
+elif [[ "${host}" = 'aarch64-'*'-linux-gnu' ]]; then
 	rust_host='aarch64-unknown-linux-gnu'
 fi
 
