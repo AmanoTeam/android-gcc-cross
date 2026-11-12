@@ -1,0 +1,26 @@
+From 4a3d1c65e15bde78d4d9fa5668b6ffe5443b0b04 Mon Sep 17 00:00:00 2001
+From: Kartatz <105828205+Kartatz@users.noreply.github.com>
+Date: Thu, 12 Nov 2026 01:55:00 +0000
+Subject: [PATCH] aarch64 jit: Remove the unused sys/auxv.h include
+
+The file does not use anything from <sys/auxv.h>, which is also
+not provided by every operating system (e.g., DragonFly BSD and
+NetBSD), breaking the build of the aarch64 jit target object when
+hosted on those systems.
+---
+ gcc/config/aarch64/aarch64-jit.cc | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/gcc/config/aarch64/aarch64-jit.cc b/gcc/config/aarch64/aarch64-jit.cc
+index 6b48e950dd5..35d1c8c2a6c 100644
+--- a/gcc/config/aarch64/aarch64-jit.cc
++++ b/gcc/config/aarch64/aarch64-jit.cc
+@@ -25,5 +25,4 @@
+ #include "tm.h"
+ #include "tm_jit.h"
+-#include <sys/auxv.h>
+ #include "jit/jit-target.h"
+ #include "jit/jit-target-def.h"
+
+-- 
+2.47.1

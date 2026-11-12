@@ -235,7 +235,7 @@ declare -ra libraries=(
 
 declare languages='c,c++'
 
-if [[ "${host}" != *'-mingw32' ]]; then
+if [[ "${host}" != *'-mingw32' ]] && [[ "${host}" != *'-darwin'* ]]; then
 	languages+=',jit'
 fi
 
@@ -772,6 +772,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 	
 	if (( gcc_major >= 17 )); then
 		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-libgccjit-extensions-required-by-rustc_codegen_gcc.patch"
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-aarch64-jit-Remove-the-unused-sys-auxv-include.patch"
 	fi
 fi
 
@@ -1434,7 +1435,7 @@ for triplet in "${targets[@]}"; do
 		all --jobs="${max_jobs}"
 	env ${args} make install
 	
-	if [[ "${host}" != *'-mingw32' ]]; then
+	if [[ "${host}" != *'-mingw32' ]] && [[ "${host}" != *'-darwin'* ]]; then
 		declare jit_directory="${toolchain_directory}/libexec/gcc/${triplet}/${gcc_major}"
 		
 		mkdir --parent "${jit_directory}"
@@ -1713,8 +1714,6 @@ if [ "${host}" = 'x86_64-pc-linux-gnu' ]; then
 	rust_host='x86_64-unknown-linux-gnu'
 elif [ "${host}" = 'aarch64-pc-linux-gnu' ]; then
 	rust_host='aarch64-unknown-linux-gnu'
-elif [[ "${host}" = *'-apple-darwin'* ]]; then
-	rust_host="${host}"
 fi
 
 if [ -n "${rust_host}" ]; then
