@@ -1729,6 +1729,7 @@ if [ -n "${rust_host}" ]; then
 		"rustc-nightly-${rust_host}"
 		"cargo-nightly-${rust_host}"
 		"rust-std-nightly-${rust_host}"
+		"rustc-dev-nightly-${rust_host}"
 		"rust-src-nightly"
 	)
 	
@@ -1759,6 +1760,10 @@ if [ -n "${rust_host}" ]; then
 		for package in "${rust_dist_packages[@]}"; do
 			(cd "${build_directory}/${package}" && env PATH="${rust_directory}/bin:${PATH}" ./install.sh --prefix="${rust_directory}" --disable-ldconfig)
 		done
+		
+		for library in "${rust_directory}/lib/"libLLVM*'.so'*; do
+			ln --symbolic --relative --force "${library}" "${rust_directory}/lib/rustlib/${rust_host}/lib/"
+		done
 	fi
 	
 	ln --symbolic --relative --force "${rust_directory}/bin/rustc" "${toolchain_directory}/bin/rustc"
@@ -1773,7 +1778,7 @@ if [ -n "${rust_host}" ]; then
 		patch --directory="${rust_sysroot_source_directory}" --strip='1' --input="${rust_codegen_directory}/patches/cross_patches/0001-Disable-libstd-and-libtest-dylib.patch"
 	fi
 	
-	(cd "${rust_codegen_directory}" && env CARGO_INCREMENTAL='0' CARGO_HOME="${rust_cargo_home}" CARGO_TARGET_DIR="${rust_cargo_target_directory}" PATH="${rust_directory}/bin:${PATH}" RUSTC_BOOTSTRAP='1' cargo build --release --jobs="${max_jobs}")
+	(cd "${rust_codegen_directory}" && env CARGO_INCREMENTAL='0' CARGO_HOME="${rust_cargo_home}" CARGO_TARGET_DIR="${rust_cargo_target_directory}" PATH="${rust_directory}/bin:${PATH}" RUSTC_BOOTSTRAP='1' LIBRARY_PATH="${rust_directory}/lib" cargo build --release --jobs="${max_jobs}")
 	
 	cp --force "${rust_cargo_target_directory}/release/librustc_codegen_gcc.so" "${rust_directory}/lib/librustc_codegen_gcc.so"
 	
@@ -1813,11 +1818,11 @@ if [ -n "${rust_host}" ]; then
 			"${toolchain_directory}/libexec/gcc/${triplet}/${gcc_major}/libgccjit.so" \
 			"${sysroot_backend_directory}/libgccjit.so"
 		
-		(cd "${rust_sysroot_source_directory}/library/sysroot" && env CARGO_INCREMENTAL='0' CARGO_HOME="${rust_cargo_home}" CARGO_TARGET_DIR="${rust_cargo_target_directory}" PATH="${rust_directory}/bin:${PATH}" RUSTFLAGS="--sysroot=${sysroot_directory} -Zcodegen-backend=${rust_directory}/lib/librustc_codegen_gcc.so -Clinker=${toolchain_directory}/bin/${triplet}-gcc -Zforce-unstable-if-unmarked -Zshare-generics=n -Cdebuginfo=0" cargo build --target="${rust_target}" --features backtrace --jobs="${max_jobs}")
+		(cd "${rust_sysroot_source_directory}/library/sysroot" && env CARGO_INCREMENTAL='0' CARGO_HOME="${rust_cargo_home}" CARGO_TARGET_DIR="${rust_cargo_target_directory}" PATH="${rust_directory}/bin:${toolchain_directory}/bin:${PATH}" RUSTFLAGS="--sysroot=${sysroot_directory} -Zcodegen-backend=${rust_directory}/lib/librustc_codegen_gcc.so -Clinker=${toolchain_directory}/bin/${triplet}-gcc -Zforce-unstable-if-unmarked -Zshare-generics=n -Cdebuginfo=0" cargo build --target="${rust_target}" --features backtrace --jobs="${max_jobs}")
 		
 		rm --force "${sysroot_library_directory}/"*
 		
-		find "${rust_cargo_target_directory}/${rust_target}/debug" --type f \( --name='*.rlib' --or --name='*.rmeta' \) -exec cp --archive '{}' "${sysroot_library_directory}" \;
+		find "${rust_cargo_target_directory}/${rust_target}/debug" -type f \( -name '*.rlib' -o -name '*.rmeta' \) -exec cp --archive '{}' "${sysroot_library_directory}" \;
 	done
 fi
 
