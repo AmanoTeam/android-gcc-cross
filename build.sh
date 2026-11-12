@@ -40,6 +40,12 @@ mkdir -p "${build_directory}"
 declare -r toolchain_directory="${build_directory}/android-gcc-cross"
 declare -r share_directory="${toolchain_directory}/usr/local/share/android-gcc-cross"
 
+declare -r rust_directory="${toolchain_directory}/rust"
+declare -r rust_sysroot_source_directory="${build_directory}/rust-sysroot-src"
+declare -r rust_codegen_directory="${workdir}/submodules/rustc_codegen_gcc"
+declare -r rust_cargo_home="${build_directory}/rust-cargo-home"
+declare -r rust_cargo_target_directory="${build_directory}/rust-cargo-target"
+
 declare -r environment="LD_LIBRARY_PATH=${toolchain_directory}/lib PATH=${PATH}:${toolchain_directory}/bin"
 
 declare -r revision="$(git rev-parse --short HEAD)"
@@ -228,6 +234,10 @@ declare -ra libraries=(
 )
 
 declare languages='c,c++'
+
+if [[ "${host}" != *'-mingw32' ]]; then
+	languages+=',jit'
+fi
 
 declare -r PKG_CONFIG_PATH="${toolchain_directory}/lib/pkgconfig"
 declare -r PKG_CONFIG_LIBDIR="${PKG_CONFIG_PATH}"
@@ -758,6 +768,10 @@ if ! [ -f "${gcc_tarball}" ]; then
 	fi
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Enable-automatic-linking-of-libandroid-stb.patch"
+	
+	if (( gcc_major >= 17 )); then
+		patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Add-libgccjit-extensions-required-by-rustc_codegen_gcc.patch"
+	fi
 fi
 
 # Follow Debian's approach to remove hardcoded RPATHs from binaries
@@ -1419,6 +1433,14 @@ for triplet in "${targets[@]}"; do
 		all --jobs="${max_jobs}"
 	env ${args} make install
 	
+	if [[ "${host}" != *'-mingw32' ]]; then
+		declare jit_directory="${toolchain_directory}/libexec/gcc/${triplet}/${gcc_major}"
+		
+		mkdir --parent "${jit_directory}"
+		
+		cp --archive "${toolchain_directory}/lib/"libgccjit.so* "${jit_directory}/"
+	fi
+	
 	make -C "${workdir}/tools/stubs" clean
 	env ${args} make -C "${workdir}/tools/stubs" CC="${triplet}-gcc"
 	
@@ -1503,7 +1525,7 @@ for triplet in "${targets[@]}"; do
 		--retry-max-time '0' \
 		--location \
 		--silent \
-		--output "${libsanitizer_tarball}"
+		--output "${libsanitizer_tarball}" || true
 	
 	tar \
 		--directory="$(dirname "${libsanitizer_directory}")" \
@@ -1597,6 +1619,7 @@ for triplet in "${targets[@]}"; do
 		cp "${gcc_wrapper}" "${toolchain_directory}/bin/${triplet}${version}-c++${exe}"
 		cp "${gcc_wrapper}" "${toolchain_directory}/bin/${triplet}${version}-clang${exe}"
 		cp "${gcc_wrapper}" "${toolchain_directory}/bin/${triplet}${version}-clang++${exe}"
+		cp "${gcc_wrapper}" "${toolchain_directory}/bin/${triplet}${version}-rustc${exe}"
 		
 		if (( build_nz )); then
 			declare termux='1'
@@ -1682,6 +1705,121 @@ cp "${gcc_wrapper}" "${toolchain_directory}/bin/clang${exe}"
 cp "${gcc_wrapper}" "${toolchain_directory}/bin/clang++${exe}"
 cp "${binutils_llvm_wrapper}" "${toolchain_directory}/bin/llvm-strip${exe}"
 cp "${binutils_llvm_wrapper}" "${toolchain_directory}/bin/llvm-objcopy${exe}"
+
+declare rust_host=''
+
+if [ "${host}" = 'x86_64-pc-linux-gnu' ]; then
+	rust_host='x86_64-unknown-linux-gnu'
+elif [ "${host}" = 'aarch64-pc-linux-gnu' ]; then
+	rust_host='aarch64-unknown-linux-gnu'
+elif [[ "${host}" = *'-apple-darwin'* ]]; then
+	rust_host="${host}"
+fi
+
+if [ -n "${rust_host}" ]; then
+	declare rust_nightly_date=''
+	
+	rust_nightly_date="$(sed --regexp-extended --quiet 's/^channel = "nightly-([0-9]{4}-[0-9]{2}-[0-9]{2})"$/\1/p' "${rust_codegen_directory}/rust-toolchain.toml")"
+	
+	[ -n "${rust_nightly_date}" ] || exit 1
+	
+	mkdir --parent "${rust_directory}"
+	
+	declare -ra rust_dist_packages=(
+		"rustc-nightly-${rust_host}"
+		"cargo-nightly-${rust_host}"
+		"rust-std-nightly-${rust_host}"
+		"rust-src-nightly"
+	)
+	
+	for package in "${rust_dist_packages[@]}"; do
+		declare package_tarball="${build_directory}/${package}.tar.xz"
+		
+		if [ -f "${package_tarball}" ]; then
+			continue
+		fi
+		
+		curl \
+			--url "https://static.rust-lang.org/dist/${rust_nightly_date}/${package}.tar.xz" \
+			--retry '30' \
+			--retry-all-errors \
+			--retry-delay '0' \
+			--retry-max-time '0' \
+			--location \
+			--silent \
+			--output "${package_tarball}"
+		
+		tar \
+			--directory="${build_directory}" \
+			--extract \
+			--file="${package_tarball}"
+	done
+	
+	if ! [ -x "${rust_directory}/bin/rustc" ]; then
+		for package in "${rust_dist_packages[@]}"; do
+			(cd "${build_directory}/${package}" && env PATH="${rust_directory}/bin:${PATH}" ./install.sh --prefix="${rust_directory}" --disable-ldconfig)
+		done
+	fi
+	
+	ln --symbolic --relative --force "${rust_directory}/bin/rustc" "${toolchain_directory}/bin/rustc"
+	ln --symbolic --relative --force "${rust_directory}/bin/cargo" "${toolchain_directory}/bin/cargo"
+	
+	if ! [ -d "${rust_sysroot_source_directory}/library" ]; then
+		mkdir --parent "${rust_sysroot_source_directory}"
+		
+		cp --recursive "${rust_directory}/lib/rustlib/src/rust/library" "${rust_sysroot_source_directory}"
+		
+		patch --directory="${rust_sysroot_source_directory}" --strip='1' --input="${rust_codegen_directory}/patches/0028-core-Disable-long-running-tests.patch"
+		patch --directory="${rust_sysroot_source_directory}" --strip='1' --input="${rust_codegen_directory}/patches/cross_patches/0001-Disable-libstd-and-libtest-dylib.patch"
+	fi
+	
+	(cd "${rust_codegen_directory}" && env CARGO_INCREMENTAL='0' CARGO_HOME="${rust_cargo_home}" CARGO_TARGET_DIR="${rust_cargo_target_directory}" PATH="${rust_directory}/bin:${PATH}" RUSTC_BOOTSTRAP='1' cargo build --release --jobs="${max_jobs}")
+	
+	cp --force "${rust_cargo_target_directory}/release/librustc_codegen_gcc.so" "${rust_directory}/lib/librustc_codegen_gcc.so"
+	
+	for triplet in "${targets[@]}"; do
+		declare rust_target=''
+		
+		case "${triplet}" in
+			'armv7-unknown-linux-androideabi')
+				rust_target='armv7-linux-androideabi'
+			;;
+			'aarch64-unknown-linux-android')
+				rust_target='aarch64-linux-android'
+			;;
+			'x86_64-unknown-linux-android')
+				rust_target='x86_64-linux-android'
+			;;
+			'i686-unknown-linux-android')
+				rust_target='i686-linux-android'
+			;;
+			'riscv64-unknown-linux-android')
+				rust_target='riscv64-linux-android'
+			;;
+		esac
+		
+		[ -n "${rust_target}" ] || continue
+		
+		declare sysroot_directory="${rust_directory}/${rust_target}"
+		declare sysroot_library_directory="${sysroot_directory}/lib/rustlib/${rust_target}/lib"
+		declare sysroot_backend_directory="${sysroot_directory}/lib/rustlib/${rust_host}/codegen-backends/lib/${rust_target}"
+		
+		mkdir --parent "${sysroot_library_directory}" "${sysroot_backend_directory}"
+		
+		ln \
+			--symbolic \
+			--relative \
+			--force \
+			"${toolchain_directory}/libexec/gcc/${triplet}/${gcc_major}/libgccjit.so" \
+			"${sysroot_backend_directory}/libgccjit.so"
+		
+		(cd "${rust_sysroot_source_directory}/library/sysroot" && env CARGO_INCREMENTAL='0' CARGO_HOME="${rust_cargo_home}" CARGO_TARGET_DIR="${rust_cargo_target_directory}" PATH="${rust_directory}/bin:${PATH}" RUSTFLAGS="--sysroot=${sysroot_directory} -Zcodegen-backend=${rust_directory}/lib/librustc_codegen_gcc.so -Clinker=${toolchain_directory}/bin/${triplet}-gcc -Zforce-unstable-if-unmarked -Zshare-generics=n -Cdebuginfo=0" cargo build --target="${rust_target}" --features backtrace --jobs="${max_jobs}")
+		
+		rm --force "${sysroot_library_directory}/"*
+		
+		find "${rust_cargo_target_directory}/${rust_target}/debug" --type f \( --name='*.rlib' --or --name='*.rmeta' \) -exec cp --archive '{}' "${sysroot_library_directory}" \;
+	done
+fi
 
 if [[ "${host}" = *'-mingw32' ]]; then
 	cp "${workdir}/tools/ndk-patch.bat" "${toolchain_directory}/bin"
