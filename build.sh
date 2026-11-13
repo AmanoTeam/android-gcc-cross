@@ -1428,6 +1428,11 @@ for triplet in "${targets[@]}"; do
 	declare target_cxxflags="${target_cflags} -D_ABIN32=2"
 	
 	env ${args} make \
+		GCC_FOR_TARGET="${gcc_directory}/build/gcc/xgcc -B${gcc_directory}/build/gcc/" \
+		CXX_FOR_TARGET="${gcc_directory}/build/gcc/xg++ -B${gcc_directory}/build/gcc/" \
+		AR_FOR_TARGET="${gcc_directory}/build/gcc/ar" \
+		NM_FOR_TARGET="${gcc_directory}/build/gcc/nm" \
+		RANLIB_FOR_TARGET="${gcc_directory}/build/gcc/ranlib" \
 		CFLAGS_FOR_TARGET="${target_cflags}" \
 		CXXFLAGS_FOR_TARGET="${target_cxxflags}" \
 		LDFLAGS_FOR_TARGET="${linkflags}" \
