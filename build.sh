@@ -74,7 +74,7 @@ declare -r gdb_directory="${build_directory}/gdb"
 declare -r gold_tarball="${build_directory}/gold.tar.xz"
 declare -r gold_directory="${build_directory}/gold"
 
-declare gcc_url='https://github.com/gcc-mirror/gcc/archive/master.tar.gz'
+declare gcc_url='https://github.com/gcc-mirror/gcc/archive/e1c6e07b095d091177376a163da44039475e05e3.tar.gz'
 declare -r gcc_tarball="${build_directory}/gcc.tar.xz"
 declare gcc_directory="${build_directory}/gcc-master"
 
